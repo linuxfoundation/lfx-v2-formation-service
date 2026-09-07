@@ -146,6 +146,8 @@ func itemToWire(it *model.Item) *svc.FormationItem {
 		Gate:           it.Gate,
 		RequiresWriter: it.RequiresWriter,
 		StatusSource:   string(it.StatusSource),
+		IsRequired:     it.IsRequired,
+		ChecklistType:  string(it.ChecklistType),
 		Status:         string(it.Status),
 		Version:        it.Revision,
 	}

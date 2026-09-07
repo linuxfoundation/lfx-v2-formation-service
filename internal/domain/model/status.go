@@ -93,3 +93,15 @@ const (
 	SetByUser   SetBy = "user"
 	SetBySystem SetBy = "system"
 )
+
+// ChecklistType says which audience an item is for. It is display metadata
+// only — it does not filter what a caller can read or change what counts
+// toward progress or readiness; that is a separate question left for later
+// if the product needs it.
+type ChecklistType string
+
+const (
+	ChecklistInternal ChecklistType = "internal"
+	ChecklistExternal ChecklistType = "external"
+	ChecklistBoth     ChecklistType = "both"
+)

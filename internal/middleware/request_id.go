@@ -26,7 +26,7 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 
 			w.Header().Set(constants.RequestIDHeader, requestID)
 
-			ctx := context.WithValue(r.Context(), constants.RequestIDHeader, requestID)
+			ctx := context.WithValue(r.Context(), constants.RequestIDContextID, requestID)
 			ctx = log.AppendCtx(ctx, slog.String(constants.RequestIDHeader, requestID))
 
 			next.ServeHTTP(w, r.WithContext(ctx))

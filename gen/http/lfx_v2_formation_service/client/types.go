@@ -84,10 +84,15 @@ type FormationItemResponseBody struct {
 	Title      *string `form:"title,omitempty" json:"title,omitempty" xml:"title,omitempty"`
 	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
 	// Whether this item blocks going live.
-	Gate           *bool                               `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
-	RequiresWriter *bool                               `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
-	StatusSource   *string                             `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
-	PlatformCheck  *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
+	Gate           *bool   `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
+	RequiresWriter *bool   `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
+	StatusSource   *string `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired *bool `form:"is_required,omitempty" json:"is_required,omitempty" xml:"is_required,omitempty"`
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType *string                             `form:"checklist_type,omitempty" json:"checklist_type,omitempty" xml:"checklist_type,omitempty"`
+	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
 	// Placeholders substituted once at expansion.
 	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
 	// Writer-set; feeds Quick Links.
@@ -316,6 +321,12 @@ func ValidateFormationItemResponseBody(body *FormationItemResponseBody) (err err
 	if body.StatusSource == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
 	}
+	if body.IsRequired == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
+	}
+	if body.ChecklistType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
+	}
 	if body.Status == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
 	}
@@ -325,6 +336,11 @@ func ValidateFormationItemResponseBody(body *FormationItemResponseBody) (err err
 	if body.StatusSource != nil {
 		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
+		}
+	}
+	if body.ChecklistType != nil {
+		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
 		}
 	}
 	if body.Status != nil {

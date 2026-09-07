@@ -23,4 +23,6 @@ const (
 	PrincipalContextID contextID = iota
 	// EmailContextID is the context ID for the email claim from the Heimdall JWT, populated by JWTAuth.
 	EmailContextID
+	// RequestIDContextID is the context ID for the per-request ID set by RequestIDMiddleware.
+	RequestIDContextID
 )

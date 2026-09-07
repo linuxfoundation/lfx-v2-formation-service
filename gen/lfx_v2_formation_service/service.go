@@ -18,13 +18,13 @@ import (
 // LFX V2 Formation Service
 type Service interface {
 	// Return the whole checklist for a project in one response — sections, items,
-	// progress and readiness. Items are never fetched individually (FR-031).
+	// progress and readiness. Items are never fetched individually.
 	GetFormation(context.Context, *GetFormationPayload) (res *FormationChecklist, err error)
 	// Return the formation's activity feed, newest first, with ULID cursor paging.
 	// The feed covers checklist changes only — status changes, assignment, notes,
 	// links, skip reasons and template work. Permission changes never appear here:
 	// nothing keeps a history of them, since each save overwrites the previous
-	// state (FR-027).
+	// state.
 	GetFormationActivity(context.Context, *GetFormationActivityPayload) (res *FormationActivityPage, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
@@ -102,7 +102,12 @@ type FormationItem struct {
 	Gate           bool
 	RequiresWriter bool
 	StatusSource   string
-	PlatformCheck  *FormationPlatformCheck
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired bool
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType string
+	PlatformCheck *FormationPlatformCheck
 	// Placeholders substituted once at expansion.
 	ActionLink *string
 	// Writer-set; feeds Quick Links.
@@ -409,6 +414,8 @@ func transformLfxv2formationserviceviewsFormationItemViewToFormationItem(v *lfxv
 		Gate:           *v.Gate,
 		RequiresWriter: *v.RequiresWriter,
 		StatusSource:   *v.StatusSource,
+		IsRequired:     *v.IsRequired,
+		ChecklistType:  *v.ChecklistType,
 		ActionLink:     v.ActionLink,
 		EvidenceLink:   v.EvidenceLink,
 		Status:         *v.Status,
@@ -530,6 +537,8 @@ func transformFormationItemToLfxv2formationserviceviewsFormationItemView(v *Form
 		Gate:           &v.Gate,
 		RequiresWriter: &v.RequiresWriter,
 		StatusSource:   &v.StatusSource,
+		IsRequired:     &v.IsRequired,
+		ChecklistType:  &v.ChecklistType,
 		ActionLink:     v.ActionLink,
 		EvidenceLink:   v.EvidenceLink,
 		Status:         &v.Status,

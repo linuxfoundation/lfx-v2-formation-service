@@ -83,10 +83,15 @@ type FormationItemResponseBody struct {
 	Title      string  `form:"title" json:"title" xml:"title"`
 	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
 	// Whether this item blocks going live.
-	Gate           bool                                `form:"gate" json:"gate" xml:"gate"`
-	RequiresWriter bool                                `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
-	StatusSource   string                              `form:"status_source" json:"status_source" xml:"status_source"`
-	PlatformCheck  *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
+	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
+	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
+	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
+	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
 	// Placeholders substituted once at expansion.
 	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
 	// Writer-set; feeds Quick Links.

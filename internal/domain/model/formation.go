@@ -66,6 +66,16 @@ type Item struct {
 	ActionLink     string         `bun:"action_link"`
 	DueDate        *time.Time     `bun:"due_date,type:date"`
 
+	// IsRequired says whether this item must be filled in at all. It is
+	// metadata for the checklist screen, distinct from Gate: Gate is
+	// specifically "blocks Active", IsRequired is not tied to any
+	// particular lifecycle transition.
+	IsRequired bool `bun:"is_required,notnull"`
+	// ChecklistType says which audience the item is for (internal
+	// formation-team work, external project-team work, or both). Display
+	// metadata only; it does not filter the response.
+	ChecklistType ChecklistType `bun:"checklist_type,notnull"`
+
 	// Mutable by a writer.
 	Status       ItemStatus `bun:"status,notnull"`
 	Assignee     string     `bun:"assignee"`
@@ -145,6 +155,8 @@ type TemplateItem struct {
 	Gate           bool           `json:"gate"`
 	RequiresWriter bool           `json:"requires_writer"`
 	StatusSource   StatusSource   `json:"status_source"`
+	IsRequired     bool           `json:"is_required"`
+	ChecklistType  ChecklistType  `json:"checklist_type,omitempty"`
 	PlatformCheck  *PlatformCheck `json:"platform_check,omitempty"`
 	// ActionLink may contain a {{project.uid}} placeholder, substituted
 	// once at expansion.

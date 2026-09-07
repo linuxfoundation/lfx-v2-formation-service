@@ -163,8 +163,8 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, `LFX V2 Formation Service`)
 	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] lfx-v2-formation-service COMMAND [flags]\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "COMMAND:")
-	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually (FR-031).`)
-	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state (FR-027).`)
+	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
+	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
 	fmt.Fprintln(os.Stderr, `    livez: Liveness probe.`)
 	fmt.Fprintln(os.Stderr, `    readyz: Readiness probe.`)
 	fmt.Fprintln(os.Stderr)
@@ -180,7 +180,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	// Description
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, `Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually (FR-031).`)
+	fmt.Fprintln(os.Stderr, `Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
@@ -202,7 +202,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	// Description
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, `Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state (FR-027).`)
+	fmt.Fprintln(os.Stderr, `Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)

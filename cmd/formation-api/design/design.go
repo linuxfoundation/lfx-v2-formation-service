@@ -151,6 +151,10 @@ var FormationItem = dsl.Type("FormationItem", func() {
 	dsl.Attribute("gate", dsl.Boolean, "Whether this item blocks going live.")
 	dsl.Attribute("requires_writer", dsl.Boolean)
 	dsl.Attribute("status_source", dsl.String, func() { dsl.Enum("manual", "platform") })
+	dsl.Attribute("is_required", dsl.Boolean, "Whether this item must be filled in. Display metadata, not a gate.")
+	dsl.Attribute("checklist_type", dsl.String, "Which audience this item is for. Display metadata only; the response is never filtered by it.", func() {
+		dsl.Enum("internal", "external", "both")
+	})
 	dsl.Attribute("platform_check", FormationPlatformCheck)
 	dsl.Attribute("action_link", dsl.String, "Placeholders substituted once at expansion.")
 	dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links.")
@@ -164,7 +168,7 @@ var FormationItem = dsl.Type("FormationItem", func() {
 	dsl.Attribute("resolved_ref", FormationResolvedRef, "Set by the service.")
 	dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItem))
 	dsl.Attribute("version", dsl.Int64, "Echo as If-Match on every mutation. Per item, not per formation.")
-	dsl.Required("uid", "item_key", "section_key", "position", "title", "gate", "requires_writer", "status_source", "status", "version")
+	dsl.Required("uid", "item_key", "section_key", "position", "title", "gate", "requires_writer", "status_source", "is_required", "checklist_type", "status", "version")
 })
 
 // FormationSection groups items under one heading.

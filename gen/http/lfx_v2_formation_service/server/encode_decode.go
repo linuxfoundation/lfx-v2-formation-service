@@ -266,6 +266,8 @@ func marshalLfxv2formationserviceviewsFormationItemViewToFormationItemResponseBo
 		Gate:           *v.Gate,
 		RequiresWriter: *v.RequiresWriter,
 		StatusSource:   *v.StatusSource,
+		IsRequired:     *v.IsRequired,
+		ChecklistType:  *v.ChecklistType,
 		ActionLink:     v.ActionLink,
 		EvidenceLink:   v.EvidenceLink,
 		Status:         *v.Status,

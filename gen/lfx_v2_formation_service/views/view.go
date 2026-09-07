@@ -63,7 +63,12 @@ type FormationItemView struct {
 	Gate           *bool
 	RequiresWriter *bool
 	StatusSource   *string
-	PlatformCheck  *FormationPlatformCheckView
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired *bool
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType *string
+	PlatformCheck *FormationPlatformCheckView
 	// Placeholders substituted once at expansion.
 	ActionLink *string
 	// Writer-set; feeds Quick Links.
@@ -281,6 +286,12 @@ func ValidateFormationItemView(result *FormationItemView) (err error) {
 	if result.StatusSource == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "result"))
 	}
+	if result.IsRequired == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "result"))
+	}
+	if result.ChecklistType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "result"))
+	}
 	if result.Status == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "result"))
 	}
@@ -290,6 +301,11 @@ func ValidateFormationItemView(result *FormationItemView) (err error) {
 	if result.StatusSource != nil {
 		if !(*result.StatusSource == "manual" || *result.StatusSource == "platform") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.status_source", *result.StatusSource, []any{"manual", "platform"}))
+		}
+	}
+	if result.ChecklistType != nil {
+		if !(*result.ChecklistType == "internal" || *result.ChecklistType == "external" || *result.ChecklistType == "both") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.checklist_type", *result.ChecklistType, []any{"internal", "external", "both"}))
 		}
 	}
 	if result.Status != nil {
