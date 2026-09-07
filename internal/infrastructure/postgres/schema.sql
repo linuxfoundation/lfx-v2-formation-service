@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS formation_items (
     UNIQUE (formation_uid, item_key),                        -- makes the upgrade job idempotent
 
     CONSTRAINT skip_needs_reason
-        CHECK (status <> 'skipped' OR skip_reason IS NOT NULL)
+        CHECK (status <> 'skipped' OR (skip_reason IS NOT NULL AND btrim(skip_reason) <> ''))
 );
 
 CREATE INDEX IF NOT EXISTS formation_items_formation_idx ON formation_items (formation_uid, section_key, position);

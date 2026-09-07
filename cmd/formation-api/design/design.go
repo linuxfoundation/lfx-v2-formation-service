@@ -64,6 +64,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("cursor", dsl.String, "Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.")
 			dsl.Attribute("limit", dsl.Int, "Page size. Defaults to 20, capped at 100.", func() {
 				dsl.Default(20)
+				dsl.Maximum(100)
 			})
 			dsl.Required("project_uid")
 		})

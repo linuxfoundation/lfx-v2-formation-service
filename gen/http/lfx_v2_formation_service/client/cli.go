@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	lfxv2formationservice "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	goa "goa.design/goa/v3/pkg"
 )
 
 // BuildGetFormationPayload builds the payload for the lfx_v2_formation_service
@@ -57,6 +58,12 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 			limit = int(v)
 			if err != nil {
 				return nil, fmt.Errorf("invalid value for limit, must be INT")
+			}
+			if limit > 100 {
+				err = goa.MergeErrors(err, goa.InvalidRangeError("limit", limit, 100, false))
+			}
+			if err != nil {
+				return nil, err
 			}
 		}
 	}

@@ -89,8 +89,12 @@ spec:
           # CloudNativePG-managed Postgres (templates/database.yaml). The
           # operator materializes a kubernetes.io/basic-auth Secret named
           # "<clusterName>-app" with host/port/user/password/dbname keys for
-          # the database's owning user — see
+          # the cluster's owning user — see
           # https://cloudnative-pg.io/documentation/current/applications/.
+          # The secret's own "dbname" key names the *bootstrap* database
+          # (the cluster's initial "app" database), not the separate
+          # Database CR provisioned below with databaseName — so PGDATABASE
+          # is set from that chart value directly rather than the secret.
           - name: PGHOST
             valueFrom:
               secretKeyRef:
@@ -112,10 +116,7 @@ spec:
                 name: {{ .Values.database.cloudNativePG.clusterName }}-app
                 key: password
           - name: PGDATABASE
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.database.cloudNativePG.clusterName }}-app
-                key: dbname
+            value: {{ .Values.database.cloudNativePG.databaseName | quote }}
           {{- end }}
           {{- with .Values.app.extraEnv }}
           {{- toYaml . | nindent 10 }}

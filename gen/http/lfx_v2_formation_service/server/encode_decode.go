@@ -148,6 +148,9 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 				limit = int(v)
 			}
 		}
+		if limit > 100 {
+			err = goa.MergeErrors(err, goa.InvalidRangeError("limit", limit, 100, false))
+		}
 		bearerTokenRaw := r.Header.Get("Authorization")
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/uptrace/bun"
 
 	"github.com/google/uuid"
@@ -33,7 +34,15 @@ func NewActivityRepo(db bun.IDB) *ActivityRepo {
 // Append inserts one entry. Callers write this in the same transaction as the
 // change it records, via UnitOfWork, so a failure between the two persists
 // neither.
+//
+// Generating the ULID here, when the caller left it empty, matches
+// mock.ActivityRepository.Append: without this, a caller relying on that
+// mock behavior would pass against the mock and fail against Postgres's
+// primary-key constraint.
 func (r *ActivityRepo) Append(ctx context.Context, e *model.ActivityEntry) error {
+	if e.ULID == "" {
+		e.ULID = ulid.Make().String()
+	}
 	if _, err := r.db.NewInsert().Model(e).Exec(ctx); err != nil {
 		return fmt.Errorf("append activity: %w", err)
 	}
