@@ -6,8 +6,10 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
@@ -23,6 +25,48 @@ type Config struct {
 	Issuer   string
 
 	NATSUrl string
+
+	Database DatabaseConfig
+
+	// ReconcileInterval is how often the reconcile loop sweeps for missing
+	// checklists and stale projections.
+	ReconcileInterval time.Duration
+}
+
+// DatabaseConfig holds the five credential values the provisioned secret
+// carries, plus the SSL mode. The DSN is composed from them in process
+// rather than read as a single URL, so the password is never part of a value
+// that could be logged or surfaced whole.
+type DatabaseConfig struct {
+	Host     string
+	Port     string
+	Username string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
+// DSN composes a libpq keyword/value connection string. Values are emitted
+// as-is; pgx parses this form, and keyword/value avoids the URL-escaping
+// pitfalls a password with reserved characters would hit. sslmode is
+// omitted when unset, leaving pgx's own default (prefer) in effect.
+func (d DatabaseConfig) DSN() string {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s",
+		d.Host, d.Port, d.Username, d.Password, d.DBName)
+	if d.SSLMode != "" {
+		dsn += " sslmode=" + d.SSLMode
+	}
+	return dsn
+}
+
+// Redacted returns the DSN with the password replaced, for logging.
+func (d DatabaseConfig) Redacted() string {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s dbname=%s",
+		d.Host, d.Port, d.Username, d.DBName)
+	if d.SSLMode != "" {
+		dsn += " sslmode=" + d.SSLMode
+	}
+	return dsn
 }
 
 // LoadConfig loads configuration from CLI flags, then environment variables, then defaults.
@@ -52,6 +96,15 @@ func LoadConfig() *Config {
 		Audience: envOrDefault(constants.EnvAudience, constants.DefaultAudience),
 		Issuer:   envOrDefault(constants.EnvIssuer, constants.DefaultIssuer),
 		NATSUrl:  envOrDefault(constants.EnvNATSURL, constants.DefaultNATSURL),
+		Database: DatabaseConfig{
+			Host:     envOrDefault(constants.EnvDBHost, constants.DefaultDBHost),
+			Port:     envOrDefault(constants.EnvDBPort, constants.DefaultDBPort),
+			Username: os.Getenv(constants.EnvDBUsername),
+			Password: os.Getenv(constants.EnvDBPassword),
+			DBName:   envOrDefault(constants.EnvDBName, constants.DefaultDBName),
+			SSLMode:  envOrDefault(constants.EnvDBSSLMode, constants.DefaultDBSSLMode),
+		},
+		ReconcileInterval: durationOrDefault(constants.EnvReconcileInterval, constants.DefaultReconcileInterval),
 	}
 
 	if os.Getenv(constants.EnvDebug) == "true" {
@@ -74,4 +127,20 @@ func envOrDefault(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// durationOrDefault falls back to def on an unset or unparseable value,
+// logging the latter rather than failing startup over a tunable.
+func durationOrDefault(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		slog.Warn("ignoring unparseable duration, using default",
+			"env", key, "value", v, "default", def.String())
+		return def
+	}
+	return d
 }

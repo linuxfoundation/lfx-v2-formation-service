@@ -1,0 +1,730 @@
+swagger: "2.0"
+info:
+    title: LFX V2 Formation Service
+    version: "1.0"
+host: localhost:80
+consumes:
+    - application/json
+    - application/xml
+    - application/gob
+produces:
+    - application/json
+    - application/xml
+    - application/gob
+paths:
+    /formations/{project_uid}:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: get_formation lfx_v2_formation_service
+            description: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually (FR-031).
+            operationId: lfx_v2_formation_service#get_formation
+            parameters:
+                - name: project_uid
+                  in: path
+                  description: The project's UID.
+                  required: true
+                  type: string
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/FormationChecklist'
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/NotFoundError'
+                        required:
+                            - code
+                            - message
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+    /formations/{project_uid}/activity:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: get_formation_activity lfx_v2_formation_service
+            description: 'Return the formation''s activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state (FR-027).'
+            operationId: lfx_v2_formation_service#get_formation_activity
+            parameters:
+                - name: cursor
+                  in: query
+                  description: Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.
+                  required: false
+                  type: string
+                - name: limit
+                  in: query
+                  description: Page size. Defaults to 20, capped at 100.
+                  required: false
+                  type: integer
+                  default: 20
+                - name: project_uid
+                  in: path
+                  description: The project's UID.
+                  required: true
+                  type: string
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/FormationActivityPage'
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/NotFoundError'
+                        required:
+                            - code
+                            - message
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+definitions:
+    FormationActivityEntry:
+        title: FormationActivityEntry
+        type: object
+        properties:
+            action:
+                type: string
+                example: Et quis ea minima repudiandae.
+            actor:
+                type: string
+                example: Nihil numquam consequatur et rem illum.
+            after:
+                example: Quo sit.
+            at:
+                type: string
+                example: "2002-09-16T11:48:14Z"
+                format: date-time
+            before:
+                description: Redacted summary.
+                example: Harum optio aut quibusdam.
+            item_uid:
+                type: string
+                description: Nullable — absent for a formation-level entry.
+                example: Dolorem facere.
+            set_by:
+                type: string
+                example: user
+                enum:
+                    - user
+                    - system
+            ulid:
+                type: string
+                description: Time-ordered; doubles as the paging cursor.
+                example: Et sint aperiam non sint aut.
+        example:
+            action: Nihil ut ut earum ea dolor sit.
+            actor: Accusamus ut voluptate inventore.
+            after: Doloremque molestiae aut adipisci quod.
+            at: "1993-06-21T07:25:40Z"
+            before: Nesciunt reprehenderit non.
+            item_uid: Consequuntur consequatur aut consectetur.
+            set_by: user
+            ulid: Exercitationem eius aut atque.
+        required:
+            - ulid
+            - actor
+            - set_by
+            - action
+            - at
+    FormationActivityPage:
+        title: 'Mediatype identifier: application/vnd.formation.activity+json; view=default'
+        type: object
+        properties:
+            entries:
+                type: array
+                items:
+                    $ref: '#/definitions/FormationActivityEntry'
+                example:
+                    - action: Quam voluptatem omnis.
+                      actor: Laborum est voluptas aliquam.
+                      after: Dolor provident quae consequatur.
+                      at: "1999-06-16T15:49:09Z"
+                      before: Sed quis deserunt qui eos quia explicabo.
+                      item_uid: Rerum incidunt eos.
+                      set_by: system
+                      ulid: Dolorem et facere aut quam aliquam.
+                    - action: Quam voluptatem omnis.
+                      actor: Laborum est voluptas aliquam.
+                      after: Dolor provident quae consequatur.
+                      at: "1999-06-16T15:49:09Z"
+                      before: Sed quis deserunt qui eos quia explicabo.
+                      item_uid: Rerum incidunt eos.
+                      set_by: system
+                      ulid: Dolorem et facere aut quam aliquam.
+                    - action: Quam voluptatem omnis.
+                      actor: Laborum est voluptas aliquam.
+                      after: Dolor provident quae consequatur.
+                      at: "1999-06-16T15:49:09Z"
+                      before: Sed quis deserunt qui eos quia explicabo.
+                      item_uid: Rerum incidunt eos.
+                      set_by: system
+                      ulid: Dolorem et facere aut quam aliquam.
+                    - action: Quam voluptatem omnis.
+                      actor: Laborum est voluptas aliquam.
+                      after: Dolor provident quae consequatur.
+                      at: "1999-06-16T15:49:09Z"
+                      before: Sed quis deserunt qui eos quia explicabo.
+                      item_uid: Rerum incidunt eos.
+                      set_by: system
+                      ulid: Dolorem et facere aut quam aliquam.
+            next_cursor:
+                type: string
+                description: Pass as cursor to fetch the next page. Empty on the last page.
+                example: Dolore vero unde.
+        description: get_formation_activity_response_body result type (default view)
+        example:
+            entries:
+                - action: Quam voluptatem omnis.
+                  actor: Laborum est voluptas aliquam.
+                  after: Dolor provident quae consequatur.
+                  at: "1999-06-16T15:49:09Z"
+                  before: Sed quis deserunt qui eos quia explicabo.
+                  item_uid: Rerum incidunt eos.
+                  set_by: system
+                  ulid: Dolorem et facere aut quam aliquam.
+                - action: Quam voluptatem omnis.
+                  actor: Laborum est voluptas aliquam.
+                  after: Dolor provident quae consequatur.
+                  at: "1999-06-16T15:49:09Z"
+                  before: Sed quis deserunt qui eos quia explicabo.
+                  item_uid: Rerum incidunt eos.
+                  set_by: system
+                  ulid: Dolorem et facere aut quam aliquam.
+                - action: Quam voluptatem omnis.
+                  actor: Laborum est voluptas aliquam.
+                  after: Dolor provident quae consequatur.
+                  at: "1999-06-16T15:49:09Z"
+                  before: Sed quis deserunt qui eos quia explicabo.
+                  item_uid: Rerum incidunt eos.
+                  set_by: system
+                  ulid: Dolorem et facere aut quam aliquam.
+            next_cursor: Rerum officiis pariatur repellat ut.
+        required:
+            - entries
+    FormationChecklist:
+        title: 'Mediatype identifier: application/vnd.formation.checklist+json; view=default'
+        type: object
+        properties:
+            is_activating:
+                type: boolean
+                description: Every gating item done, and at least one gating item exists.
+                example: false
+            items:
+                type: array
+                items:
+                    $ref: '#/definitions/FormationItem'
+                example:
+                    - action_link: Eius velit fuga voluptate a veritatis repellendus.
+                      assignee: Modi velit doloribus neque hic.
+                      due_date: "1987-04-21"
+                      evidence_link: Qui quod fuga.
+                      gate: true
+                      item_key: Ut quaerat omnis totam.
+                      note: Consectetur at dolorem ipsum quia possimus vel.
+                      owner_team: formation
+                      platform_check:
+                        min_count: 2989190186838821711
+                        resource_type: Et velit atque aut ipsa autem.
+                      position: 6035819543934566818
+                      requires_writer: false
+                      resolved_ref:
+                        type: Hic labore.
+                        uid: Tempora sunt architecto.
+                      section_key: Et et.
+                      skip_reason: Enim dolorum quia a.
+                      status: done
+                      status_source: platform
+                      sub_items:
+                        - key: Deleniti quo soluta.
+                          status: awaiting_acceptance
+                          title: Facilis non sunt accusantium.
+                        - key: Deleniti quo soluta.
+                          status: awaiting_acceptance
+                          title: Facilis non sunt accusantium.
+                      title: Iusto voluptatem labore architecto quo nemo quae.
+                      uid: Eos repellat quia.
+                      version: 1800272135946714632
+                    - action_link: Eius velit fuga voluptate a veritatis repellendus.
+                      assignee: Modi velit doloribus neque hic.
+                      due_date: "1987-04-21"
+                      evidence_link: Qui quod fuga.
+                      gate: true
+                      item_key: Ut quaerat omnis totam.
+                      note: Consectetur at dolorem ipsum quia possimus vel.
+                      owner_team: formation
+                      platform_check:
+                        min_count: 2989190186838821711
+                        resource_type: Et velit atque aut ipsa autem.
+                      position: 6035819543934566818
+                      requires_writer: false
+                      resolved_ref:
+                        type: Hic labore.
+                        uid: Tempora sunt architecto.
+                      section_key: Et et.
+                      skip_reason: Enim dolorum quia a.
+                      status: done
+                      status_source: platform
+                      sub_items:
+                        - key: Deleniti quo soluta.
+                          status: awaiting_acceptance
+                          title: Facilis non sunt accusantium.
+                        - key: Deleniti quo soluta.
+                          status: awaiting_acceptance
+                          title: Facilis non sunt accusantium.
+                      title: Iusto voluptatem labore architecto quo nemo quae.
+                      uid: Eos repellat quia.
+                      version: 1800272135946714632
+            lifecycle:
+                type: string
+                example: frozen
+                enum:
+                    - live
+                    - completed
+                    - frozen
+            progress:
+                $ref: '#/definitions/FormationProgress'
+            project_uid:
+                type: string
+                example: Ipsam laudantium voluptatem in magni quae.
+            sections:
+                type: array
+                items:
+                    $ref: '#/definitions/FormationSection'
+                example:
+                    - key: Accusamus magni consequuntur eaque.
+                      position: 5305209794243611061
+                      title: Dolorem sunt est omnis.
+                    - key: Accusamus magni consequuntur eaque.
+                      position: 5305209794243611061
+                      title: Dolorem sunt est omnis.
+                    - key: Accusamus magni consequuntur eaque.
+                      position: 5305209794243611061
+                      title: Dolorem sunt est omnis.
+            template_uid:
+                type: string
+                example: Et sint nostrum ducimus nesciunt.
+            template_version:
+                type: integer
+                example: 1782602556632633251
+                format: int64
+        description: get_formation_response_body result type (default view)
+        example:
+            is_activating: false
+            items:
+                - action_link: Eius velit fuga voluptate a veritatis repellendus.
+                  assignee: Modi velit doloribus neque hic.
+                  due_date: "1987-04-21"
+                  evidence_link: Qui quod fuga.
+                  gate: true
+                  item_key: Ut quaerat omnis totam.
+                  note: Consectetur at dolorem ipsum quia possimus vel.
+                  owner_team: formation
+                  platform_check:
+                    min_count: 2989190186838821711
+                    resource_type: Et velit atque aut ipsa autem.
+                  position: 6035819543934566818
+                  requires_writer: false
+                  resolved_ref:
+                    type: Hic labore.
+                    uid: Tempora sunt architecto.
+                  section_key: Et et.
+                  skip_reason: Enim dolorum quia a.
+                  status: done
+                  status_source: platform
+                  sub_items:
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                  title: Iusto voluptatem labore architecto quo nemo quae.
+                  uid: Eos repellat quia.
+                  version: 1800272135946714632
+                - action_link: Eius velit fuga voluptate a veritatis repellendus.
+                  assignee: Modi velit doloribus neque hic.
+                  due_date: "1987-04-21"
+                  evidence_link: Qui quod fuga.
+                  gate: true
+                  item_key: Ut quaerat omnis totam.
+                  note: Consectetur at dolorem ipsum quia possimus vel.
+                  owner_team: formation
+                  platform_check:
+                    min_count: 2989190186838821711
+                    resource_type: Et velit atque aut ipsa autem.
+                  position: 6035819543934566818
+                  requires_writer: false
+                  resolved_ref:
+                    type: Hic labore.
+                    uid: Tempora sunt architecto.
+                  section_key: Et et.
+                  skip_reason: Enim dolorum quia a.
+                  status: done
+                  status_source: platform
+                  sub_items:
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                  title: Iusto voluptatem labore architecto quo nemo quae.
+                  uid: Eos repellat quia.
+                  version: 1800272135946714632
+                - action_link: Eius velit fuga voluptate a veritatis repellendus.
+                  assignee: Modi velit doloribus neque hic.
+                  due_date: "1987-04-21"
+                  evidence_link: Qui quod fuga.
+                  gate: true
+                  item_key: Ut quaerat omnis totam.
+                  note: Consectetur at dolorem ipsum quia possimus vel.
+                  owner_team: formation
+                  platform_check:
+                    min_count: 2989190186838821711
+                    resource_type: Et velit atque aut ipsa autem.
+                  position: 6035819543934566818
+                  requires_writer: false
+                  resolved_ref:
+                    type: Hic labore.
+                    uid: Tempora sunt architecto.
+                  section_key: Et et.
+                  skip_reason: Enim dolorum quia a.
+                  status: done
+                  status_source: platform
+                  sub_items:
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                  title: Iusto voluptatem labore architecto quo nemo quae.
+                  uid: Eos repellat quia.
+                  version: 1800272135946714632
+            lifecycle: frozen
+            progress:
+                awaiting_acceptance: 6761051906188448449
+                blocked: 1255315813758279309
+                done: 415250788317751147
+                in_progress: 3736982923204580676
+                not_started: 5756874538110734119
+                skipped: 2309381839255060436
+            project_uid: Praesentium porro esse temporibus vel voluptas.
+            sections:
+                - key: Accusamus magni consequuntur eaque.
+                  position: 5305209794243611061
+                  title: Dolorem sunt est omnis.
+                - key: Accusamus magni consequuntur eaque.
+                  position: 5305209794243611061
+                  title: Dolorem sunt est omnis.
+            template_uid: Omnis et temporibus laborum voluptates aliquid.
+            template_version: 8801818466878339099
+        required:
+            - project_uid
+            - template_uid
+            - template_version
+            - lifecycle
+            - sections
+            - items
+            - progress
+            - is_activating
+    FormationItem:
+        title: FormationItem
+        type: object
+        properties:
+            action_link:
+                type: string
+                description: Placeholders substituted once at expansion.
+                example: Ut atque commodi dolor.
+            assignee:
+                type: string
+                description: Username. Nothing is granted.
+                example: Nostrum omnis qui aut est.
+            due_date:
+                type: string
+                example: "1971-11-14"
+                format: date
+            evidence_link:
+                type: string
+                description: Writer-set; feeds Quick Links.
+                example: Vitae delectus.
+            gate:
+                type: boolean
+                description: Whether this item blocks going live.
+                example: true
+            item_key:
+                type: string
+                description: Stable identifier, e.g. charter_agreed. Never changes.
+                example: Totam quia minus quasi nostrum commodi voluptatibus.
+            note:
+                type: string
+                example: Eum eveniet debitis at inventore doloremque facilis.
+            owner_team:
+                type: string
+                example: formation
+            platform_check:
+                $ref: '#/definitions/FormationPlatformCheck'
+            position:
+                type: integer
+                example: 2971365140447192694
+                format: int64
+            requires_writer:
+                type: boolean
+                example: false
+            resolved_ref:
+                $ref: '#/definitions/FormationResolvedRef'
+            section_key:
+                type: string
+                example: Quaerat est.
+            skip_reason:
+                type: string
+                description: Required when status is skipped.
+                example: Illum modi qui voluptas voluptatem.
+            status:
+                type: string
+                description: Six values.
+                example: not_started
+                enum:
+                    - not_started
+                    - in_progress
+                    - blocked
+                    - awaiting_acceptance
+                    - done
+                    - skipped
+            status_source:
+                type: string
+                example: platform
+                enum:
+                    - manual
+                    - platform
+            sub_items:
+                type: array
+                items:
+                    $ref: '#/definitions/FormationSubItem'
+                example:
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+                    - key: Deleniti quo soluta.
+                      status: awaiting_acceptance
+                      title: Facilis non sunt accusantium.
+            title:
+                type: string
+                example: Ut dolores non.
+            uid:
+                type: string
+                example: Dolores consequatur.
+            version:
+                type: integer
+                description: Echo as If-Match on every mutation. Per item, not per formation.
+                example: 5216802168729487609
+                format: int64
+        example:
+            action_link: Ducimus perspiciatis sed fuga.
+            assignee: Quidem dolor molestiae consequuntur.
+            due_date: "1995-11-04"
+            evidence_link: Id cum.
+            gate: true
+            item_key: Cum vel non.
+            note: Recusandae unde doloribus.
+            owner_team: formation
+            platform_check:
+                min_count: 2989190186838821711
+                resource_type: Et velit atque aut ipsa autem.
+            position: 6505136368449936223
+            requires_writer: true
+            resolved_ref:
+                type: Hic labore.
+                uid: Tempora sunt architecto.
+            section_key: Alias et fugiat aut qui cum.
+            skip_reason: Ut odit perspiciatis.
+            status: blocked
+            status_source: platform
+            sub_items:
+                - key: Deleniti quo soluta.
+                  status: awaiting_acceptance
+                  title: Facilis non sunt accusantium.
+                - key: Deleniti quo soluta.
+                  status: awaiting_acceptance
+                  title: Facilis non sunt accusantium.
+                - key: Deleniti quo soluta.
+                  status: awaiting_acceptance
+                  title: Facilis non sunt accusantium.
+            title: Ab nemo.
+            uid: Laudantium nobis et iure et.
+            version: 7522571637984033747
+        required:
+            - uid
+            - item_key
+            - section_key
+            - position
+            - title
+            - gate
+            - requires_writer
+            - status_source
+            - status
+            - version
+    FormationPlatformCheck:
+        title: FormationPlatformCheck
+        type: object
+        properties:
+            min_count:
+                type: integer
+                example: 7156037850656785101
+                format: int64
+            resource_type:
+                type: string
+                example: Fugiat nemo laborum sit.
+        example:
+            min_count: 4109507936965847875
+            resource_type: Cum sit reprehenderit officiis sit.
+    FormationProgress:
+        title: FormationProgress
+        type: object
+        properties:
+            awaiting_acceptance:
+                type: integer
+                example: 6310920839910013650
+                format: int64
+            blocked:
+                type: integer
+                example: 8286034833284646306
+                format: int64
+            done:
+                type: integer
+                example: 7562245550385118397
+                format: int64
+            in_progress:
+                type: integer
+                example: 5862354071166912310
+                format: int64
+            not_started:
+                type: integer
+                example: 2878981180067738114
+                format: int64
+            skipped:
+                type: integer
+                example: 6899815328169309476
+                format: int64
+        example:
+            awaiting_acceptance: 4376098732985116953
+            blocked: 556764401379320528
+            done: 1218845938797777096
+            in_progress: 7711265684466482419
+            not_started: 5591841368289626159
+            skipped: 8627443860037953328
+        required:
+            - not_started
+            - in_progress
+            - blocked
+            - awaiting_acceptance
+            - done
+            - skipped
+    FormationResolvedRef:
+        title: FormationResolvedRef
+        type: object
+        properties:
+            type:
+                type: string
+                example: Eos minus repudiandae voluptatem aut odio sed.
+            uid:
+                type: string
+                example: Et officia.
+        example:
+            type: Numquam deleniti impedit aut.
+            uid: Et dolorem.
+    FormationSection:
+        title: FormationSection
+        type: object
+        properties:
+            key:
+                type: string
+                example: Quis et aut omnis veniam ipsum.
+            position:
+                type: integer
+                example: 4051243321539885676
+                format: int64
+            title:
+                type: string
+                example: Ipsam nihil reprehenderit est debitis voluptas.
+        example:
+            key: Enim in saepe facere.
+            position: 494557043485178434
+            title: Est architecto.
+        required:
+            - key
+            - title
+            - position
+    FormationSubItem:
+        title: FormationSubItem
+        type: object
+        properties:
+            key:
+                type: string
+                example: Fugiat aperiam unde et dignissimos dolor.
+            status:
+                type: string
+                example: skipped
+                enum:
+                    - not_started
+                    - in_progress
+                    - blocked
+                    - awaiting_acceptance
+                    - done
+                    - skipped
+            title:
+                type: string
+                example: Voluptas accusantium.
+        example:
+            key: Quasi ad officia at nobis blanditiis.
+            status: in_progress
+            title: Labore architecto voluptatem quaerat.
+        required:
+            - key
+            - title
+            - status
+    NotFoundError:
+        title: NotFoundError
+        type: object
+        properties:
+            code:
+                type: string
+                description: HTTP status code
+                example: "404"
+            message:
+                type: string
+                description: Error message
+                example: Rem quis fugit aut unde possimus nihil.
+        description: No formation exists for this project
+        example:
+            code: "404"
+            message: Sunt nihil fugiat maxime.
+        required:
+            - code
+            - message
+securityDefinitions:
+    jwt_header_Authorization:
+        type: apiKey
+        description: Heimdall authorization
+        name: Authorization
+        in: header

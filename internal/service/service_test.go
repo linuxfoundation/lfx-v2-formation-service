@@ -5,11 +5,19 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/stretchr/testify/assert"
 )
+
+// fakePinger lets tests drive readiness without a real database.
+type fakePinger struct {
+	err error
+}
+
+func (f fakePinger) Ping(context.Context) error { return f.err }
 
 func TestServiceReady(t *testing.T) {
 	tests := []struct {
@@ -18,26 +26,31 @@ func TestServiceReady(t *testing.T) {
 		want    bool
 	}{
 		{
-			name:    "ready when constructed",
-			service: NewService(),
+			name:    "ready with no database wired",
+			service: NewService(nil, nil, nil, nil, nil, nil, nil),
 			want:    true,
 		},
 		{
-			name:    "not ready when flag false",
-			service: &Service{ready: false},
+			name:    "ready when the database pings successfully",
+			service: NewService(fakePinger{}, nil, nil, nil, nil, nil, nil),
+			want:    true,
+		},
+		{
+			name:    "not ready when the database ping fails",
+			service: NewService(fakePinger{err: errors.New("connection refused")}, nil, nil, nil, nil, nil, nil),
 			want:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.service.ServiceReady())
+			assert.Equal(t, tt.want, tt.service.ServiceReady(context.Background()))
 		})
 	}
 }
 
 func TestLivez(t *testing.T) {
-	s := NewService()
+	s := NewService(nil, nil, nil, nil, nil, nil, nil)
 
 	result, err := s.Livez(context.Background())
 
@@ -54,13 +67,13 @@ func TestReadyz(t *testing.T) {
 	}{
 		{
 			name:         "ready returns OK",
-			service:      NewService(),
+			service:      NewService(nil, nil, nil, nil, nil, nil, nil),
 			expectError:  false,
 			expectedBody: "OK\n",
 		},
 		{
-			name:        "not ready returns ServiceUnavailable",
-			service:     &Service{ready: false},
+			name:        "database unavailable returns ServiceUnavailable",
+			service:     NewService(fakePinger{err: errors.New("connection refused")}, nil, nil, nil, nil, nil, nil),
 			expectError: true,
 		},
 	}

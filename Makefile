@@ -18,9 +18,10 @@ HELM_NAMESPACE=lfx
 HELM_VALUES_FILE=$(HELM_CHART_PATH)/values.local.yaml
 
 # Go
-GO_VERSION := 1.24.2
+GO_VERSION := 1.25.0
 GOOS := linux
 GOARCH := amd64
+GO_FILES := $(shell find . -name '*.go' -not -path './gen/*' -not -path './vendor/*')
 
 # Linting
 GOLANGCI_LINT_VERSION := v2.2.2
@@ -50,7 +51,7 @@ deps: ## Install dependencies
 
 .PHONY: apigen
 apigen: deps #@ Generate API code using Goa
-	goa gen github.com/linuxfoundation/lfx-v2-formation-service/design
+	goa gen github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api/design
 
 .PHONY: lint
 lint: ## Run golangci-lint (local Go linting)
@@ -58,10 +59,35 @@ lint: ## Run golangci-lint (local Go linting)
 	@which golangci-lint >/dev/null 2>&1 || (echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)..." && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
 	@golangci-lint run ./... && echo "==> Lint OK"
 
+.PHONY: fmt
+fmt: ## Format Go sources
+	@echo "Formatting Go sources..."
+	go fmt ./...
+	gofmt -s -w $(GO_FILES)
+
+.PHONY: license-check
+license-check: ## Verify every Go file carries the LF copyright header
+	@missing_files=$$(find . \( -name "*.go" \) \
+		-not -path "./vendor/*" \
+		-not -path "./gen/*" \
+		-exec sh -c 'head -10 "$$1" | grep -q "Copyright The Linux Foundation" || echo "$$1"' _ {} \;); \
+	if [ -n "$$missing_files" ]; then \
+		echo "Files missing license headers:"; echo "$$missing_files"; exit 1; \
+	fi
+	@echo "==> License headers OK"
+
+.PHONY: check
+check: fmt lint license-check ## Run formatting, linting, license and vet checks
+	go vet ./...
+
 .PHONY: test
 test: ## Run tests
 	@echo "Running tests..."
 	go test -v -race -coverprofile=coverage.out ./...
+
+.PHONY: test-integration
+test-integration: ## Run integration tests against a live Postgres
+	go test -v -tags integration ./internal/infrastructure/postgres/...
 
 .PHONY: build
 build: ## Build the application for local OS

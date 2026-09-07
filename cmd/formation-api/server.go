@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"sync"
 
-	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	diservice "github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api/service"
 	svcsvr "github.com/linuxfoundation/lfx-v2-formation-service/gen/http/lfx_v2_formation_service/server"
-	"github.com/linuxfoundation/lfx-v2-formation-service/internal/container"
+	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/config"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/middleware"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
@@ -25,20 +25,20 @@ import (
 
 // StartServer initializes and starts the HTTP server.
 func StartServer(ctx context.Context, cfg *config.Config) error {
-	cont, err := container.NewContainer(cfg)
+	svcImpl, closeFn, err := diservice.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	endpoints := svc.NewEndpoints(cont.Service)
+	endpoints := svc.NewEndpoints(svcImpl)
 	if cfg.Debug {
 		endpoints.Use(debug.LogPayloads())
 	}
 
-	return handleHTTPServer(ctx, cfg, endpoints, cont)
+	return handleHTTPServer(ctx, cfg, endpoints, closeFn)
 }
 
-func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, cont *container.Container) error {
+func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error) error {
 	mux := goahttp.NewMuxer()
 	if cfg.Debug {
 		debug.MountPprofHandlers(debug.Adapt(mux))
@@ -71,7 +71,7 @@ func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.En
 		IdleTimeout:       constants.DefaultIdleTimeout,
 	}
 
-	return runServerWithContext(ctx, srv, cont)
+	return runServerWithContext(ctx, srv, closeFn)
 }
 
 func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWriter, error) {
@@ -80,7 +80,7 @@ func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWri
 	}
 }
 
-func runServerWithContext(ctx context.Context, srv *http.Server, cont *container.Container) error {
+func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() error) error {
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -111,8 +111,8 @@ func runServerWithContext(ctx context.Context, srv *http.Server, cont *container
 
 	go func() {
 		defer wg.Done()
-		if err := cont.Close(); err != nil {
-			slog.ErrorContext(ctx, "container close error", log.ErrKey, err)
+		if err := closeFn(); err != nil {
+			slog.ErrorContext(ctx, "service close error", log.ErrKey, err)
 		}
 	}()
 

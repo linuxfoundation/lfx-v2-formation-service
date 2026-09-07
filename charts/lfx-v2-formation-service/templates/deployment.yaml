@@ -31,6 +31,10 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default .Chart.Name }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -46,6 +50,41 @@ spec:
             valueFrom:
               {{- toYaml $config.valueFrom | nindent 14 }}
             {{- end }}
+          {{- end }}
+          {{- if eq .Values.database.mode "external" }}
+          # External Postgres referenced by a multi-key Secret (the
+          # ExternalSecret in templates/externalsecret.yaml, which pulls
+          # /cloudops/rds-managed/lfx-v2/formation from AWS Secrets Manager
+          # and exposes each JSON field as its own Secret key). The app
+          # composes the DSN in process, so no PG* value is ever passed as
+          # a plain env-var value in the pod spec — that would make the
+          # password visible via `kubectl describe pod` even though the
+          # source is a Secret.
+          - name: PGHOST
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName }}
+                key: {{ default "host" .Values.database.external.keys.host }}
+          - name: PGPORT
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName }}
+                key: {{ default "port" .Values.database.external.keys.port }}
+          - name: PGUSER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName }}
+                key: {{ default "username" .Values.database.external.keys.username }}
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName }}
+                key: {{ default "password" .Values.database.external.keys.password }}
+          - name: PGDATABASE
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName }}
+                key: {{ default "dbname" .Values.database.external.keys.dbname }}
           {{- end }}
           {{- with .Values.app.extraEnv }}
           {{- toYaml . | nindent 10 }}

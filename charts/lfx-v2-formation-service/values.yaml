@@ -13,6 +13,16 @@ image:
 # replicaCount is the number of replicas for the deployment
 replicaCount: 1
 
+# topologySpreadConstraints controls how pods are spread across nodes/zones.
+# Empty by default (no constraints). Example:
+#   - maxSkew: 1
+#     topologyKey: kubernetes.io/hostname
+#     whenUnsatisfiable: DoNotSchedule
+#     labelSelector:
+#       matchLabels:
+#         app: lfx-v2-formation-service
+topologySpreadConstraints: []
+
 # podAnnotations are additional annotations applied to the pod template.
 # Example:
 #   prometheus.io/scrape: "true"
@@ -63,6 +73,81 @@ lfx:
 service:
   # port is the service port
   port: 8080
+
+# database configures the PostgreSQL backend. The service applies its own
+# schema at startup (internal/infrastructure/postgres/schema.sql), so it
+# only ever needs an empty, owned database — never a migration step here.
+database:
+  # mode selects the database provider:
+  #   "external"         — connect to an existing PostgreSQL instance via a
+  #                        Kubernetes Secret. This is the mode every
+  #                        deployed environment uses, against the shared
+  #                        LFX v2 RDS instance provisioned by lfx-v2-opentofu.
+  #   "database"         — create a CloudNativePG Database CR pointing at an
+  #                        existing Cluster (e.g. provisioned by the umbrella
+  #                        chart). Local-dev shared-Postgres setups only.
+  #   "cluster+database" — create both a CloudNativePG Cluster CR and a
+  #                        Database CR. Standalone local dev only.
+  mode: external
+
+  # cloudNativePG configures access to a CloudNativePG Cluster (modes:
+  # "database" and "cluster+database"). Not used by any deployed environment.
+  cloudNativePG:
+    clusterName: ""
+    databaseName: formation
+    cluster:
+      instances: 1
+      storage:
+        size: 1Gi
+
+  # external configures an existing PostgreSQL connection (mode: external
+  # only). shape is always "fields" here: the provisioned secret carries
+  # host/port/username/password/dbname as five separate keys, not a single
+  # DATABASE_URL — see externalsecret.yaml and the ArgoCD values that
+  # populate externalSecretsOperator.externalSecret.data.
+  external:
+    # secretName is the K8s Secret the five PG* env vars read from. Matches
+    # the ExternalSecret's target name, which defaults to the chart name.
+    secretName: ""
+    shape: "fields"
+    # keys maps each DSN field to a secret key. Defaults match the live
+    # newsletter ExternalSecret in dev, which reads the same five keys —
+    # "user" and "database" are not the keys.
+    keys:
+      host: host
+      port: port
+      username: username
+      password: password
+      dbname: dbname
+
+# externalSecretsOperator pulls the RDS credential JSON from AWS Secrets
+# Manager and splits it into individual keys. Disabled by default; the
+# ArgoCD values for dev/staging/prod enable it and supply the five-entry
+# data list against /cloudops/rds-managed/lfx-v2/formation.
+externalSecretsOperator:
+  enabled: false
+  externalSecret:
+    refreshInterval: "1h"
+    # data is a list of { secretKey, remoteRef: { key, property? } } entries.
+    data: []
+
+# global is the umbrella-chart scope. awsRegion gates ExternalSecret /
+# SecretStore rendering and is normally set by the parent chart.
+global:
+  awsRegion: ""
+
+# networkPolicy controls the Kubernetes NetworkPolicy for this workload.
+# Allows egress to DNS, NATS (service-to-service request/reply, including
+# the platform-resolved-item and project-settings reads), OTel, Postgres
+# and Heimdall (JWT validation and the authorization gateway it fronts).
+networkPolicy:
+  enabled: true
+  natsPort: 4222
+  otelGRPCPort: 4317
+  otelHTTPPort: 4318
+  postgresPort: 5432
+  heimdallPort: 4456
+  heimdallJWKSPort: 4457
 
 # openfga is the configuration for the OpenFGA server
 openfga:
@@ -165,8 +250,8 @@ app:
     JWKS_URL:
       value: http://lfx-platform-heimdall.lfx.svc.cluster.local:4457/.well-known/jwks
 
-    # JWT_AUDIENCE is the intended audience for the JWT token (required)
-    JWT_AUDIENCE:
+    # AUDIENCE is the intended audience for the JWT token (required)
+    AUDIENCE:
       value: lfx-v2-formation-service
 
     # JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL is used for local development to bypass JWT validation
@@ -178,31 +263,10 @@ app:
     AUTH_SOURCE:
       value: jwt
 
-    # REPOSITORY_SOURCE is the repository implementation: 'nats' for production, 'mock' for local dev
-    # Optional, defaults to nats. Production should use 'nats', local development should use 'mock'
+    # REPOSITORY_SOURCE is the repository implementation: 'postgres' for production, 'mock' for local dev
+    # Optional, defaults to postgres. Production should use 'postgres', local development should use 'mock'
     REPOSITORY_SOURCE:
-      value: nats
-
-    # ITX Proxy Configuration
-    ITX_BASE_URL:
-      value: ""
-
-    ITX_CLIENT_ID:
-      value: ""
-
-    # ITX_CLIENT_PRIVATE_KEY is the private key for ITX proxy authentication
-    # WARNING: Do not commit actual credentials to this file - should be set via Kubernetes secrets using valueFrom
-    ITX_CLIENT_PRIVATE_KEY:
-      value: ""
-
-    ITX_AUTH0_DOMAIN:
-      value: ""
-
-    ITX_AUDIENCE:
-      value: ""
-
-    EVENTING_ENABLED:
-      value: "true"
+      value: postgres
 
 # serviceAccount is the configuration for the Kubernetes service account (used by multiple components)
 serviceAccount:

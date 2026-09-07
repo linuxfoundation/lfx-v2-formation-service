@@ -16,17 +16,16 @@ spec:
     - "lfx-api.{{ .Values.lfx.domain }}"
   rules:
   # Main application endpoints (with authentication)
-  # TODO: Adjust paths as needed for your service
   - matches:
     - path:
         type: Exact
-        value: /formation
+        value: /formations
     - path:
         type: PathPrefix
-        value: /formation/
+        value: /formations/
     - path:
         type: PathPrefix
-        value: /_formation/
+        value: /_formations/
     {{- if .Values.heimdall.enabled }}
     filters:
       - type: ExtensionRef
