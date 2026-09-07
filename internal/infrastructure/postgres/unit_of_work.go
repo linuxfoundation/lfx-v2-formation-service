@@ -14,7 +14,7 @@ import (
 
 // UnitOfWork runs a function against repositories bound to one bun
 // transaction, so an item change and its activity entry commit together or
-// not at all — the property FR-025 requires and that T016 tests.
+// not at all.
 type UnitOfWork struct {
 	db *bun.DB
 }

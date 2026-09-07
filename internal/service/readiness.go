@@ -3,8 +3,8 @@
 
 package service
 
-// isActivating derives readiness per FR-019: every item required for Active
-// is done, AND an announcement date is set. Neither condition alone is
+// isActivating derives readiness: every item required for Active is done,
+// AND an announcement date is set. Neither condition alone is
 // sufficient — a checklist with its gates cleared but no announcement date
 // yet is not activating, and vice versa.
 //

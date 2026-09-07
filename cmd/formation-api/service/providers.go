@@ -128,7 +128,7 @@ func TemplateRepositoryImpl(ctx context.Context, cfg *config.Config) port.Templa
 
 // ProjectReaderImpl returns the NATS request/reply project reader. Returns
 // nil until that adapter lands (tracked separately) — a nil reader degrades
-// announcement-date lookups rather than erroring, which is the FR-019-correct
+// announcement-date lookups rather than erroring, which is the conservative
 // answer for a dependency that does not exist yet.
 func ProjectReaderImpl(_ context.Context, _ *config.Config) port.ProjectReader {
 	return nil

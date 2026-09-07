@@ -25,7 +25,7 @@ const readyzPingTimeout = 2 * time.Second
 
 // dbPinger is the one method the readiness probe needs from the database
 // handle. Declared here rather than imported from infrastructure/postgres so
-// the service package stays free of a driver import (FR-041).
+// the service package stays free of a driver import.
 type dbPinger interface {
 	Ping(ctx context.Context) error
 }
@@ -48,7 +48,7 @@ type Service struct {
 
 	// projects is nil until the NATS request/reply adapter lands. A nil
 	// reader degrades the checklist read path to "no announcement date",
-	// which is the FR-019-correct answer (readiness requires one) rather
+	// which is the conservative answer (readiness requires one) rather
 	// than an error — the read path must not depend on a dependency that
 	// does not exist yet.
 	projects port.ProjectReader
@@ -98,7 +98,7 @@ func WithTemplates(templates port.TemplateRepository) serviceOption {
 
 // WithProjects wires the project reader. Omitting it degrades
 // announcement-date lookups to nil rather than erroring, which is the
-// FR-019-correct answer until the NATS adapter is wired.
+// conservative answer until the NATS adapter is wired.
 func WithProjects(projects port.ProjectReader) serviceOption {
 	return func(s *Service) { s.projects = projects }
 }

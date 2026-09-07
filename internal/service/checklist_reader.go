@@ -17,10 +17,10 @@ import (
 // when the query param is omitted) gets a page rather than an empty result.
 const defaultActivityPageLimit = 20
 
-// GetFormation assembles the whole checklist in one response (FR-031):
-// sections, items, progress and readiness. Items are carried with only
-// functional fields — every label, icon and composed detail line belongs to
-// the browser, keyed on item_key (T041).
+// GetFormation assembles the whole checklist in one response: sections,
+// items, progress and readiness. Items are carried with only functional
+// fields — every label, icon and composed detail line belongs to the
+// browser, keyed on item_key.
 func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) (*svc.FormationChecklist, error) {
 	formation, err := s.formations.GetByProject(ctx, p.ProjectUID)
 	if err != nil {
@@ -73,13 +73,12 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 	}, nil
 }
 
-// GetFormationActivity returns the checklist's activity feed, newest first
-// (FR-027). The feed covers checklist changes only: status changes,
-// assignment, notes, links, skip reasons and template work. Permission
-// changes never appear here — nothing keeps a history of them, since each
-// save overwrites the previous state — and that absence is conveyed by the
-// method's own doc comment in the design (T096) rather than left for the
-// browser to guess at.
+// GetFormationActivity returns the checklist's activity feed, newest first.
+// The feed covers checklist changes only: status changes, assignment,
+// notes, links, skip reasons and template work. Permission changes never
+// appear here — nothing keeps a history of them, since each save overwrites
+// the previous state — and that absence is conveyed by the method's own doc
+// comment in the design rather than left for the browser to guess at.
 func (s *Service) GetFormationActivity(ctx context.Context, p *svc.GetFormationActivityPayload) (*svc.FormationActivityPage, error) {
 	formation, err := s.formations.GetByProject(ctx, p.ProjectUID)
 	if err != nil {

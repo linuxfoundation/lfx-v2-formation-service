@@ -13,8 +13,8 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
-// TestUnitOfWorkAtomicity is FR-024/FR-025's test: a failure between the item
-// write and the activity write must persist neither. The failure is induced
+// TestUnitOfWorkAtomicity proves a failure between the item write and the
+// activity write persists neither. The failure is induced
 // by appending an activity entry that references a formation_uid the
 // database has never seen, which the foreign key refuses — that refusal must
 // roll back the item update in the same call.

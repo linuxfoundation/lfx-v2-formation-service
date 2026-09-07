@@ -9,7 +9,7 @@ import (
 )
 
 // progressFromCounts derives the six-way progress count on every read
-// (FR-021) rather than maintaining a counter — a status change is always the
+// rather than maintaining a counter — a status change is always the
 // single source of truth, so there is nothing to keep in sync. skipped is its
 // own bucket here, matching the item repository's StatusCounts, and is never
 // folded into done: a skipped item did not get done, it got excused.

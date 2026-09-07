@@ -14,7 +14,6 @@ spec:
     # Reading the checklist and its activity requires the project's
     # audit-level read, never the viewer relation (which includes every
     # user and would make a public project's checklist world-readable).
-    # FR-034/FR-035.
     - id: "rule:lfx:lfx-v2-formation-service:formations:get"
       allow_encoded_slashes: 'off'
       match:

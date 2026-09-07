@@ -29,7 +29,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Description("LFX V2 Formation Service")
 
 	dsl.Method("get_formation", func() {
-		dsl.Description("Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually (FR-031).")
+		dsl.Description("Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.")
 
 		dsl.Security(JWTAuth)
 
@@ -52,7 +52,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Description("Return the formation's activity feed, newest first, with ULID cursor paging. " +
 			"The feed covers checklist changes only — status changes, assignment, notes, links, skip " +
 			"reasons and template work. Permission changes never appear here: nothing keeps a history of " +
-			"them, since each save overwrites the previous state (FR-027).")
+			"them, since each save overwrites the previous state.")
 
 		dsl.Security(JWTAuth)
 
