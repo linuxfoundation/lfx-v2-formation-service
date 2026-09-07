@@ -241,16 +241,9 @@ var FormationChecklist = dsl.ResultType("application/vnd.formation.checklist+jso
 	dsl.Attribute("progress", FormationProgress)
 	dsl.Attribute("is_activating", dsl.Boolean, "Every gating item done, at least one gating item exists, and the project has an announcement date.")
 	dsl.Required("project_uid", "template_uid", "template_version", "lifecycle", "sections", "items", "progress", "is_activating")
-	dsl.View("default", func() {
-		dsl.Attribute("project_uid")
-		dsl.Attribute("template_uid")
-		dsl.Attribute("template_version")
-		dsl.Attribute("lifecycle")
-		dsl.Attribute("sections")
-		dsl.Attribute("items")
-		dsl.Attribute("progress")
-		dsl.Attribute("is_activating")
-	})
+	// No explicit default view: Goa generates an all-attribute one, and
+	// hand-listing the attributes only creates a place to forget a new one,
+	// which would silently drop it from the wire.
 })
 
 // FormationActivityEntry is one immutable record in the checklist's feed.
@@ -272,8 +265,4 @@ var FormationActivityPage = dsl.ResultType("application/vnd.formation.activity+j
 	dsl.Attribute("entries", dsl.ArrayOf(FormationActivityEntry))
 	dsl.Attribute("next_cursor", dsl.String, "Pass as cursor to fetch the next page. Empty on the last page.")
 	dsl.Required("entries")
-	dsl.View("default", func() {
-		dsl.Attribute("entries")
-		dsl.Attribute("next_cursor")
-	})
 })
