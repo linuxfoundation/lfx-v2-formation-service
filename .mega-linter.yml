@@ -28,9 +28,6 @@ DISABLE_ERRORS_LINTERS:
   - REPOSITORY_CHECKOV
   - REPOSITORY_DEVSKIM
 YAML_YAMLLINT_CONFIG_FILE: .yamllint
-# README.md's local dev example (postgres:postgres@localhost) is a
-# well-known placeholder credential, not a real secret.
-REPOSITORY_SECRETLINT_FILTER_REGEX_EXCLUDE: "README\\.md"
 REPOSITORY_KICS_ARGUMENTS: >-
   scan --no-progress --exclude-severities="medium,low,info,trace" --exclude-paths="gen/*"
 SPELL_CSPELL_ANALYZE_FILE_NAMES: false

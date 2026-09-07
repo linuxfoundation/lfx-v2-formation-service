@@ -23,7 +23,7 @@ Start one locally:
 
 ```bash
 docker run -d --name formation-postgres \
-  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_HOST_AUTH_METHOD=trust \
   -e POSTGRES_DB=formation \
   -p 5432:5432 \
   postgres:16-alpine
@@ -59,9 +59,10 @@ PGDATABASE=formation PGSSLMODE=disable make run
 `internal/infrastructure/postgres` gates its Postgres-backed tests on `FORMATION_TEST_DATABASE_URL`
 (a plain `go test ./...` skips them). Point it at a dedicated database whose name ends in
 `_test` — the tests refuse to run against anything else, and they truncate every table this
-service owns before each run:
+service owns before each run. The container above uses trust auth (no password), so this
+command doesn't need one either:
 
 ```bash
-FORMATION_TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/formation_test?sslmode=disable" \
+FORMATION_TEST_DATABASE_URL="postgres://postgres@localhost:5432/formation_test?sslmode=disable" \
   make test-integration
 ```
