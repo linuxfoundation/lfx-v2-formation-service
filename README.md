@@ -37,15 +37,15 @@ the provisioned secret in every environment (`/cloudops/rds-managed/lfx-v2/forma
 deliberately no single-URL form — the DSN is composed in process so the password is never part
 of a value that could be logged whole.
 
-| Variable | Default | Note |
-|---|---|---|
-| `PGHOST` | `localhost` | |
-| `PGPORT` | `5432` | |
-| `PGUSER` | *(none)* | required |
-| `PGPASSWORD` | *(none)* | required |
-| `PGDATABASE` | `formation` | |
-| `PGSSLMODE` | *(unset)* | pgx defaults to `prefer`; set `disable` for a local container without TLS |
-| `RECONCILE_INTERVAL` | `15m` | period of the reconcile loop; any `time.ParseDuration` value |
+| Variable             | Default     | Note                                                                      |
+|----------------------|-------------|---------------------------------------------------------------------------|
+| `PGHOST`             | `localhost` |                                                                           |
+| `PGPORT`             | `5432`      |                                                                           |
+| `PGUSER`             | *(none)*    | required                                                                  |
+| `PGPASSWORD`         | *(none)*    | required                                                                  |
+| `PGDATABASE`         | `formation` |                                                                           |
+| `PGSSLMODE`          | *(unset)*   | pgx defaults to `prefer`; set `disable` for a local container without TLS |
+| `RECONCILE_INTERVAL` | `15m`       | period of the reconcile loop; any `time.ParseDuration` value              |
 
 Against the container above:
 
