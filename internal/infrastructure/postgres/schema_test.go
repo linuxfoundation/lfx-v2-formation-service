@@ -34,8 +34,8 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("parse dsn: %v", err)
 	}
-	if !strings.Contains(cfg.ConnConfig.Database, "test") {
-		t.Fatalf("refusing schema tests against database %q — FORMATION_TEST_DATABASE_URL must name a dedicated test database containing \"test\"", cfg.ConnConfig.Database)
+	if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+		t.Fatalf("refusing schema tests against database %q — FORMATION_TEST_DATABASE_URL must name a dedicated test database with a \"_test\" suffix", cfg.ConnConfig.Database)
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

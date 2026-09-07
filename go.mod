@@ -29,6 +29,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	goa.design/clue v1.2.1
 	goa.design/goa/v3 v3.25.3
+	gopkg.in/go-jose/go-jose.v2 v2.6.3
 )
 
 require (
@@ -71,6 +72,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
