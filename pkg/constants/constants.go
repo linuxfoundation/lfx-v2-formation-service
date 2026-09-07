@@ -59,10 +59,12 @@ const (
 	DefaultDBHost = "localhost"
 	DefaultDBPort = "5432"
 	DefaultDBName = "formation"
-	// DefaultDBSSLMode is empty, matching the newsletter precedent: pgx's own
-	// default (prefer) upgrades opportunistically without a hardcoded
-	// requirement, and a local dev container without TLS needs no override.
-	DefaultDBSSLMode = ""
+	// DefaultDBSSLMode is "require" so a deployed pod always mandates TLS:
+	// the chart never sets PGSSLMODE for any deploy mode, and pgx's own
+	// default (prefer) would otherwise fall back to an unencrypted
+	// connection on any TLS handshake failure instead of refusing it. Local
+	// dev overrides this explicitly with PGSSLMODE=disable.
+	DefaultDBSSLMode = "require"
 
 	// DefaultReconcileInterval is the period of the reconcile ticker. The
 	// loop is the primary correctness path, so this bounds how long a
