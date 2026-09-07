@@ -69,8 +69,15 @@ CREATE TABLE IF NOT EXISTS formation_items (
     title           TEXT        NOT NULL,
     owner_team      TEXT,                                    -- formation | brand_counsel | it | ...
     gate            BOOLEAN     NOT NULL DEFAULT false,      -- "required for Active"
-    requires_writer BOOLEAN     NOT NULL DEFAULT true,
+    -- Defaults true, so expansion must always send an explicit value: Bun
+    -- sends a zero-valued notnull column rather than omitting it, which would
+    -- silently persist false against a true default. The template side models
+    -- it as *bool for that reason -- see TemplateItem.RequiresWriterOrDefault.
+    requires_writer BOOLEAN     NOT NULL DEFAULT true,       -- acting on it needs Manage; drives the elevation prompt
     status_source   TEXT        NOT NULL DEFAULT 'manual',   -- manual | platform
+    -- Defaults false, unlike requires_writer: a template marks the rows it
+    -- genuinely requires rather than excusing the rest. Agreeing with Go's
+    -- zero value also keeps an explicit false representable without a pointer.
     is_required     BOOLEAN     NOT NULL DEFAULT false,      -- must be filled in; display metadata, not a gate
     checklist_type  TEXT        NOT NULL DEFAULT 'both',     -- internal | external | both; display metadata only
     platform_check  JSONB,                                   -- {resource_type, min_count}

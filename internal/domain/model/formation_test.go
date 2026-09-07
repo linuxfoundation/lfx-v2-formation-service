@@ -23,8 +23,28 @@ func TestApplyInsertDefaults(t *testing.T) {
 		if item.ChecklistType != ChecklistBoth {
 			t.Errorf("checklist_type = %q, want %q", item.ChecklistType, ChecklistBoth)
 		}
+		// Same reason as ChecklistType: "" is outside the manual|platform
+		// enum the response declares.
+		if item.StatusSource != SourceManual {
+			t.Errorf("status_source = %q, want %q", item.StatusSource, SourceManual)
+		}
 		if item.IsRequired {
 			t.Error("is_required = true, want false: items are required only when a template says so")
+		}
+	})
+
+	t.Run("sub_items becomes an empty slice, not nil", func(t *testing.T) {
+		item := &Item{}
+
+		item.ApplyInsertDefaults()
+
+		// The column is NOT NULL DEFAULT '[]'; a nil slice would marshal to
+		// JSON null instead.
+		if item.SubItems == nil {
+			t.Error("sub_items = nil, want an empty slice")
+		}
+		if len(item.SubItems) != 0 {
+			t.Errorf("sub_items has %d entries, want 0", len(item.SubItems))
 		}
 	})
 
@@ -33,6 +53,7 @@ func TestApplyInsertDefaults(t *testing.T) {
 			Revision:      7,
 			Status:        StatusDone,
 			ChecklistType: ChecklistInternal,
+			StatusSource:  SourcePlatform,
 			IsRequired:    true,
 		}
 
@@ -47,8 +68,64 @@ func TestApplyInsertDefaults(t *testing.T) {
 		if item.ChecklistType != ChecklistInternal {
 			t.Errorf("checklist_type = %q, want %q", item.ChecklistType, ChecklistInternal)
 		}
+		if item.StatusSource != SourcePlatform {
+			t.Errorf("status_source = %q, want %q", item.StatusSource, SourcePlatform)
+		}
 		if !item.IsRequired {
 			t.Error("is_required = false, want true")
 		}
 	})
+}
+
+func TestTemplateApplyUpsertDefaults(t *testing.T) {
+	t.Run("an unset state becomes draft", func(t *testing.T) {
+		tpl := &Template{Name: "standard", Version: 1}
+
+		tpl.ApplyUpsertDefaults()
+
+		// "" is outside the draft|published|archived vocabulary, and a
+		// notnull column with no default tag would persist it.
+		if tpl.State != TemplateDraft {
+			t.Errorf("state = %q, want %q", tpl.State, TemplateDraft)
+		}
+		if tpl.Sections == nil {
+			t.Error("sections = nil, want an empty slice")
+		}
+	})
+
+	t.Run("an explicit state is preserved", func(t *testing.T) {
+		tpl := &Template{State: TemplatePublished}
+
+		tpl.ApplyUpsertDefaults()
+
+		if tpl.State != TemplatePublished {
+			t.Errorf("state = %q, want %q", tpl.State, TemplatePublished)
+		}
+	})
+}
+
+func TestRequiresWriterOrDefault(t *testing.T) {
+	yes, no := true, false
+
+	cases := []struct {
+		name     string
+		authored *bool
+		want     bool
+	}{
+		// Omitted must not read as false: the value drives the access
+		// elevation prompt, so false silently suppresses it.
+		{"omitted defaults to true", nil, true},
+		{"an authored false is preserved", &no, false},
+		{"an authored true is preserved", &yes, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ti := &TemplateItem{RequiresWriter: tc.authored}
+
+			if got := ti.RequiresWriterOrDefault(); got != tc.want {
+				t.Errorf("RequiresWriterOrDefault() = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

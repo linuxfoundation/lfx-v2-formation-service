@@ -65,6 +65,8 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	t.ApplyUpsertDefaults()
+
 	for uid, existing := range r.templates {
 		if existing.Name == t.Name && existing.Version == t.Version {
 			clone := *t

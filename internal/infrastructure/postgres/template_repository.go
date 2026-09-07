@@ -61,6 +61,8 @@ func (r *TemplateRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Template,
 // version), so re-running the seed job is a no-op once a version exists
 // unchanged and an update once its content changes.
 func (r *TemplateRepo) Upsert(ctx context.Context, t *model.Template) (*model.Template, error) {
+	t.ApplyUpsertDefaults()
+
 	_, err := r.db.NewInsert().
 		Model(t).
 		On("CONFLICT (name, version) DO UPDATE").

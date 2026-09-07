@@ -71,10 +71,13 @@ type Item struct {
 	// IsRequired says whether this item must be filled in at all. It is
 	// metadata for the checklist screen, distinct from Gate: Gate is
 	// specifically "blocks Active", IsRequired is not tied to any
-	// particular lifecycle transition. Defaults to false, so a template
-	// marks the items it genuinely requires rather than excusing the rest —
-	// which also means the zero value is the default and an explicit false
-	// stays false, instead of being indistinguishable from "unset".
+	// particular lifecycle transition.
+	//
+	// Defaults to false, unlike RequiresWriter: a template marks the rows it
+	// genuinely requires rather than excusing the rest. Agreeing with Go's
+	// zero value is also what keeps an explicit false representable here
+	// without a pointer, since Bun sends a zero-valued notnull field rather
+	// than letting the column default apply.
 	IsRequired bool `bun:"is_required,notnull"`
 	// ChecklistType says which audience the item is for (internal
 	// formation-team work, external project-team work, or both). Display
@@ -119,6 +122,16 @@ func (i *Item) ApplyInsertDefaults() {
 	}
 	if i.ChecklistType == "" {
 		i.ChecklistType = ChecklistBoth
+	}
+	if i.StatusSource == "" {
+		i.StatusSource = SourceManual
+	}
+	// An empty slice, not nil: the column is NOT NULL DEFAULT '[]', and a nil
+	// slice marshals to JSON null rather than []. Done here rather than with a
+	// nullzero tag, which would also make an update that clears every sub-item
+	// send SQL NULL and violate the constraint.
+	if i.SubItems == nil {
+		i.SubItems = []SubItem{}
 	}
 }
 
@@ -167,6 +180,19 @@ type Template struct {
 	PublishedAt *time.Time `bun:"published_at"`
 }
 
+// ApplyUpsertDefaults fills what a seeded template may leave unset. Same
+// reason ApplyInsertDefaults exists: the state column defaults to 'draft',
+// but a notnull field with no default tag sends its zero value, so an unset
+// state would persist "" — outside the draft|published|archived vocabulary.
+func (t *Template) ApplyUpsertDefaults() {
+	if t.State == "" {
+		t.State = TemplateDraft
+	}
+	if t.Sections == nil {
+		t.Sections = []TemplateSection{}
+	}
+}
+
 // TemplateSection groups template items under one heading. The shape is
 // nested rather than flat because the checklist screen renders section
 // headers with their own metadata lines.
@@ -178,11 +204,15 @@ type TemplateSection struct {
 
 // TemplateItem is the definition an Item is expanded from.
 type TemplateItem struct {
-	Key            string         `json:"key"`
-	Title          string         `json:"title"`
-	OwnerTeam      string         `json:"owner_team,omitempty"`
-	Gate           bool           `json:"gate"`
-	RequiresWriter bool           `json:"requires_writer"`
+	Key       string `json:"key"`
+	Title     string `json:"title"`
+	OwnerTeam string `json:"owner_team,omitempty"`
+	Gate      bool   `json:"gate"`
+	// RequiresWriter is a pointer because its default is true: a plain bool
+	// cannot tell an authored "false" from an omitted field, and the two mean
+	// opposite things here. Resolve it with RequiresWriterOrDefault rather
+	// than reading it directly.
+	RequiresWriter *bool          `json:"requires_writer,omitempty"`
 	StatusSource   StatusSource   `json:"status_source"`
 	IsRequired     bool           `json:"is_required"`
 	ChecklistType  ChecklistType  `json:"checklist_type,omitempty"`
@@ -194,6 +224,19 @@ type TemplateItem struct {
 	// announcement date.
 	DueRule  string            `json:"due_rule,omitempty"`
 	SubItems []TemplateSubItem `json:"sub_items,omitempty"`
+}
+
+// RequiresWriterOrDefault resolves the authored value, defaulting to true when
+// the template omits it: nearly every item is either set by hand or creates
+// something on the platform, so acting on it needs Manage. Getting this wrong
+// in the permissive direction is the costlier mistake — the value drives the
+// prompt that elevates a viewer's access before an item is assigned to them,
+// so a false here means that prompt silently never appears.
+func (ti *TemplateItem) RequiresWriterOrDefault() bool {
+	if ti.RequiresWriter == nil {
+		return true
+	}
+	return *ti.RequiresWriter
 }
 
 // TemplateSubItem is the definition a SubItem is expanded from.
