@@ -57,8 +57,8 @@ PGDATABASE=formation PGSSLMODE=disable make run
 ### Integration tests
 
 `internal/infrastructure/postgres` gates its Postgres-backed tests on `FORMATION_TEST_DATABASE_URL`
-(a plain `go test ./...` skips them). Point it at a dedicated database whose name contains
-`test` — the tests refuse to run against anything else, and they truncate every table this
+(a plain `go test ./...` skips them). Point it at a dedicated database whose name ends in
+`_test` — the tests refuse to run against anything else, and they truncate every table this
 service owns before each run:
 
 ```bash
