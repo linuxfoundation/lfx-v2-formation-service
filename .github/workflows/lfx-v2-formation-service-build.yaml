@@ -70,7 +70,7 @@ jobs:
         run: |
           REPOSITORY_SOURCE=mock AUTH_SOURCE=mock PORT=18099 ./bin/lfx-v2-formation-service &
           pid=$!
-          for i in $(seq 1 20); do
+          for _ in $(seq 1 20); do
             if curl -fsS --max-time 1 http://127.0.0.1:18099/livez >/dev/null 2>&1; then
               echo "service answered /livez"
               kill "$pid"
