@@ -63,27 +63,27 @@ spec:
           - name: PGHOST
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.database.external.secretName }}
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "host" .Values.database.external.keys.host }}
           - name: PGPORT
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.database.external.secretName }}
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "port" .Values.database.external.keys.port }}
           - name: PGUSER
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.database.external.secretName }}
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "username" .Values.database.external.keys.username }}
           - name: PGPASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.database.external.secretName }}
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "password" .Values.database.external.keys.password }}
           - name: PGDATABASE
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.database.external.secretName }}
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "dbname" .Values.database.external.keys.dbname }}
           {{- end }}
           {{- with .Values.app.extraEnv }}

@@ -149,11 +149,21 @@ func AuthServiceImpl(ctx context.Context, cfg *config.Config) port.Authenticator
 		return mock.NewAuthService()
 	case "jwt":
 		slog.InfoContext(ctx, "initializing JWT authentication service")
+		mockLocalPrincipal := os.Getenv("JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL")
+		if mockLocalPrincipal != "" && os.Getenv(constants.EnvJWTMockBypassConfirm) != "true" {
+			// A single stray env var (chart app.extraEnv, a copy-pasted
+			// ArgoCD override) must not be able to authenticate every
+			// request as a fixed principal. Require a second,
+			// independent confirmation before honoring it under the
+			// real "jwt" auth source.
+			log.Fatalf("%s is set but %s is not \"true\": refusing to bypass JWT validation under AUTH_SOURCE=jwt",
+				"JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL", constants.EnvJWTMockBypassConfirm)
+		}
 		jwtConfig := auth.JWTAuthConfig{
 			JWKSURL:            cfg.JWKSUrl,
 			Audience:           cfg.Audience,
 			Issuer:             cfg.Issuer,
-			MockLocalPrincipal: os.Getenv("JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL"),
+			MockLocalPrincipal: mockLocalPrincipal,
 			MockLocalEmail:     os.Getenv("JWT_AUTH_DISABLED_MOCK_LOCAL_EMAIL"),
 		}
 		if jwtConfig.JWKSURL == "" || jwtConfig.Audience == "" {
@@ -193,7 +203,15 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 		db = postgresImpl(ctx, cfg)
 	}
 
-	svc := usecaseSvc.NewService(db, authService, formations, items, activity, templates, projects)
+	svc := usecaseSvc.NewService(
+		usecaseSvc.WithDB(db),
+		usecaseSvc.WithAuth(authService),
+		usecaseSvc.WithFormations(formations),
+		usecaseSvc.WithItems(items),
+		usecaseSvc.WithActivity(activity),
+		usecaseSvc.WithTemplates(templates),
+		usecaseSvc.WithProjects(projects),
+	)
 
 	closeFn := func() error {
 		if pgDB != nil {

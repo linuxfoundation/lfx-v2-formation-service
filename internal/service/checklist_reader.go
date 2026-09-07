@@ -53,10 +53,12 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 	var announcementDate *string
 	if s.projects != nil {
 		settings, err := s.projects.GetSettings(ctx, p.ProjectUID)
-		if err != nil {
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
 			return nil, err
 		}
-		announcementDate = settings.AnnouncementDate
+		if settings != nil {
+			announcementDate = settings.AnnouncementDate
+		}
 	}
 
 	return &svc.FormationChecklist{

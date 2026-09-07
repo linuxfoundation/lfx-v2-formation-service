@@ -255,8 +255,16 @@ app:
       value: lfx-v2-formation-service
 
     # JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL is used for local development to bypass JWT validation
-    # Optional, local dev only. Set to a principal name to enable mock authentication
+    # Optional, local dev only. Set to a principal name to enable mock authentication.
+    # Requires JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL_CONFIRM=true to also be set, or the
+    # service refuses to start — a single stray value here must not be able to silently
+    # authenticate every request as a fixed principal.
     JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL:
+      value: ''
+
+    # JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL_CONFIRM must be exactly "true" for
+    # JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL to take effect. Optional, local dev only.
+    JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL_CONFIRM:
       value: ''
 
     # AUTH_SOURCE is the authentication source: 'jwt' for production, 'mock' for local dev (optional, defaults to jwt)

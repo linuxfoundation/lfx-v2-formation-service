@@ -96,9 +96,15 @@ func (j *JWTAuth) ParsePrincipal(ctx context.Context, token string, logger *slog
 		firstColon := strings.Index(errString, ":")
 		if firstColon != -1 && firstColon+1 < len(errString) {
 			errString = strings.Replace(errString, ": go-jose/go-jose/jwt", "", 1)
-			secondColon := strings.Index(errString[firstColon+1:], ":")
-			if secondColon != -1 {
-				errString = errString[:firstColon+secondColon+1]
+			// Recompute firstColon against the post-Replace string: the
+			// Replace can shorten errString, and indexing it with the
+			// pre-Replace offset can run past the end.
+			firstColon = strings.Index(errString, ":")
+			if firstColon != -1 && firstColon+1 < len(errString) {
+				secondColon := strings.Index(errString[firstColon+1:], ":")
+				if secondColon != -1 {
+					errString = errString[:firstColon+secondColon+1]
+				}
 			}
 		}
 		return "", "", errors.New(errString)

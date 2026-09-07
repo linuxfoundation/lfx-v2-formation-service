@@ -35,6 +35,14 @@ const (
 	EnvDBSSLMode = "PGSSLMODE"
 
 	EnvReconcileInterval = "RECONCILE_INTERVAL"
+
+	// EnvJWTMockBypassConfirm must be set to "true" alongside
+	// JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL for the latter to take effect
+	// under AUTH_SOURCE=jwt. Requiring two independent env vars means a
+	// single stray value (a leftover app.extraEnv entry, a copy-pasted
+	// ArgoCD values override) cannot silently authenticate every request
+	// as a fixed principal; both must be set deliberately.
+	EnvJWTMockBypassConfirm = "JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL_CONFIRM"
 )
 
 // Default values

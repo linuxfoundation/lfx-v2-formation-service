@@ -60,28 +60,59 @@ var (
 	_ svc.Auther  = (*Service)(nil)
 )
 
-// NewService constructs a Service. db and projects may be nil: db=nil makes
+// serviceOption sets one field on a Service under construction.
+type serviceOption func(*Service)
+
+// WithDB wires the readiness probe's database handle. Omitting it makes
 // readiness report OK unconditionally (the health-only scaffold and tests
-// that don't stand up a database); projects=nil degrades announcement-date
-// lookups rather than erroring, until the NATS adapter is wired.
-func NewService(
-	db dbPinger,
-	auth port.Authenticator,
-	formations port.FormationRepository,
-	items port.ItemRepository,
-	activity port.ActivityRepository,
-	templates port.TemplateRepository,
-	projects port.ProjectReader,
-) *Service {
-	return &Service{
-		db:         db,
-		auth:       auth,
-		formations: formations,
-		items:      items,
-		activity:   activity,
-		templates:  templates,
-		projects:   projects,
+// that don't stand up a database).
+func WithDB(db dbPinger) serviceOption {
+	return func(s *Service) { s.db = db }
+}
+
+// WithAuth wires the JWT authenticator. Omitting it fails every secured
+// request closed rather than admitting it.
+func WithAuth(auth port.Authenticator) serviceOption {
+	return func(s *Service) { s.auth = auth }
+}
+
+// WithFormations wires the formation repository.
+func WithFormations(formations port.FormationRepository) serviceOption {
+	return func(s *Service) { s.formations = formations }
+}
+
+// WithItems wires the item repository.
+func WithItems(items port.ItemRepository) serviceOption {
+	return func(s *Service) { s.items = items }
+}
+
+// WithActivity wires the activity repository.
+func WithActivity(activity port.ActivityRepository) serviceOption {
+	return func(s *Service) { s.activity = activity }
+}
+
+// WithTemplates wires the template repository.
+func WithTemplates(templates port.TemplateRepository) serviceOption {
+	return func(s *Service) { s.templates = templates }
+}
+
+// WithProjects wires the project reader. Omitting it degrades
+// announcement-date lookups to nil rather than erroring, which is the
+// FR-019-correct answer until the NATS adapter is wired.
+func WithProjects(projects port.ProjectReader) serviceOption {
+	return func(s *Service) { s.projects = projects }
+}
+
+// NewService constructs a Service from the given options. Any dependency
+// left unset stays nil, and each field's own nil-handling (documented on the
+// Service struct) decides what that means, so adding a new dependency later
+// is not a call-site-wide signature change.
+func NewService(opts ...serviceOption) *Service {
+	s := &Service{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 // JWTAuth implements the authorization logic for service

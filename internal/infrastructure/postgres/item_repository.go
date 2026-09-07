@@ -133,6 +133,16 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 		return nil, fmt.Errorf("rows affected: %w", err)
 	}
 	if affected == 0 {
+		// affected==0 means either uid doesn't exist or revision was
+		// stale. Disambiguate: a client told 412 "re-read and retry"
+		// for an unknown uid would 404 on the re-read and retry forever.
+		exists, err := r.db.NewSelect().Model((*model.Item)(nil)).Where("uid = ?", uid).Exists(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("probe item existence: %w", err)
+		}
+		if !exists {
+			return nil, domain.ErrNotFound
+		}
 		return nil, domain.ErrVersionMismatch
 	}
 	return item, nil

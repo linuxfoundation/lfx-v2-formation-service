@@ -27,17 +27,17 @@ func TestServiceReady(t *testing.T) {
 	}{
 		{
 			name:    "ready with no database wired",
-			service: NewService(nil, nil, nil, nil, nil, nil, nil),
+			service: NewService(),
 			want:    true,
 		},
 		{
 			name:    "ready when the database pings successfully",
-			service: NewService(fakePinger{}, nil, nil, nil, nil, nil, nil),
+			service: NewService(WithDB(fakePinger{})),
 			want:    true,
 		},
 		{
 			name:    "not ready when the database ping fails",
-			service: NewService(fakePinger{err: errors.New("connection refused")}, nil, nil, nil, nil, nil, nil),
+			service: NewService(WithDB(fakePinger{err: errors.New("connection refused")})),
 			want:    false,
 		},
 	}
@@ -50,7 +50,7 @@ func TestServiceReady(t *testing.T) {
 }
 
 func TestLivez(t *testing.T) {
-	s := NewService(nil, nil, nil, nil, nil, nil, nil)
+	s := NewService()
 
 	result, err := s.Livez(context.Background())
 
@@ -67,13 +67,13 @@ func TestReadyz(t *testing.T) {
 	}{
 		{
 			name:         "ready returns OK",
-			service:      NewService(nil, nil, nil, nil, nil, nil, nil),
+			service:      NewService(),
 			expectError:  false,
 			expectedBody: "OK\n",
 		},
 		{
 			name:        "database unavailable returns ServiceUnavailable",
-			service:     NewService(fakePinger{err: errors.New("connection refused")}, nil, nil, nil, nil, nil, nil),
+			service:     NewService(WithDB(fakePinger{err: errors.New("connection refused")})),
 			expectError: true,
 		},
 	}

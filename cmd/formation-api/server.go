@@ -8,7 +8,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	diservice "github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api/service"
 	svcsvr "github.com/linuxfoundation/lfx-v2-formation-service/gen/http/lfx_v2_formation_service/server"
@@ -97,25 +96,18 @@ func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() 
 		slog.InfoContext(ctx, "shutdown initiated")
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Drain in-flight requests before releasing the Postgres pool: closing
+	// it concurrently with Shutdown risks a mid-flight request seeing a
+	// closed pool instead of completing.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultShutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.ErrorContext(ctx, "HTTP server shutdown error", log.ErrKey, err)
+	}
 
-	go func() {
-		defer wg.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultShutdownTimeout)
-		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			slog.ErrorContext(ctx, "HTTP server shutdown error", log.ErrKey, err)
-		}
-	}()
+	if err := closeFn(); err != nil {
+		slog.ErrorContext(ctx, "service close error", log.ErrKey, err)
+	}
 
-	go func() {
-		defer wg.Done()
-		if err := closeFn(); err != nil {
-			slog.ErrorContext(ctx, "service close error", log.ErrKey, err)
-		}
-	}()
-
-	wg.Wait()
 	return nil
 }
