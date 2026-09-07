@@ -190,10 +190,11 @@ paths:
                     type: integer
                     description: Page size. Defaults to 20, capped at 100.
                     default: 20
-                    example: -6352835825337220167
+                    example: 69
                     format: int64
+                    minimum: 1
                     maximum: 100
-                  example: -3685275623044273186
+                  example: 82
                 - name: project_uid
                   in: path
                   description: The project's UID.

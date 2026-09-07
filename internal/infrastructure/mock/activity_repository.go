@@ -5,6 +5,7 @@ package mock
 
 import (
 	"context"
+	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -45,18 +46,25 @@ func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cur
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// ULID descending, paged with ulid < cursor, mirroring the Postgres
+	// repository. Reversing insertion order instead only agrees with it while
+	// entries happen to be appended in ULID order.
 	matching := make([]*model.ActivityEntry, 0)
-	for i := len(r.entries) - 1; i >= 0; i-- {
-		if r.entries[i].FormationUID == formationUID {
-			matching = append(matching, r.entries[i])
+	for _, e := range r.entries {
+		if e.FormationUID == formationUID {
+			matching = append(matching, e)
 		}
 	}
+	sort.Slice(matching, func(i, j int) bool {
+		return matching[i].ULID > matching[j].ULID
+	})
 
 	start := 0
 	if cursor != "" {
+		start = len(matching)
 		for i, e := range matching {
-			if e.ULID == cursor {
-				start = i + 1
+			if e.ULID < cursor {
+				start = i
 				break
 			}
 		}

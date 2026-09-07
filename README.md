@@ -29,6 +29,13 @@ docker run -d --name formation-postgres \
   postgres:16-alpine
 ```
 
+The integration tests below need a second, separate database whose name ends in `_test`, which
+the image does not create on its own:
+
+```bash
+docker exec formation-postgres createdb -U postgres formation_test
+```
+
 ### Configuration
 
 Credentials arrive as five discrete environment values, following the same `PGHOST`/`PGPORT`/

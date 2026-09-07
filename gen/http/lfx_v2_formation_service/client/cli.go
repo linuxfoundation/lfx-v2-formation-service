@@ -81,6 +81,9 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 			if err != nil {
 				return nil, fmt.Errorf("invalid value for limit, must be INT")
 			}
+			if limit < 1 {
+				err = goa.MergeErrors(err, goa.InvalidRangeError("limit", limit, 1, true))
+			}
 			if limit > 100 {
 				err = goa.MergeErrors(err, goa.InvalidRangeError("limit", limit, 100, false))
 			}

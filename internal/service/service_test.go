@@ -11,7 +11,9 @@ import (
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
+	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // fakeAuthenticator is a port.Authenticator double that returns whatever
@@ -81,7 +83,11 @@ func TestJWTAuth(t *testing.T) {
 		ctx, err := s.JWTAuth(context.Background(), "token", nil)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, ctx)
+		require.NotNil(t, ctx)
+		// Asserting the claim values, not just a non-nil context: returning
+		// the input context untouched would satisfy the latter.
+		assert.Equal(t, "user-1", ctx.Value(constants.PrincipalContextID))
+		assert.Equal(t, "user@example.com", ctx.Value(constants.EmailContextID))
 	})
 
 	t.Run("bad token maps to the declared UnauthorizedError", func(t *testing.T) {
