@@ -37,6 +37,7 @@ func NewClient(getFormation, getFormationActivity, livez, readyz goa.Endpoint) *
 // "lfx_v2_formation_service" service.
 // GetFormation may return the following errors:
 //   - "NotFound" (type *NotFoundError): No formation exists for this project
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
 func (c *Client) GetFormation(ctx context.Context, p *GetFormationPayload) (res *FormationChecklist, err error) {
 	var ires any
@@ -51,6 +52,7 @@ func (c *Client) GetFormation(ctx context.Context, p *GetFormationPayload) (res 
 // "lfx_v2_formation_service" service.
 // GetFormationActivity may return the following errors:
 //   - "NotFound" (type *NotFoundError): No formation exists for this project
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
 func (c *Client) GetFormationActivity(ctx context.Context, p *GetFormationActivityPayload) (res *FormationActivityPage, err error) {
 	var ires any

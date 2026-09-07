@@ -86,7 +86,8 @@ type FormationChecklist struct {
 	Sections        []*FormationSection
 	Items           []*FormationItem
 	Progress        *FormationProgress
-	// Every gating item done, and at least one gating item exists.
+	// Every gating item done, at least one gating item exists, and the project has
+	// an announcement date.
 	IsActivating bool
 }
 
@@ -195,6 +196,13 @@ type ServiceUnavailableError struct {
 	Message string
 }
 
+type UnauthorizedError struct {
+	// HTTP status code
+	Code string
+	// Error message
+	Message string
+}
+
 // Error returns an error description.
 func (e *NotFoundError) Error() string {
 	return ""
@@ -227,6 +235,23 @@ func (e *ServiceUnavailableError) ErrorName() string {
 // GoaErrorName returns "ServiceUnavailableError".
 func (e *ServiceUnavailableError) GoaErrorName() string {
 	return "ServiceUnavailable"
+}
+
+// Error returns an error description.
+func (e *UnauthorizedError) Error() string {
+	return ""
+}
+
+// ErrorName returns "UnauthorizedError".
+//
+// Deprecated: Use GoaErrorName - https://github.com/goadesign/goa/issues/3105
+func (e *UnauthorizedError) ErrorName() string {
+	return e.GoaErrorName()
+}
+
+// GoaErrorName returns "UnauthorizedError".
+func (e *UnauthorizedError) GoaErrorName() string {
+	return "Unauthorized"
 }
 
 // NewFormationChecklist initializes result type FormationChecklist from viewed

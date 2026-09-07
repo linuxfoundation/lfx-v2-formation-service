@@ -73,6 +73,7 @@ func EncodeGetFormationRequest(encoder func(*http.Request) goahttp.Encoder) func
 // whether the response body should be restored after having been read.
 // DecodeGetFormationResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.NotFoundError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeGetFormationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
 	return func(resp *http.Response) (any, error) {
@@ -120,6 +121,20 @@ func DecodeGetFormationResponse(decoder func(*http.Response) goahttp.Decoder, re
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_formation", err)
 			}
 			return nil, NewGetFormationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body GetFormationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "get_formation", err)
+			}
+			err = ValidateGetFormationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_formation", err)
+			}
+			return nil, NewGetFormationUnauthorized(&body)
 		default:
 			body, _ := io.ReadAll(resp.Body)
 			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "get_formation", resp.StatusCode, string(body))
@@ -184,6 +199,7 @@ func EncodeGetFormationActivityRequest(encoder func(*http.Request) goahttp.Encod
 // controls whether the response body should be restored after having been read.
 // DecodeGetFormationActivityResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.NotFoundError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeGetFormationActivityResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
 	return func(resp *http.Response) (any, error) {
@@ -231,6 +247,20 @@ func DecodeGetFormationActivityResponse(decoder func(*http.Response) goahttp.Dec
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_formation_activity", err)
 			}
 			return nil, NewGetFormationActivityNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body GetFormationActivityUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "get_formation_activity", err)
+			}
+			err = ValidateGetFormationActivityUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_formation_activity", err)
+			}
+			return nil, NewGetFormationActivityUnauthorized(&body)
 		default:
 			body, _ := io.ReadAll(resp.Body)
 			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "get_formation_activity", resp.StatusCode, string(body))

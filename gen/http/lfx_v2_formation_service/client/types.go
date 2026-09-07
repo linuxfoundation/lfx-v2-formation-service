@@ -24,7 +24,8 @@ type GetFormationResponseBody struct {
 	Sections        []*FormationSectionResponseBody `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
 	Items           []*FormationItemResponseBody    `form:"items,omitempty" json:"items,omitempty" xml:"items,omitempty"`
 	Progress        *FormationProgressResponseBody  `form:"progress,omitempty" json:"progress,omitempty" xml:"progress,omitempty"`
-	// Every gating item done, and at least one gating item exists.
+	// Every gating item done, at least one gating item exists, and the project has
+	// an announcement date.
 	IsActivating *bool `form:"is_activating,omitempty" json:"is_activating,omitempty" xml:"is_activating,omitempty"`
 }
 
@@ -47,10 +48,30 @@ type GetFormationNotFoundResponseBody struct {
 	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
 }
 
+// GetFormationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
+// body for the "Unauthorized" error.
+type GetFormationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
 // GetFormationActivityNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation_activity" endpoint HTTP
 // response body for the "NotFound" error.
 type GetFormationActivityNotFoundResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// GetFormationActivityUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_formation_activity" endpoint HTTP
+// response body for the "Unauthorized" error.
+type GetFormationActivityUnauthorizedResponseBody struct {
 	// HTTP status code
 	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
 	// Error message
@@ -202,6 +223,17 @@ func NewGetFormationNotFound(body *GetFormationNotFoundResponseBody) *lfxv2forma
 	return v
 }
 
+// NewGetFormationUnauthorized builds a lfx_v2_formation_service service
+// get_formation endpoint Unauthorized error.
+func NewGetFormationUnauthorized(body *GetFormationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
 // NewGetFormationActivityFormationActivityPageOK builds a
 // "lfx_v2_formation_service" service "get_formation_activity" endpoint result
 // from a HTTP "OK" response.
@@ -232,6 +264,17 @@ func NewGetFormationActivityNotFound(body *GetFormationActivityNotFoundResponseB
 	return v
 }
 
+// NewGetFormationActivityUnauthorized builds a lfx_v2_formation_service
+// service get_formation_activity endpoint Unauthorized error.
+func NewGetFormationActivityUnauthorized(body *GetFormationActivityUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
 // NewReadyzServiceUnavailable builds a lfx_v2_formation_service service readyz
 // endpoint ServiceUnavailable error.
 func NewReadyzServiceUnavailable(body *ReadyzServiceUnavailableResponseBody) *lfxv2formationservice.ServiceUnavailableError {
@@ -255,9 +298,33 @@ func ValidateGetFormationNotFoundResponseBody(body *GetFormationNotFoundResponse
 	return
 }
 
+// ValidateGetFormationUnauthorizedResponseBody runs the validations defined on
+// get_formation_Unauthorized_response_body
+func ValidateGetFormationUnauthorizedResponseBody(body *GetFormationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
 // ValidateGetFormationActivityNotFoundResponseBody runs the validations
 // defined on get_formation_activity_NotFound_response_body
 func ValidateGetFormationActivityNotFoundResponseBody(body *GetFormationActivityNotFoundResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateGetFormationActivityUnauthorizedResponseBody runs the validations
+// defined on get_formation_activity_Unauthorized_response_body
+func ValidateGetFormationActivityUnauthorizedResponseBody(body *GetFormationActivityUnauthorizedResponseBody) (err error) {
 	if body.Code == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
 	}

@@ -115,10 +115,21 @@ func NewService(opts ...serviceOption) *Service {
 	return s
 }
 
+// unauthorizedError is the declared 401 for every JWTAuth failure. Sharing
+// one constructor keeps the message consistent and avoids leaking
+// parse-error detail (token contents, library internals) to the caller.
+func unauthorizedError() *svc.UnauthorizedError {
+	return &svc.UnauthorizedError{Code: "401", Message: "missing, expired, or malformed bearer token"}
+}
+
 // JWTAuth implements the authorization logic for service
 // "lfx_v2_formation_service" for the "jwt" security scheme.
 func (s *Service) JWTAuth(ctx context.Context, token string, _ *security.JWTScheme) (context.Context, error) {
 	if s.auth == nil {
+		// Server misconfiguration, not a client credential problem: leave
+		// this as a plain error so it falls through Goa's default formatter
+		// as a 500, distinct from the declared 401 below for actual token
+		// failures.
 		slog.ErrorContext(ctx, "formationService.jwt-auth: no authenticator wired")
 		return ctx, errors.New("authentication is not available")
 	}
@@ -131,7 +142,12 @@ func (s *Service) JWTAuth(ctx context.Context, token string, _ *security.JWTSche
 			log.ErrKey, err,
 			"token_length", len(token),
 		)
-		return ctx, err
+		// Returned as the declared UnauthorizedError, not the raw parse
+		// error: an error that isn't one of the method's declared error
+		// types falls through Goa's default formatter as a 500, so an
+		// invalid or expired token would otherwise be reported as an
+		// internal server failure rather than 401.
+		return ctx, unauthorizedError()
 	}
 
 	ctx = context.WithValue(ctx, constants.PrincipalContextID, principal)

@@ -212,7 +212,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"In corrupti quidem excepturi enim labore est.\" --cursor \"Dolores voluptates facere voluptates minima.\" --limit 780890740791099890 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Recusandae dolorem et facere aut quam aliquam.\" --cursor \"Rerum incidunt eos.\" --limit 7598628380778241058 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceLivezUsage() {

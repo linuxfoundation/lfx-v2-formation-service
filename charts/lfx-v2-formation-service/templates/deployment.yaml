@@ -85,6 +85,37 @@ spec:
               secretKeyRef:
                 name: {{ .Values.database.external.secretName | default .Chart.Name }}
                 key: {{ default "dbname" .Values.database.external.keys.dbname }}
+          {{- else if or (eq .Values.database.mode "database") (eq .Values.database.mode "cluster+database") }}
+          # CloudNativePG-managed Postgres (templates/database.yaml). The
+          # operator materializes a kubernetes.io/basic-auth Secret named
+          # "<clusterName>-app" with host/port/user/password/dbname keys for
+          # the database's owning user — see
+          # https://cloudnative-pg.io/documentation/current/applications/.
+          - name: PGHOST
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: host
+          - name: PGPORT
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: port
+          - name: PGUSER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: user
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: password
+          - name: PGDATABASE
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: dbname
           {{- end }}
           {{- with .Values.app.extraEnv }}
           {{- toYaml . | nindent 10 }}

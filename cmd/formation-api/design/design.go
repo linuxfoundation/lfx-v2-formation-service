@@ -40,11 +40,13 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 		dsl.Result(FormationChecklist)
 		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
 
@@ -67,6 +69,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 		dsl.Result(FormationActivityPage)
 		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}/activity")
 			dsl.Header("bearer_token:Authorization")
@@ -74,6 +77,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Param("limit")
 			dsl.Response(dsl.StatusOK)
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
 
@@ -110,6 +114,17 @@ var ServiceUnavailableError = dsl.Type("ServiceUnavailableError", func() {
 // NotFoundError is the DSL type for a 404.
 var NotFoundError = dsl.Type("NotFoundError", func() {
 	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("404") })
+	dsl.Attribute("message", dsl.String, "Error message")
+	dsl.Required("code", "message")
+})
+
+// UnauthorizedError is the DSL type for a 401. Declaring this as a named
+// error (rather than letting JWTAuth's failure fall through as a bare Go
+// error) is required for Goa to encode it as 401: an error that isn't one
+// of a method's declared error types is encoded via the transport's default
+// formatter, which reports 500 regardless of the failure's actual cause.
+var UnauthorizedError = dsl.Type("UnauthorizedError", func() {
+	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("401") })
 	dsl.Attribute("message", dsl.String, "Error message")
 	dsl.Required("code", "message")
 })
@@ -201,7 +216,7 @@ var FormationChecklist = dsl.ResultType("application/vnd.formation.checklist+jso
 	dsl.Attribute("sections", dsl.ArrayOf(FormationSection))
 	dsl.Attribute("items", dsl.ArrayOf(FormationItem))
 	dsl.Attribute("progress", FormationProgress)
-	dsl.Attribute("is_activating", dsl.Boolean, "Every gating item done, and at least one gating item exists.")
+	dsl.Attribute("is_activating", dsl.Boolean, "Every gating item done, at least one gating item exists, and the project has an announcement date.")
 	dsl.Required("project_uid", "template_uid", "template_version", "lifecycle", "sections", "items", "progress", "is_activating")
 	dsl.View("default", func() {
 		dsl.Attribute("project_uid")

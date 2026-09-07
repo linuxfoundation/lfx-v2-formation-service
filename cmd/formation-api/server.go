@@ -102,7 +102,14 @@ func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.ErrorContext(ctx, "HTTP server shutdown error", log.ErrKey, err)
+		// Shutdown timed out with requests still in flight. Force-close the
+		// listener and any remaining connections now, rather than leaving
+		// them running while closeFn() below releases the DB pool out from
+		// under them — the exact race this ordering exists to prevent.
+		slog.ErrorContext(ctx, "HTTP server shutdown error; forcing close", log.ErrKey, err)
+		if closeErr := srv.Close(); closeErr != nil {
+			slog.ErrorContext(ctx, "HTTP server force-close error", log.ErrKey, closeErr)
+		}
 	}
 
 	if err := closeFn(); err != nil {

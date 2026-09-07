@@ -23,7 +23,8 @@ type GetFormationResponseBody struct {
 	Sections        []*FormationSectionResponseBody `form:"sections" json:"sections" xml:"sections"`
 	Items           []*FormationItemResponseBody    `form:"items" json:"items" xml:"items"`
 	Progress        *FormationProgressResponseBody  `form:"progress" json:"progress" xml:"progress"`
-	// Every gating item done, and at least one gating item exists.
+	// Every gating item done, at least one gating item exists, and the project has
+	// an announcement date.
 	IsActivating bool `form:"is_activating" json:"is_activating" xml:"is_activating"`
 }
 
@@ -46,10 +47,30 @@ type GetFormationNotFoundResponseBody struct {
 	Message string `form:"message" json:"message" xml:"message"`
 }
 
+// GetFormationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
+// body for the "Unauthorized" error.
+type GetFormationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Error message
+	Message string `form:"message" json:"message" xml:"message"`
+}
+
 // GetFormationActivityNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation_activity" endpoint HTTP
 // response body for the "NotFound" error.
 type GetFormationActivityNotFoundResponseBody struct {
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Error message
+	Message string `form:"message" json:"message" xml:"message"`
+}
+
+// GetFormationActivityUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_formation_activity" endpoint HTTP
+// response body for the "Unauthorized" error.
+type GetFormationActivityUnauthorizedResponseBody struct {
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
 	// Error message
@@ -232,11 +253,33 @@ func NewGetFormationNotFoundResponseBody(res *lfxv2formationservice.NotFoundErro
 	return body
 }
 
+// NewGetFormationUnauthorizedResponseBody builds the HTTP response body from
+// the result of the "get_formation" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewGetFormationUnauthorizedResponseBody(res *lfxv2formationservice.UnauthorizedError) *GetFormationUnauthorizedResponseBody {
+	body := &GetFormationUnauthorizedResponseBody{
+		Code:    res.Code,
+		Message: res.Message,
+	}
+	return body
+}
+
 // NewGetFormationActivityNotFoundResponseBody builds the HTTP response body
 // from the result of the "get_formation_activity" endpoint of the
 // "lfx_v2_formation_service" service.
 func NewGetFormationActivityNotFoundResponseBody(res *lfxv2formationservice.NotFoundError) *GetFormationActivityNotFoundResponseBody {
 	body := &GetFormationActivityNotFoundResponseBody{
+		Code:    res.Code,
+		Message: res.Message,
+	}
+	return body
+}
+
+// NewGetFormationActivityUnauthorizedResponseBody builds the HTTP response
+// body from the result of the "get_formation_activity" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewGetFormationActivityUnauthorizedResponseBody(res *lfxv2formationservice.UnauthorizedError) *GetFormationActivityUnauthorizedResponseBody {
+	body := &GetFormationActivityUnauthorizedResponseBody{
 		Code:    res.Code,
 		Message: res.Message,
 	}

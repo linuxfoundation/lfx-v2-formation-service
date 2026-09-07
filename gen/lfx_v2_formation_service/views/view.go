@@ -39,7 +39,8 @@ type FormationChecklistView struct {
 	Sections        []*FormationSectionView
 	Items           []*FormationItemView
 	Progress        *FormationProgressView
-	// Every gating item done, and at least one gating item exists.
+	// Every gating item done, at least one gating item exists, and the project has
+	// an announcement date.
 	IsActivating *bool
 }
 

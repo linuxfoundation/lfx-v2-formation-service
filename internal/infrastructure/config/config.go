@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
@@ -46,17 +47,29 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-// DSN composes a libpq keyword/value connection string. Values are emitted
-// as-is; pgx parses this form, and keyword/value avoids the URL-escaping
-// pitfalls a password with reserved characters would hit. sslmode is
-// omitted when unset, leaving pgx's own default (prefer) in effect.
+// DSN composes a libpq keyword/value connection string. Every value is
+// quoted (libpqQuote), because unquoted keyword/value pairs are whitespace-
+// delimited: a generated password containing a space, single quote or
+// backslash would otherwise be misparsed as extra parameters or corrupt the
+// string entirely. sslmode is omitted when unset, leaving pgx's own default
+// (prefer) in effect.
 func (d DatabaseConfig) DSN() string {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s",
-		d.Host, d.Port, d.Username, d.Password, d.DBName)
+		libpqQuote(d.Host), libpqQuote(d.Port), libpqQuote(d.Username), libpqQuote(d.Password), libpqQuote(d.DBName))
 	if d.SSLMode != "" {
-		dsn += " sslmode=" + d.SSLMode
+		dsn += " sslmode=" + libpqQuote(d.SSLMode)
 	}
 	return dsn
+}
+
+// libpqQuote quotes a libpq keyword/value field per the format's own escaping
+// rules: wrap in single quotes, and backslash-escape any single quote or
+// backslash already in the value. Always quoting (even values with no
+// special characters) keeps the DSN uniform rather than conditional.
+func libpqQuote(v string) string {
+	v = strings.ReplaceAll(v, `\`, `\\`)
+	v = strings.ReplaceAll(v, `'`, `\'`)
+	return "'" + v + "'"
 }
 
 // Redacted returns the DSN with the password replaced, for logging.
