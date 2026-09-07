@@ -36,12 +36,7 @@ func (r *ItemRepo) InsertMany(ctx context.Context, items []*model.Item) error {
 		return nil
 	}
 	for _, item := range items {
-		if item.Revision == 0 {
-			item.Revision = 1
-		}
-		if item.Status == "" {
-			item.Status = model.StatusNotStarted
-		}
+		item.ApplyInsertDefaults()
 	}
 
 	_, err := r.db.NewInsert().

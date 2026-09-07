@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS formation_items (
     gate            BOOLEAN     NOT NULL DEFAULT false,      -- "required for Active"
     requires_writer BOOLEAN     NOT NULL DEFAULT true,
     status_source   TEXT        NOT NULL DEFAULT 'manual',   -- manual | platform
-    is_required     BOOLEAN     NOT NULL DEFAULT true,       -- must be filled in; display metadata, not a gate
+    is_required     BOOLEAN     NOT NULL DEFAULT false,      -- must be filled in; display metadata, not a gate
     checklist_type  TEXT        NOT NULL DEFAULT 'both',     -- internal | external | both; display metadata only
     platform_check  JSONB,                                   -- {resource_type, min_count}
     action_link     TEXT,                                    -- {{project.uid}} substituted once

@@ -49,10 +49,7 @@ func (r *ItemRepository) InsertMany(_ context.Context, items []*model.Item) erro
 		if clone.UID == uuid.Nil {
 			clone.UID = uuid.New()
 		}
-		if clone.Status == "" {
-			clone.Status = model.StatusNotStarted
-		}
-		clone.Revision = 1
+		clone.ApplyInsertDefaults()
 		r.items[clone.UID] = &clone
 	}
 	return nil

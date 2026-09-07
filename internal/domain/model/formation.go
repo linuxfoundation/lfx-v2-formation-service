@@ -71,12 +71,19 @@ type Item struct {
 	// IsRequired says whether this item must be filled in at all. It is
 	// metadata for the checklist screen, distinct from Gate: Gate is
 	// specifically "blocks Active", IsRequired is not tied to any
-	// particular lifecycle transition.
+	// particular lifecycle transition. Defaults to false, so a template
+	// marks the items it genuinely requires rather than excusing the rest —
+	// which also means the zero value is the default and an explicit false
+	// stays false, instead of being indistinguishable from "unset".
 	IsRequired bool `bun:"is_required,notnull"`
 	// ChecklistType says which audience the item is for (internal
 	// formation-team work, external project-team work, or both). Display
 	// metadata only; it does not filter the response.
-	ChecklistType ChecklistType `bun:"checklist_type,notnull"`
+	//
+	// default:'both' is what makes the column default reachable: with only
+	// notnull, Bun sends the empty Go value and the SQL default never
+	// applies, persisting a "" that violates the response enum.
+	ChecklistType ChecklistType `bun:"checklist_type,notnull,default:'both'"`
 
 	// Mutable by a writer.
 	Status       ItemStatus `bun:"status,notnull"`
@@ -93,6 +100,26 @@ type Item struct {
 
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:now()"`
 	UpdatedAt time.Time `bun:"updated_at,nullzero,notnull,default:now()"`
+}
+
+// ApplyInsertDefaults fills the values a newly expanded item is allowed to
+// leave unset. It lives here rather than in each repository so the Postgres
+// and mock implementations cannot drift: a double that returned an empty
+// ChecklistType would serve a value the response enum rejects, and would hide
+// that from every service-level test.
+//
+// IsRequired needs nothing — its default is false, which is already the zero
+// value.
+func (i *Item) ApplyInsertDefaults() {
+	if i.Revision == 0 {
+		i.Revision = 1
+	}
+	if i.Status == "" {
+		i.Status = StatusNotStarted
+	}
+	if i.ChecklistType == "" {
+		i.ChecklistType = ChecklistBoth
+	}
 }
 
 // SubItem is informational detail embedded in its parent item. The parent's
