@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	lfxv2formationservice "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
@@ -272,6 +273,183 @@ func DecodeGetFormationActivityResponse(decoder func(*http.Response) goahttp.Dec
 	}
 }
 
+// BuildUpdateItemRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "update_item"
+// endpoint
+func (c *Client) BuildUpdateItemRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		projectUID string
+		itemKey    string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.UpdateItemPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "update_item", "*lfxv2formationservice.UpdateItemPayload", v)
+		}
+		projectUID = p.ProjectUID
+		itemKey = p.ItemKey
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: UpdateItemLfxV2FormationServicePath(projectUID, itemKey)}
+	req, err := http.NewRequest("PATCH", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "update_item", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeUpdateItemRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service update_item server.
+func EncodeUpdateItemRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.UpdateItemPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "update_item", "*lfxv2formationservice.UpdateItemPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewUpdateItemRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "update_item", err)
+		}
+		return nil
+	}
+}
+
+// DecodeUpdateItemResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service update_item endpoint. restoreBody controls whether
+// the response body should be restored after having been read.
+// DecodeUpdateItemResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.FormationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.FormationError): http.StatusPreconditionFailed
+//   - "Conflict" (type *lfxv2formationservice.FormationError): http.StatusConflict
+//   - "BadRequest" (type *lfxv2formationservice.FormationError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeUpdateItemResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body UpdateItemResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			res := NewUpdateItemFormationItemOK(&body)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body UpdateItemNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			return nil, NewUpdateItemNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body UpdateItemVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			return nil, NewUpdateItemVersionMismatch(&body)
+		case http.StatusConflict:
+			var (
+				body UpdateItemConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			return nil, NewUpdateItemConflict(&body)
+		case http.StatusBadRequest:
+			var (
+				body UpdateItemBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			return nil, NewUpdateItemBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body UpdateItemUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_item", err)
+			}
+			err = ValidateUpdateItemUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
+			}
+			return nil, NewUpdateItemUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "update_item", resp.StatusCode, string(body))
+		}
+	}
+}
+
 // BuildLivezRequest instantiates a HTTP request object with method and path
 // set to call the "lfx_v2_formation_service" service "livez" endpoint
 func (c *Client) BuildLivezRequest(ctx context.Context, v any) (*http.Request, error) {
@@ -524,6 +702,82 @@ func unmarshalFormationActivityEntryResponseBodyToLfxv2formationserviceviewsForm
 		Before:  v.Before,
 		After:   v.After,
 		At:      v.At,
+	}
+
+	return res
+}
+
+// marshalLfxv2formationserviceFormationSubItemUpdateToFormationSubItemUpdateRequestBody
+// builds a value of type *FormationSubItemUpdateRequestBody from a value of
+// type *lfxv2formationservice.FormationSubItemUpdate.
+func marshalLfxv2formationserviceFormationSubItemUpdateToFormationSubItemUpdateRequestBody(v *lfxv2formationservice.FormationSubItemUpdate) *FormationSubItemUpdateRequestBody {
+	if v == nil {
+		return nil
+	}
+	res := &FormationSubItemUpdateRequestBody{
+		Key:    v.Key,
+		Status: v.Status,
+	}
+
+	return res
+}
+
+// marshalFormationSubItemUpdateRequestBodyToLfxv2formationserviceFormationSubItemUpdate
+// builds a value of type *lfxv2formationservice.FormationSubItemUpdate from a
+// value of type *FormationSubItemUpdateRequestBody.
+func marshalFormationSubItemUpdateRequestBodyToLfxv2formationserviceFormationSubItemUpdate(v *FormationSubItemUpdateRequestBody) *lfxv2formationservice.FormationSubItemUpdate {
+	if v == nil {
+		return nil
+	}
+	res := &lfxv2formationservice.FormationSubItemUpdate{
+		Key:    v.Key,
+		Status: v.Status,
+	}
+
+	return res
+}
+
+// unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck
+// builds a value of type *lfxv2formationservice.FormationPlatformCheck from a
+// value of type *FormationPlatformCheckResponseBody.
+func unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(v *FormationPlatformCheckResponseBody) *lfxv2formationservice.FormationPlatformCheck {
+	if v == nil {
+		return nil
+	}
+	res := &lfxv2formationservice.FormationPlatformCheck{
+		ResourceType: v.ResourceType,
+		MinCount:     v.MinCount,
+	}
+
+	return res
+}
+
+// unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef
+// builds a value of type *lfxv2formationservice.FormationResolvedRef from a
+// value of type *FormationResolvedRefResponseBody.
+func unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(v *FormationResolvedRefResponseBody) *lfxv2formationservice.FormationResolvedRef {
+	if v == nil {
+		return nil
+	}
+	res := &lfxv2formationservice.FormationResolvedRef{
+		Type: v.Type,
+		UID:  v.UID,
+	}
+
+	return res
+}
+
+// unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem
+// builds a value of type *lfxv2formationservice.FormationSubItem from a value
+// of type *FormationSubItemResponseBody.
+func unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(v *FormationSubItemResponseBody) *lfxv2formationservice.FormationSubItem {
+	if v == nil {
+		return nil
+	}
+	res := &lfxv2formationservice.FormationSubItem{
+		Key:    *v.Key,
+		Title:  *v.Title,
+		Status: *v.Status,
 	}
 
 	return res

@@ -46,6 +46,11 @@ type ItemRepository interface {
 
 	Get(ctx context.Context, uid uuid.UUID) (*model.Item, error)
 
+	// GetByKey returns the item at item_key within a formation, or
+	// ErrNotFound. Mutation routes address an item by its stable key, not
+	// its UID, so this is the lookup they actually need.
+	GetByKey(ctx context.Context, formationUID uuid.UUID, itemKey string) (*model.Item, error)
+
 	// Update applies the mutable fields carried by patch. It returns
 	// ErrVersionMismatch when the caller's revision is stale, which the
 	// transport reports as a failed precondition rather than a conflict.

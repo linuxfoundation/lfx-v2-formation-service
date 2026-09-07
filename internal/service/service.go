@@ -47,6 +47,13 @@ type Service struct {
 	activity   port.ActivityRepository
 	templates  port.TemplateRepository
 
+	// uow runs an item mutation and its activity entry as one transaction.
+	// UpdateItem fails closed (a plain error, not a declared error type,
+	// so it falls through as a 500) when this is nil rather than writing
+	// the two non-atomically — there's no correct fallback for "commit the
+	// item change but maybe not its audit entry".
+	uow port.UnitOfWork
+
 	// projects is nil until the NATS request/reply adapter lands. A nil
 	// reader degrades the checklist read path to "no announcement date",
 	// which is the conservative answer (readiness requires one) rather
@@ -102,6 +109,12 @@ func WithTemplates(templates port.TemplateRepository) serviceOption {
 // conservative answer until the NATS adapter is wired.
 func WithProjects(projects port.ProjectReader) serviceOption {
 	return func(s *Service) { s.projects = projects }
+}
+
+// WithUnitOfWork wires the transaction that UpdateItem commits an item
+// change and its activity entry through.
+func WithUnitOfWork(uow port.UnitOfWork) serviceOption {
+	return func(s *Service) { s.uow = uow }
 }
 
 // NewService constructs a Service from the given options. Any dependency

@@ -26,6 +26,15 @@ type Service interface {
 	// nothing keeps a history of them, since each save overwrites the previous
 	// state.
 	GetFormationActivity(context.Context, *GetFormationActivityPayload) (res *FormationActivityPage, err error)
+	// Change one checklist item: status, note, due date, skip reason, evidence
+	// link, assignee, or sub-items. Send only the fields being changed. If-Match
+	// is required and must equal the item's current version — a stale value means
+	// re-read and retry. This route also carries the assignee's own completion
+	// claim (status: awaiting_acceptance), but never acceptance, rejection or
+	// reopening, which are their own routes because the formation-team guard on
+	// those is narrower than this route's writer guard and a Heimdall rule cannot
+	// express that on a shared route.
+	UpdateItem(context.Context, *UpdateItemPayload) (res *FormationItem, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -52,7 +61,7 @@ const ServiceName = "lfx_v2_formation_service"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [4]string{"get_formation", "get_formation_activity", "livez", "readyz"}
+var MethodNames = [5]string{"get_formation", "get_formation_activity", "update_item", "livez", "readyz"}
 
 type FormationActivityEntry struct {
 	// Time-ordered; doubles as the paging cursor.
@@ -91,6 +100,20 @@ type FormationChecklist struct {
 	IsActivating bool
 }
 
+type FormationError struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string
+	// HTTP status code
+	Code string
+	// Human-readable message
+	Message string
+	// Machine-readable; switch on this, not on status.
+	Reason string
+}
+
+// FormationItem is the result type of the lfx_v2_formation_service service
+// update_item method.
 type FormationItem struct {
 	UID string
 	// Stable identifier, e.g. charter_agreed. Never changes.
@@ -159,6 +182,11 @@ type FormationSubItem struct {
 	Status string
 }
 
+type FormationSubItemUpdate struct {
+	Key    string
+	Status string
+}
+
 // GetFormationActivityPayload is the payload type of the
 // lfx_v2_formation_service service get_formation_activity method.
 type GetFormationActivityPayload struct {
@@ -205,6 +233,50 @@ type UnauthorizedError struct {
 	Code string
 	// Error message
 	Message string
+}
+
+// UpdateItemPayload is the payload type of the lfx_v2_formation_service
+// service update_item method.
+type UpdateItemPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The project's UID.
+	ProjectUID string
+	// The item's stable key.
+	ItemKey string
+	// Must equal the item's current version.
+	IfMatch int64
+	// One of the six. Omit to leave unchanged.
+	Status *string
+	// Username, or an empty string to clear.
+	Assignee *string
+	// YYYY-MM-DD, or an empty string to clear.
+	DueDate *string
+	Note    *string
+	// Required when status is skipped.
+	SkipReason *string
+	// Writer-set; feeds Quick Links. http/https only.
+	EvidenceLink *string
+	SubItems     []*FormationSubItemUpdate
+}
+
+// Error returns an error description.
+func (e *FormationError) Error() string {
+	return ""
+}
+
+// ErrorName returns "FormationError".
+//
+// Deprecated: Use GoaErrorName - https://github.com/goadesign/goa/issues/3105
+func (e *FormationError) ErrorName() string {
+	return e.GoaErrorName()
+}
+
+// GoaErrorName returns "FormationError".
+func (e *FormationError) GoaErrorName() string {
+	return e.Name
 }
 
 // Error returns an error description.

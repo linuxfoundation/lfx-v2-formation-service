@@ -9,6 +9,7 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -104,6 +105,90 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 	v.Cursor = cursor
 	v.Limit = limit
 	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildUpdateItemPayload builds the payload for the lfx_v2_formation_service
+// update_item endpoint from CLI flags.
+func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2FormationServiceUpdateItemProjectUID string, lfxV2FormationServiceUpdateItemItemKey string, lfxV2FormationServiceUpdateItemVersion string, lfxV2FormationServiceUpdateItemBearerToken string, lfxV2FormationServiceUpdateItemIfMatch string) (*lfxv2formationservice.UpdateItemPayload, error) {
+	var err error
+	var body UpdateItemRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Nostrum omnis qui aut est.\",\n      \"due_date\": \"Quaerat dolorem.\",\n      \"evidence_link\": \"Perspiciatis nobis accusamus.\",\n      \"note\": \"Libero deleniti eaque sequi.\",\n      \"skip_reason\": \"Tempore consectetur temporibus.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         }\n      ]\n   }'")
+		}
+		if body.Status != nil {
+			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
+				err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+			}
+		}
+		for _, e := range body.SubItems {
+			if e != nil {
+				if err2 := ValidateFormationSubItemUpdateRequestBody(e); err2 != nil {
+					err = goa.MergeErrors(err, err2)
+				}
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var projectUID string
+	{
+		projectUID = lfxV2FormationServiceUpdateItemProjectUID
+	}
+	var itemKey string
+	{
+		itemKey = lfxV2FormationServiceUpdateItemItemKey
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceUpdateItemVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceUpdateItemBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceUpdateItemBearerToken
+		}
+	}
+	var ifMatch int64
+	{
+		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceUpdateItemIfMatch, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
+		}
+	}
+	v := &lfxv2formationservice.UpdateItemPayload{
+		Status:       body.Status,
+		Assignee:     body.Assignee,
+		DueDate:      body.DueDate,
+		Note:         body.Note,
+		SkipReason:   body.SkipReason,
+		EvidenceLink: body.EvidenceLink,
+	}
+	if body.SubItems != nil {
+		v.SubItems = make([]*lfxv2formationservice.FormationSubItemUpdate, len(body.SubItems))
+		for i, val := range body.SubItems {
+			if val == nil {
+				v.SubItems[i] = nil
+				continue
+			}
+			v.SubItems[i] = marshalFormationSubItemUpdateRequestBodyToLfxv2formationserviceFormationSubItemUpdate(val)
+		}
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v, nil
 }

@@ -5,7 +5,10 @@
 // responses.
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	// ErrNotFound is returned when a formation, item or template does not
@@ -45,3 +48,36 @@ var (
 	// a valid caller their credentials are bad.
 	ErrAuthUnavailable = errors.New("authentication service unavailable")
 )
+
+// ReasonError pairs one of the sentinels above with a machine-readable
+// reason string. One HTTP status can carry several distinct reasons (both
+// checklist_read_only and invalid_transition are 409, for instance), so the
+// sentinel alone is not enough for the transport layer to fill in the wire
+// error's reason field. errors.Is still works against the sentinel through
+// Unwrap; callers that only care about the status keep using errors.Is
+// exactly as before.
+type ReasonError struct {
+	Err error
+	// Reason is the machine-readable value the UI should switch on.
+	Reason string
+	// Message, when set, overrides the transport layer's generic message
+	// for Reason — for naming the specific item key an "unknown item key"
+	// refusal was about, for instance, which no reason-keyed static string
+	// can do.
+	Message string
+}
+
+// NewReasonError constructs a ReasonError with the reason's default message.
+func NewReasonError(err error, reason string) *ReasonError {
+	return &ReasonError{Err: err, Reason: reason}
+}
+
+// NewReasonErrorf constructs a ReasonError with a message formatted for this
+// occurrence, overriding the reason's default.
+func NewReasonErrorf(err error, reason, format string, args ...any) *ReasonError {
+	return &ReasonError{Err: err, Reason: reason, Message: fmt.Sprintf(format, args...)}
+}
+
+func (e *ReasonError) Error() string { return e.Err.Error() + ": " + e.Reason }
+
+func (e *ReasonError) Unwrap() error { return e.Err }

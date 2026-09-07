@@ -104,6 +104,61 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
+	dsl.Method("update_item", func() {
+		dsl.Description("Change one checklist item: status, note, due date, skip reason, evidence link, " +
+			"assignee, or sub-items. Send only the fields being changed. If-Match is required and must " +
+			"equal the item's current version — a stale value means re-read and retry. This route also " +
+			"carries the assignee's own completion claim (status: awaiting_acceptance), but never " +
+			"acceptance, rejection or reopening, which are their own routes because the formation-team " +
+			"guard on those is narrower than this route's writer guard and a Heimdall rule cannot express " +
+			"that on a shared route.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
+			dsl.Attribute("status", dsl.String, "One of the six. Omit to leave unchanged.", func() {
+				dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+			})
+			dsl.Attribute("assignee", dsl.String, "Username, or an empty string to clear.")
+			// No dsl.Format(FormatDate) here, unlike the read-side
+			// due_date attribute: FormatDate is enforced at request
+			// decode time, before this string ever reaches the service,
+			// which would make an empty string (this field's clear
+			// signal) always fail validation and give a caller no way to
+			// clear a due date at all. The service validates the format
+			// itself for a non-empty value instead.
+			dsl.Attribute("due_date", dsl.String, "YYYY-MM-DD, or an empty string to clear.")
+			dsl.Attribute("note", dsl.String)
+			dsl.Attribute("skip_reason", dsl.String, "Required when status is skipped.")
+			dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links. http/https only.")
+			dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItemUpdate))
+			dsl.Required("version", "project_uid", "item_key", "if_match")
+		})
+		dsl.Result(FormationItem)
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The checklist, or this item's current state, refuses the change")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.PATCH("/formations/{project_uid}/items/{item_key}")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
 	dsl.Method("livez", func() {
 		dsl.Description("Liveness probe.")
 		dsl.Meta("swagger:generate", "false")
@@ -152,6 +207,39 @@ var UnauthorizedError = dsl.Type("UnauthorizedError", func() {
 	dsl.Required("code", "message")
 })
 
+// FormationError is the shared error shape for the write endpoints. The UI
+// switches on reason, never on the HTTP status alone: several reasons share
+// one status (e.g. checklist_read_only, invalid_transition and
+// self_acceptance_forbidden are all 409), so status is not enough to tell
+// them apart (endpoints.md, "Errors, and two people editing at once").
+var FormationError = dsl.Type("FormationError", func() {
+	// One update_item call declares four Error()s (NotFound,
+	// VersionMismatch, Conflict, BadRequest) all typed as FormationError,
+	// so Goa needs a field that tells the four apart to pick the right
+	// HTTP status. This is that field: the service sets it to the
+	// error's declared name (e.g. "Conflict"). It is not what the UI
+	// should switch on — that is reason, below, which is one level more
+	// specific (several reasons share one name/status).
+	dsl.ErrorName("name", dsl.String, "Which declared error this is — matches the Error() name (e.g. \"Conflict\"). Transport dispatch only; switch on reason, not this.")
+	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("409") })
+	dsl.Attribute("message", dsl.String, "Human-readable message")
+	dsl.Attribute("reason", dsl.String, "Machine-readable; switch on this, not on status.", func() {
+		dsl.Enum(
+			"not_found",
+			"version_mismatch",
+			"unknown_item_key",
+			"checklist_read_only",
+			"invalid_transition",
+			"self_acceptance_forbidden",
+			"skip_reason_required",
+			"assignee_not_on_project",
+			"link_scheme_invalid",
+			"due_date_invalid",
+		)
+	})
+	dsl.Required("name", "code", "message", "reason")
+})
+
 // FormationSubItem is informational detail on a checklist item. The parent's
 // status is never derived from these.
 var FormationSubItem = dsl.Type("FormationSubItem", func() {
@@ -161,6 +249,17 @@ var FormationSubItem = dsl.Type("FormationSubItem", func() {
 		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
 	})
 	dsl.Required("key", "title", "status")
+})
+
+// FormationSubItemUpdate is the input shape for updating a sub-item's
+// status. Unlike FormationSubItem (the read shape), it carries no title —
+// sub-items are copied from the template and immutable except for status.
+var FormationSubItemUpdate = dsl.Type("FormationSubItemUpdate", func() {
+	dsl.Attribute("key", dsl.String)
+	dsl.Attribute("status", dsl.String, func() {
+		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+	})
+	dsl.Required("key", "status")
 })
 
 // FormationPlatformCheck describes how a platform-sourced item is resolved.

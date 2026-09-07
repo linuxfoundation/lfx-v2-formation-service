@@ -19,6 +19,7 @@ import (
 type Endpoints struct {
 	GetFormation         goa.Endpoint
 	GetFormationActivity goa.Endpoint
+	UpdateItem           goa.Endpoint
 	Livez                goa.Endpoint
 	Readyz               goa.Endpoint
 }
@@ -31,6 +32,7 @@ func NewEndpoints(s Service) *Endpoints {
 	return &Endpoints{
 		GetFormation:         NewGetFormationEndpoint(s, a.JWTAuth),
 		GetFormationActivity: NewGetFormationActivityEndpoint(s, a.JWTAuth),
+		UpdateItem:           NewUpdateItemEndpoint(s, a.JWTAuth),
 		Livez:                NewLivezEndpoint(s),
 		Readyz:               NewReadyzEndpoint(s),
 	}
@@ -41,6 +43,7 @@ func NewEndpoints(s Service) *Endpoints {
 func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.GetFormation = m(e.GetFormation)
 	e.GetFormationActivity = m(e.GetFormationActivity)
+	e.UpdateItem = m(e.UpdateItem)
 	e.Livez = m(e.Livez)
 	e.Readyz = m(e.Readyz)
 }
@@ -98,6 +101,29 @@ func NewGetFormationActivityEndpoint(s Service, authJWTFn security.AuthJWTFunc) 
 		}
 		vres := NewViewedFormationActivityPage(res, "default")
 		return vres, nil
+	}
+}
+
+// NewUpdateItemEndpoint returns an endpoint function that calls the method
+// "update_item" of service "lfx_v2_formation_service".
+func NewUpdateItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*UpdateItemPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return s.UpdateItem(ctx, p)
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
 	// Pinned to the schema version go.opentelemetry.io/otel/sdk's own
 	// resource.Default() uses internally: resource.Merge refuses to merge
 	// resources whose schema URLs disagree, and that merge failure is fatal

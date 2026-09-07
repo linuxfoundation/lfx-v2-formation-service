@@ -302,6 +302,9 @@ func (f failingItemRepository) ListByFormation(context.Context, uuid.UUID) ([]*m
 func (f failingItemRepository) Get(context.Context, uuid.UUID) (*model.Item, error) {
 	return nil, f.err
 }
+func (f failingItemRepository) GetByKey(context.Context, uuid.UUID, string) (*model.Item, error) {
+	return nil, f.err
+}
 func (f failingItemRepository) Update(context.Context, uuid.UUID, int64, port.ItemPatch) (*model.Item, error) {
 	return nil, f.err
 }

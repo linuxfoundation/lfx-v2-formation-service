@@ -24,13 +24,13 @@ import (
 //	command (subcommand1|subcommand2|...)
 func UsageCommands() []string {
 	return []string{
-		"lfx-v2-formation-service (get-formation|get-formation-activity|livez|readyz)",
+		"lfx-v2-formation-service (get-formation|get-formation-activity|update-item|livez|readyz)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Voluptate a veritatis repellendus eveniet qui quod.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -58,6 +58,14 @@ func ParseEndpoint(
 		lfxV2FormationServiceGetFormationActivityLimitFlag       = lfxV2FormationServiceGetFormationActivityFlags.String("limit", "20", "")
 		lfxV2FormationServiceGetFormationActivityBearerTokenFlag = lfxV2FormationServiceGetFormationActivityFlags.String("bearer-token", "", "")
 
+		lfxV2FormationServiceUpdateItemFlags           = flag.NewFlagSet("update-item", flag.ExitOnError)
+		lfxV2FormationServiceUpdateItemBodyFlag        = lfxV2FormationServiceUpdateItemFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceUpdateItemProjectUIDFlag  = lfxV2FormationServiceUpdateItemFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceUpdateItemItemKeyFlag     = lfxV2FormationServiceUpdateItemFlags.String("item-key", "REQUIRED", "The item's stable key.")
+		lfxV2FormationServiceUpdateItemVersionFlag     = lfxV2FormationServiceUpdateItemFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceUpdateItemBearerTokenFlag = lfxV2FormationServiceUpdateItemFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceUpdateItemIfMatchFlag     = lfxV2FormationServiceUpdateItemFlags.String("if-match", "REQUIRED", "")
+
 		lfxV2FormationServiceLivezFlags = flag.NewFlagSet("livez", flag.ExitOnError)
 
 		lfxV2FormationServiceReadyzFlags = flag.NewFlagSet("readyz", flag.ExitOnError)
@@ -65,6 +73,7 @@ func ParseEndpoint(
 	lfxV2FormationServiceFlags.Usage = lfxV2FormationServiceUsage
 	lfxV2FormationServiceGetFormationFlags.Usage = lfxV2FormationServiceGetFormationUsage
 	lfxV2FormationServiceGetFormationActivityFlags.Usage = lfxV2FormationServiceGetFormationActivityUsage
+	lfxV2FormationServiceUpdateItemFlags.Usage = lfxV2FormationServiceUpdateItemUsage
 	lfxV2FormationServiceLivezFlags.Usage = lfxV2FormationServiceLivezUsage
 	lfxV2FormationServiceReadyzFlags.Usage = lfxV2FormationServiceReadyzUsage
 
@@ -108,6 +117,9 @@ func ParseEndpoint(
 			case "get-formation-activity":
 				epf = lfxV2FormationServiceGetFormationActivityFlags
 
+			case "update-item":
+				epf = lfxV2FormationServiceUpdateItemFlags
+
 			case "livez":
 				epf = lfxV2FormationServiceLivezFlags
 
@@ -145,6 +157,9 @@ func ParseEndpoint(
 			case "get-formation-activity":
 				endpoint = c.GetFormationActivity()
 				data, err = lfxv2formationservicec.BuildGetFormationActivityPayload(*lfxV2FormationServiceGetFormationActivityProjectUIDFlag, *lfxV2FormationServiceGetFormationActivityVersionFlag, *lfxV2FormationServiceGetFormationActivityCursorFlag, *lfxV2FormationServiceGetFormationActivityLimitFlag, *lfxV2FormationServiceGetFormationActivityBearerTokenFlag)
+			case "update-item":
+				endpoint = c.UpdateItem()
+				data, err = lfxv2formationservicec.BuildUpdateItemPayload(*lfxV2FormationServiceUpdateItemBodyFlag, *lfxV2FormationServiceUpdateItemProjectUIDFlag, *lfxV2FormationServiceUpdateItemItemKeyFlag, *lfxV2FormationServiceUpdateItemVersionFlag, *lfxV2FormationServiceUpdateItemBearerTokenFlag, *lfxV2FormationServiceUpdateItemIfMatchFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -167,6 +182,7 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, "COMMAND:")
 	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
 	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
+	fmt.Fprintln(os.Stderr, `    update-item: Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
 	fmt.Fprintln(os.Stderr, `    livez: Liveness probe.`)
 	fmt.Fprintln(os.Stderr, `    readyz: Readiness probe.`)
 	fmt.Fprintln(os.Stderr)
@@ -192,7 +208,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Voluptate a veritatis repellendus eveniet qui quod.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -218,7 +234,35 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Recusandae dolorem et facere aut quam aliquam.\" --version \"1\" --cursor \"Rerum incidunt eos.\" --limit 99 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Numquam ratione.\" --version \"1\" --cursor \"Fuga ea sunt aperiam.\" --limit 2 --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceUpdateItemUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service update-item", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -item-key STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -item-key STRING: The item's stable key.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Nostrum omnis qui aut est.\",\n      \"due_date\": \"Quaerat dolorem.\",\n      \"evidence_link\": \"Perspiciatis nobis accusamus.\",\n      \"note\": \"Libero deleniti eaque sequi.\",\n      \"skip_reason\": \"Tempore consectetur temporibus.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         }\n      ]\n   }' --project-uid \"Officiis id consequatur.\" --item-key \"Earum et.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4039901449837963363")
 }
 
 func lfxV2FormationServiceLivezUsage() {

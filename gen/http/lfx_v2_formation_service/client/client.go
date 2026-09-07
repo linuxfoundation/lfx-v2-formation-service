@@ -26,6 +26,10 @@ type Client struct {
 	// get_formation_activity endpoint.
 	GetFormationActivityDoer goahttp.Doer
 
+	// UpdateItem Doer is the HTTP client used to make requests to the update_item
+	// endpoint.
+	UpdateItemDoer goahttp.Doer
+
 	// Livez Doer is the HTTP client used to make requests to the livez endpoint.
 	LivezDoer goahttp.Doer
 
@@ -55,6 +59,7 @@ func NewClient(
 	return &Client{
 		GetFormationDoer:         doer,
 		GetFormationActivityDoer: doer,
+		UpdateItemDoer:           doer,
 		LivezDoer:                doer,
 		ReadyzDoer:               doer,
 		RestoreResponseBody:      restoreBody,
@@ -108,6 +113,30 @@ func (c *Client) GetFormationActivity() goa.Endpoint {
 		resp, err := c.GetFormationActivityDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "get_formation_activity", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// UpdateItem returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service update_item server.
+func (c *Client) UpdateItem() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeUpdateItemRequest(c.encoder)
+		decodeResponse = DecodeUpdateItemResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildUpdateItemRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.UpdateItemDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "update_item", err)
 		}
 		return decodeResponse(resp)
 	}

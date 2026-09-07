@@ -22,6 +22,11 @@ func GetFormationActivityLfxV2FormationServicePath(projectUID string) string {
 	return fmt.Sprintf("/formations/%v/activity", projectUID)
 }
 
+// UpdateItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service update_item HTTP endpoint.
+func UpdateItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v", projectUID, itemKey)
+}
+
 // LivezLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service livez HTTP endpoint.
 func LivezLfxV2FormationServicePath() string {
 	return "/livez"
