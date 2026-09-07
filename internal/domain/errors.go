@@ -35,4 +35,11 @@ var (
 	// ErrForbidden is returned when the caller may read the checklist but
 	// not perform this particular change. Maps to 403.
 	ErrForbidden = errors.New("forbidden")
+
+	// ErrAuthUnavailable means the JWT could not be validated because the
+	// key provider (Heimdall's JWKS endpoint) could not be reached, not
+	// because the token itself is invalid. Maps to 503, distinct from the
+	// 401 a bad or expired token gets — a JWKS outage is a server-side
+	// failure and should not tell a valid caller their credentials are bad.
+	ErrAuthUnavailable = errors.New("authentication service unavailable")
 )

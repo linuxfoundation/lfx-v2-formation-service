@@ -6,11 +6,25 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
+
+// fakeAuthenticator is a port.Authenticator double that returns whatever
+// this test case configured.
+type fakeAuthenticator struct {
+	principal string
+	email     string
+	err       error
+}
+
+func (f fakeAuthenticator) ParsePrincipal(context.Context, string, *slog.Logger) (string, string, error) {
+	return f.principal, f.email, f.err
+}
 
 // fakePinger lets tests drive readiness without a real database.
 type fakePinger struct {
@@ -47,6 +61,48 @@ func TestServiceReady(t *testing.T) {
 			assert.Equal(t, tt.want, tt.service.ServiceReady(context.Background()))
 		})
 	}
+}
+
+func TestJWTAuth(t *testing.T) {
+	t.Run("no authenticator wired falls through as a plain error", func(t *testing.T) {
+		s := NewService()
+
+		_, err := s.JWTAuth(context.Background(), "token", nil)
+
+		require := assert.New(t)
+		require.Error(err)
+		var unauthorized *svc.UnauthorizedError
+		require.NotErrorAs(err, &unauthorized)
+	})
+
+	t.Run("valid token sets the principal and email on the context", func(t *testing.T) {
+		s := NewService(WithAuth(fakeAuthenticator{principal: "user-1", email: "user@example.com"}))
+
+		ctx, err := s.JWTAuth(context.Background(), "token", nil)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, ctx)
+	})
+
+	t.Run("bad token maps to the declared UnauthorizedError", func(t *testing.T) {
+		s := NewService(WithAuth(fakeAuthenticator{err: errors.New("token is expired")}))
+
+		_, err := s.JWTAuth(context.Background(), "token", nil)
+
+		var unauthorized *svc.UnauthorizedError
+		assert.ErrorAs(t, err, &unauthorized)
+	})
+
+	t.Run("key provider failure falls through as a plain error, not 401", func(t *testing.T) {
+		s := NewService(WithAuth(fakeAuthenticator{err: domain.ErrAuthUnavailable}))
+
+		_, err := s.JWTAuth(context.Background(), "token", nil)
+
+		require := assert.New(t)
+		require.Error(err)
+		var unauthorized *svc.UnauthorizedError
+		require.NotErrorAs(err, &unauthorized)
+	})
 }
 
 func TestLivez(t *testing.T) {

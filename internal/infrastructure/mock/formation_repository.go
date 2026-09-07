@@ -48,6 +48,9 @@ func (r *FormationRepository) Create(_ context.Context, f *model.Formation) (*mo
 	if clone.UID == uuid.Nil {
 		clone.UID = uuid.New()
 	}
+	if clone.Lifecycle == "" {
+		clone.Lifecycle = model.LifecycleLive
+	}
 	clone.Revision = 1
 	r.byUID[clone.UID] = &clone
 	r.byProject[clone.ProjectUID] = clone.UID

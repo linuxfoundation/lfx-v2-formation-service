@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -66,9 +67,8 @@ func (r *ItemRepository) hasKeyLocked(formationUID uuid.UUID, itemKey string) bo
 	return false
 }
 
-// ListByFormation returns every item for a formation. Ordering by section
-// then position is not reproduced here — business-rule tests using this
-// double should not depend on row order.
+// ListByFormation returns every item for a formation, ordered by section
+// then position, matching the real repository's contract.
 func (r *ItemRepository) ListByFormation(_ context.Context, formationUID uuid.UUID) ([]*model.Item, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -80,6 +80,12 @@ func (r *ItemRepository) ListByFormation(_ context.Context, formationUID uuid.UU
 			out = append(out, &clone)
 		}
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SectionKey != out[j].SectionKey {
+			return out[i].SectionKey < out[j].SectionKey
+		}
+		return out[i].Position < out[j].Position
+	})
 	return out, nil
 }
 

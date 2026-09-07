@@ -8,6 +8,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
@@ -92,6 +94,12 @@ func (j *JWTAuth) ParsePrincipal(ctx context.Context, token string, logger *slog
 	parsedJWT, err := j.validator.ValidateToken(ctx, token)
 	if err != nil {
 		logger.With("audience", j.config.Audience).With("issuer", j.config.Issuer).With("error", err).WarnContext(ctx, "authorization failed")
+		if errors.Is(err, domain.ErrAuthUnavailable) {
+			// Key-provider failure (JWKS endpoint unreachable), not a bad
+			// token: propagate the sentinel so the caller can map this to
+			// a 5xx instead of a 401.
+			return "", "", domain.ErrAuthUnavailable
+		}
 		errString := err.Error()
 		firstColon := strings.Index(errString, ":")
 		if firstColon != -1 && firstColon+1 < len(errString) {
@@ -157,9 +165,22 @@ func NewJWTAuth(config JWTAuthConfig) (*JWTAuth, error) {
 	}
 	provider := jwks.NewCachingProvider(issuer, 5*time.Minute, jwks.WithCustomJWKSURI(jwksURL), jwks.WithCustomClient(otelClient))
 
+	// Wrap the provider's KeyFunc so a JWKS fetch failure (endpoint down,
+	// network error) is distinguishable from an actual bad token: the
+	// validator library wraps whatever this returns with %w on every layer
+	// up to ValidateToken's result, so errors.Is(err, domain.ErrAuthUnavailable)
+	// still matches after that wrapping.
+	keyFunc := func(ctx context.Context) (interface{}, error) {
+		key, err := provider.KeyFunc(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", domain.ErrAuthUnavailable, err)
+		}
+		return key, nil
+	}
+
 	// Set up the JWT validator.
 	jwtValidator, err := validator.New(
-		provider.KeyFunc,
+		keyFunc,
 		signatureAlgorithm,
 		issuer.String(),
 		[]string{audience},

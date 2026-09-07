@@ -13,6 +13,7 @@ import (
 	"goa.design/goa/v3/security"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
@@ -142,6 +143,13 @@ func (s *Service) JWTAuth(ctx context.Context, token string, _ *security.JWTSche
 			log.ErrKey, err,
 			"token_length", len(token),
 		)
+		if errors.Is(err, domain.ErrAuthUnavailable) {
+			// The JWKS endpoint was unreachable, not a bad credential:
+			// same rationale as the nil-authenticator branch above, leave
+			// this as a plain error so it falls through as a 500 instead
+			// of telling a valid caller their token is bad.
+			return ctx, errors.New("authentication service unavailable")
+		}
 		// Returned as the declared UnauthorizedError, not the raw parse
 		// error: an error that isn't one of the method's declared error
 		// types falls through Goa's default formatter as a 500, so an
