@@ -64,6 +64,9 @@ func EncodeGetFormationRequest(encoder func(*http.Request) goahttp.Encoder) func
 				req.Header.Set("Authorization", head)
 			}
 		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
 		return nil
 	}
 }
@@ -185,6 +188,7 @@ func EncodeGetFormationActivityRequest(encoder func(*http.Request) goahttp.Encod
 			}
 		}
 		values := req.URL.Query()
+		values.Add("v", p.Version)
 		if p.Cursor != nil {
 			values.Add("cursor", *p.Cursor)
 		}

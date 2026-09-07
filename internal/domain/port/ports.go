@@ -50,14 +50,6 @@ type ItemRepository interface {
 	// ErrVersionMismatch when the caller's revision is stale, which the
 	// transport reports as a failed precondition rather than a conflict.
 	Update(ctx context.Context, uid uuid.UUID, revision int64, patch ItemPatch) (*model.Item, error)
-
-	// StatusCounts returns one count per status, for deriving progress
-	// without storing a counter.
-	StatusCounts(ctx context.Context, formationUID uuid.UUID) (map[model.ItemStatus]int, error)
-
-	// GateSummary reports how many gating items exist and how many are not
-	// yet done. Readiness needs both: zero gating items is not ready.
-	GateSummary(ctx context.Context, formationUID uuid.UUID) (total int, outstanding int, err error)
 }
 
 // ItemPatch carries the mutable fields of an item. A nil pointer means leave

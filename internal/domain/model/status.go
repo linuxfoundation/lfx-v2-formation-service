@@ -1,7 +1,7 @@
 // Copyright The Linux Foundation and each contributor to LFX.
 // SPDX-License-Identifier: MIT
 
-// Package models holds the formation domain entities.
+// Package model holds the formation domain entities.
 package model
 
 // ItemStatus is the stored status of a checklist item. These are stable

@@ -40,15 +40,12 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 		return nil, err
 	}
 
-	counts, err := s.items.StatusCounts(ctx, formation.UID)
-	if err != nil {
-		return nil, err
-	}
-
-	gateTotal, gateOutstanding, err := s.items.GateSummary(ctx, formation.UID)
-	if err != nil {
-		return nil, err
-	}
+	// Progress and gate readiness come from the items just loaded, not from
+	// two more aggregate queries: every input is already in the slice, and
+	// deriving them here keeps the tally consistent with the items shipped
+	// beside it in the same response.
+	counts := countsFromItems(items)
+	gateTotal, gateOutstanding := gateSummaryFromItems(items)
 
 	var announcementDate *string
 	if s.projects != nil {

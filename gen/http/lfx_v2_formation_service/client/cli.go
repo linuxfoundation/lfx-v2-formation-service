@@ -18,10 +18,21 @@ import (
 
 // BuildGetFormationPayload builds the payload for the lfx_v2_formation_service
 // get_formation endpoint from CLI flags.
-func BuildGetFormationPayload(lfxV2FormationServiceGetFormationProjectUID string, lfxV2FormationServiceGetFormationBearerToken string) (*lfxv2formationservice.GetFormationPayload, error) {
+func BuildGetFormationPayload(lfxV2FormationServiceGetFormationProjectUID string, lfxV2FormationServiceGetFormationVersion string, lfxV2FormationServiceGetFormationBearerToken string) (*lfxv2formationservice.GetFormationPayload, error) {
+	var err error
 	var projectUID string
 	{
 		projectUID = lfxV2FormationServiceGetFormationProjectUID
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceGetFormationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	var bearerToken *string
 	{
@@ -31,6 +42,7 @@ func BuildGetFormationPayload(lfxV2FormationServiceGetFormationProjectUID string
 	}
 	v := &lfxv2formationservice.GetFormationPayload{}
 	v.ProjectUID = projectUID
+	v.Version = version
 	v.BearerToken = bearerToken
 
 	return v, nil
@@ -38,11 +50,21 @@ func BuildGetFormationPayload(lfxV2FormationServiceGetFormationProjectUID string
 
 // BuildGetFormationActivityPayload builds the payload for the
 // lfx_v2_formation_service get_formation_activity endpoint from CLI flags.
-func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityProjectUID string, lfxV2FormationServiceGetFormationActivityCursor string, lfxV2FormationServiceGetFormationActivityLimit string, lfxV2FormationServiceGetFormationActivityBearerToken string) (*lfxv2formationservice.GetFormationActivityPayload, error) {
+func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityProjectUID string, lfxV2FormationServiceGetFormationActivityVersion string, lfxV2FormationServiceGetFormationActivityCursor string, lfxV2FormationServiceGetFormationActivityLimit string, lfxV2FormationServiceGetFormationActivityBearerToken string) (*lfxv2formationservice.GetFormationActivityPayload, error) {
 	var err error
 	var projectUID string
 	{
 		projectUID = lfxV2FormationServiceGetFormationActivityProjectUID
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceGetFormationActivityVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	var cursor *string
 	{
@@ -75,6 +97,7 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 	}
 	v := &lfxv2formationservice.GetFormationActivityPayload{}
 	v.ProjectUID = projectUID
+	v.Version = version
 	v.Cursor = cursor
 	v.Limit = limit
 	v.BearerToken = bearerToken

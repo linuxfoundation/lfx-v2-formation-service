@@ -51,8 +51,10 @@ type DatabaseConfig struct {
 // quoted (libpqQuote), because unquoted keyword/value pairs are whitespace-
 // delimited: a generated password containing a space, single quote or
 // backslash would otherwise be misparsed as extra parameters or corrupt the
-// string entirely. sslmode is omitted when unset, leaving pgx's own default
-// (prefer) in effect.
+// string entirely. sslmode is always emitted in practice, because LoadConfig
+// defaults it to require (DefaultDBSSLMode) rather than leaving it empty —
+// TLS is mandatory unless PGSSLMODE explicitly says otherwise. The empty
+// check below remains for a config assembled directly in a test.
 func (d DatabaseConfig) DSN() string {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s",
 		libpqQuote(d.Host), libpqQuote(d.Port), libpqQuote(d.Username), libpqQuote(d.Password), libpqQuote(d.DBName))

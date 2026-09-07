@@ -150,37 +150,3 @@ func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64
 	out := *item
 	return &out, nil
 }
-
-// StatusCounts returns one count per status.
-func (r *ItemRepository) StatusCounts(_ context.Context, formationUID uuid.UUID) (map[model.ItemStatus]int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	counts := make(map[model.ItemStatus]int, len(model.AllItemStatuses))
-	for _, s := range model.AllItemStatuses {
-		counts[s] = 0
-	}
-	for _, item := range r.items {
-		if item.FormationUID == formationUID {
-			counts[item.Status]++
-		}
-	}
-	return counts, nil
-}
-
-// GateSummary reports how many gating items exist and how many are not done.
-func (r *ItemRepository) GateSummary(_ context.Context, formationUID uuid.UUID) (total int, outstanding int, err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for _, item := range r.items {
-		if item.FormationUID != formationUID || !item.Gate {
-			continue
-		}
-		total++
-		if item.Status != model.StatusDone {
-			outstanding++
-		}
-	}
-	return total, outstanding, nil
-}

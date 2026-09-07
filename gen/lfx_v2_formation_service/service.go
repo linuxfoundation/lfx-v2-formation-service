@@ -164,6 +164,8 @@ type FormationSubItem struct {
 type GetFormationActivityPayload struct {
 	// JWT token issued by Heimdall
 	BearerToken *string
+	// API version. Must be 1.
+	Version string
 	// The project's UID.
 	ProjectUID string
 	// Opaque ULID cursor from a previous page's next_cursor. Omit for the first
@@ -178,6 +180,8 @@ type GetFormationActivityPayload struct {
 type GetFormationPayload struct {
 	// JWT token issued by Heimdall
 	BearerToken *string
+	// API version. Must be 1.
+	Version string
 	// The project's UID.
 	ProjectUID string
 }

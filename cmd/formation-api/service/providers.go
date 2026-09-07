@@ -5,7 +5,9 @@
 // port, switching on REPOSITORY_SOURCE between the Postgres adapter and its
 // mock double. This mirrors lfx-v2-committee-service's
 // cmd/committee-api/service/providers.go exactly, rather than a fixed
-// internal/container/container.go with no mock path (plan.md Finding 4).
+// container with no mock path: being able to run the whole service against
+// in-memory doubles is what makes local development and the service-level
+// tests possible without a database.
 package service
 
 import (

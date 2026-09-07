@@ -25,6 +25,20 @@ func BearerTokenAttribute() {
 	})
 }
 
+// VersionAttribute is the required API-version attribute every route carries,
+// mapped to the ?v= query parameter. Mirrors lfx-v2-committee-service's
+// cmd/committee-api/design/type.go: a client pins the contract it was written
+// against, so a future breaking response shape can ship as v=2 while v=1
+// callers keep the old one. Omitting it is a 400, and the LFX One BFF already
+// sends v=1 on every proxied request (its DEFAULT_QUERY_PARAMS), so this is
+// satisfied by the platform's existing client without any UI change.
+func VersionAttribute() {
+	dsl.Attribute("version", dsl.String, "API version. Must be 1.", func() {
+		dsl.Enum("1")
+		dsl.Example("1")
+	})
+}
+
 var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Description("LFX V2 Formation Service")
 
@@ -35,14 +49,16 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 
 		dsl.Payload(func() {
 			BearerTokenAttribute()
+			VersionAttribute()
 			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
-			dsl.Required("project_uid")
+			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationChecklist)
 		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}")
+			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
 			dsl.Response("NotFound", dsl.StatusNotFound)
@@ -60,19 +76,21 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 
 		dsl.Payload(func() {
 			BearerTokenAttribute()
+			VersionAttribute()
 			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
 			dsl.Attribute("cursor", dsl.String, "Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.")
 			dsl.Attribute("limit", dsl.Int, "Page size. Defaults to 20, capped at 100.", func() {
 				dsl.Default(20)
 				dsl.Maximum(100)
 			})
-			dsl.Required("project_uid")
+			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationActivityPage)
 		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}/activity")
+			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Param("cursor")
 			dsl.Param("limit")
@@ -155,8 +173,8 @@ var FormationResolvedRef = dsl.Type("FormationResolvedRef", func() {
 
 // FormationItem is one checklist row. Everything about how the row *looks* —
 // labels, icons, the composed detail line — belongs to the browser; this
-// carries only functional fields, keyed on item_key (endpoints.md, "What the
-// UI puts on a row").
+// carries only functional fields, keyed on item_key, so presentation can
+// change without a contract change.
 var FormationItem = dsl.Type("FormationItem", func() {
 	dsl.Attribute("uid", dsl.String)
 	dsl.Attribute("item_key", dsl.String, "Stable identifier, e.g. charter_agreed. Never changes.")

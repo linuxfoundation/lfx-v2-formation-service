@@ -34,8 +34,10 @@ type Formation struct {
 	StartedAt   time.Time  `bun:"started_at,nullzero,notnull,default:now()"`
 	CompletedAt *time.Time `bun:"completed_at"`
 
-	// Revision is the optimistic-lock counter, surfaced on the wire as
-	// version and as an ETag.
+	// Revision is the optimistic-lock counter for this row. It is not
+	// surfaced on the wire: versioning is deliberately per item, not per
+	// checklist, so two people editing different rows both succeed. Only
+	// Item.Revision is served (as version, echoed back as If-Match).
 	Revision int64 `bun:"revision,notnull"`
 
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:now()"`

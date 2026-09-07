@@ -14,6 +14,18 @@ paths:
             description: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.
             operationId: lfx_v2_formation_service#get_formation
             parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
                 - name: project_uid
                   in: path
                   description: The project's UID.
@@ -149,6 +161,18 @@ paths:
             description: 'Return the formation''s activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.'
             operationId: lfx_v2_formation_service#get_formation_activity
             parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
                 - name: cursor
                   in: query
                   description: Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.

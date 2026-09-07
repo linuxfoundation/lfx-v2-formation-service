@@ -4,13 +4,13 @@ A backend service for managing project formation checklists and other formation 
 
 ## Getting Started
 
-1. Generate the Goa API code (this repo does not commit generated code — it must be generated once before the module will build):
+1. Generate the Goa API code. Generated code **is** committed in this repo (`gen/` is tracked, and the module will not build without it), so regenerate after every change to `cmd/formation-api/design/` and commit the result:
 
    ```bash
    make apigen
    ```
 
-   Commit the resulting `gen/` directory along with your other changes.
+   Commit the resulting `gen/` directory along with your other changes. CI fails if `gen/` is out of date with the design.
 2. Implement your service logic in `internal/service/service.go` and wire any dependencies in `cmd/formation-api/service/providers.go`.
 
 ## Local Postgres
@@ -44,7 +44,7 @@ of a value that could be logged whole.
 | `PGUSER`             | *(none)*    | required                                                                  |
 | `PGPASSWORD`         | *(none)*    | required                                                                  |
 | `PGDATABASE`         | `formation` |                                                                           |
-| `PGSSLMODE`          | *(unset)*   | pgx defaults to `prefer`; set `disable` for a local container without TLS |
+| `PGSSLMODE`          | `require`   | TLS is mandatory by default; set `disable` for a local container without TLS |
 | `RECONCILE_INTERVAL` | `15m`       | period of the reconcile loop; any `time.ParseDuration` value              |
 
 Against the container above:

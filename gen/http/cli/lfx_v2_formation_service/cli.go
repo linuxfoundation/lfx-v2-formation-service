@@ -30,7 +30,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -48,10 +48,12 @@ func ParseEndpoint(
 
 		lfxV2FormationServiceGetFormationFlags           = flag.NewFlagSet("get-formation", flag.ExitOnError)
 		lfxV2FormationServiceGetFormationProjectUIDFlag  = lfxV2FormationServiceGetFormationFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceGetFormationVersionFlag     = lfxV2FormationServiceGetFormationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceGetFormationBearerTokenFlag = lfxV2FormationServiceGetFormationFlags.String("bearer-token", "", "")
 
 		lfxV2FormationServiceGetFormationActivityFlags           = flag.NewFlagSet("get-formation-activity", flag.ExitOnError)
 		lfxV2FormationServiceGetFormationActivityProjectUIDFlag  = lfxV2FormationServiceGetFormationActivityFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceGetFormationActivityVersionFlag     = lfxV2FormationServiceGetFormationActivityFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceGetFormationActivityCursorFlag      = lfxV2FormationServiceGetFormationActivityFlags.String("cursor", "", "")
 		lfxV2FormationServiceGetFormationActivityLimitFlag       = lfxV2FormationServiceGetFormationActivityFlags.String("limit", "20", "")
 		lfxV2FormationServiceGetFormationActivityBearerTokenFlag = lfxV2FormationServiceGetFormationActivityFlags.String("bearer-token", "", "")
@@ -139,10 +141,10 @@ func ParseEndpoint(
 			switch epn {
 			case "get-formation":
 				endpoint = c.GetFormation()
-				data, err = lfxv2formationservicec.BuildGetFormationPayload(*lfxV2FormationServiceGetFormationProjectUIDFlag, *lfxV2FormationServiceGetFormationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildGetFormationPayload(*lfxV2FormationServiceGetFormationProjectUIDFlag, *lfxV2FormationServiceGetFormationVersionFlag, *lfxV2FormationServiceGetFormationBearerTokenFlag)
 			case "get-formation-activity":
 				endpoint = c.GetFormationActivity()
-				data, err = lfxv2formationservicec.BuildGetFormationActivityPayload(*lfxV2FormationServiceGetFormationActivityProjectUIDFlag, *lfxV2FormationServiceGetFormationActivityCursorFlag, *lfxV2FormationServiceGetFormationActivityLimitFlag, *lfxV2FormationServiceGetFormationActivityBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildGetFormationActivityPayload(*lfxV2FormationServiceGetFormationActivityProjectUIDFlag, *lfxV2FormationServiceGetFormationActivityVersionFlag, *lfxV2FormationServiceGetFormationActivityCursorFlag, *lfxV2FormationServiceGetFormationActivityLimitFlag, *lfxV2FormationServiceGetFormationActivityBearerTokenFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -175,6 +177,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 	// Header with flags
 	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service get-formation", os.Args[0])
 	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
 	fmt.Fprintln(os.Stderr)
 
@@ -184,17 +187,19 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Ut cum voluptas.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
 	// Header with flags
 	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service get-formation-activity", os.Args[0])
 	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -cursor STRING")
 	fmt.Fprint(os.Stderr, " -limit INT")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
@@ -206,13 +211,14 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -cursor STRING: `)
 	fmt.Fprintln(os.Stderr, `    -limit INT: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Recusandae dolorem et facere aut quam aliquam.\" --cursor \"Rerum incidunt eos.\" --limit -7598628380778241158 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Recusandae dolorem et facere aut quam aliquam.\" --version \"1\" --cursor \"Rerum incidunt eos.\" --limit -7598628380778241158 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceLivezUsage() {

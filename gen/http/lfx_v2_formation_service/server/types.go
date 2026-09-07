@@ -299,9 +299,10 @@ func NewReadyzServiceUnavailableResponseBody(res *lfxv2formationservice.ServiceU
 
 // NewGetFormationPayload builds a lfx_v2_formation_service service
 // get_formation endpoint payload.
-func NewGetFormationPayload(projectUID string, bearerToken *string) *lfxv2formationservice.GetFormationPayload {
+func NewGetFormationPayload(projectUID string, version string, bearerToken *string) *lfxv2formationservice.GetFormationPayload {
 	v := &lfxv2formationservice.GetFormationPayload{}
 	v.ProjectUID = projectUID
+	v.Version = version
 	v.BearerToken = bearerToken
 
 	return v
@@ -309,9 +310,10 @@ func NewGetFormationPayload(projectUID string, bearerToken *string) *lfxv2format
 
 // NewGetFormationActivityPayload builds a lfx_v2_formation_service service
 // get_formation_activity endpoint payload.
-func NewGetFormationActivityPayload(projectUID string, cursor *string, limit int, bearerToken *string) *lfxv2formationservice.GetFormationActivityPayload {
+func NewGetFormationActivityPayload(projectUID string, version string, cursor *string, limit int, bearerToken *string) *lfxv2formationservice.GetFormationActivityPayload {
 	v := &lfxv2formationservice.GetFormationActivityPayload{}
 	v.ProjectUID = projectUID
+	v.Version = version
 	v.Cursor = cursor
 	v.Limit = limit
 	v.BearerToken = bearerToken

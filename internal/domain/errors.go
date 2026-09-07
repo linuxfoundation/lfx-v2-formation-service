@@ -38,8 +38,10 @@ var (
 
 	// ErrAuthUnavailable means the JWT could not be validated because the
 	// key provider (Heimdall's JWKS endpoint) could not be reached, not
-	// because the token itself is invalid. Maps to 503, distinct from the
-	// 401 a bad or expired token gets — a JWKS outage is a server-side
-	// failure and should not tell a valid caller their credentials are bad.
+	// because the token itself is invalid. It is returned as a plain error
+	// rather than a declared one, so Goa's default formatter encodes it as
+	// 500 — the point is only that it is not the 401 a bad or expired token
+	// gets, because a JWKS outage is a server-side failure and must not tell
+	// a valid caller their credentials are bad.
 	ErrAuthUnavailable = errors.New("authentication service unavailable")
 )

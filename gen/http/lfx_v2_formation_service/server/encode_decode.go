@@ -40,16 +40,28 @@ func DecodeGetFormationRequest(mux goahttp.Muxer, decoder func(*http.Request) go
 		var payload *lfxv2formationservice.GetFormationPayload
 		var (
 			projectUID  string
+			version     string
 			bearerToken *string
+			err         error
 
 			params = mux.Vars(r)
 		)
 		projectUID = params["project_uid"]
+		version = r.URL.Query().Get("v")
+		if version == "" {
+			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
+		}
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
 		bearerTokenRaw := r.Header.Get("Authorization")
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
-		payload = NewGetFormationPayload(projectUID, bearerToken)
+		if err != nil {
+			return payload, err
+		}
+		payload = NewGetFormationPayload(projectUID, version, bearerToken)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -123,6 +135,7 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 		var payload *lfxv2formationservice.GetFormationActivityPayload
 		var (
 			projectUID  string
+			version     string
 			cursor      *string
 			limit       int
 			bearerToken *string
@@ -132,6 +145,13 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 		)
 		projectUID = params["project_uid"]
 		qp := r.URL.Query()
+		version = qp.Get("v")
+		if version == "" {
+			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
+		}
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
 		cursorRaw := qp.Get("cursor")
 		if cursorRaw != "" {
 			cursor = &cursorRaw
@@ -158,7 +178,7 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 		if err != nil {
 			return payload, err
 		}
-		payload = NewGetFormationActivityPayload(projectUID, cursor, limit, bearerToken)
+		payload = NewGetFormationActivityPayload(projectUID, version, cursor, limit, bearerToken)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")

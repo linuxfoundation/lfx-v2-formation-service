@@ -27,7 +27,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	// Pinned to the schema version go.opentelemetry.io/otel/sdk's own
+	// resource.Default() uses internally: resource.Merge refuses to merge
+	// resources whose schema URLs disagree, and that merge failure is fatal
+	// in main before the server binds, so this has to track whatever
+	// otel/sdk (currently v1.44.0) embeds rather than an independently
+	// chosen version.
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 )
 
 // OTel protocol and exporter identifiers.
