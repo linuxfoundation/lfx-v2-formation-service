@@ -593,3 +593,21 @@ func TestUpdateItemRefusesANoOp(t *testing.T) {
 	require.NoError(t, getErr)
 	assert.Equal(t, itemOne.Revision, got.Revision, "a refused no-op must not bump the revision")
 }
+
+func TestUpdateItemRefusesYearZeroDueDate(t *testing.T) {
+	s, formation, itemOne, _ := newItemMutatorTestService(t)
+	yearZero := "0000-01-01"
+
+	// Go's parser accepts this and Postgres has no year zero, so it used to
+	// pass validation and fail in the DATE column as a 500.
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+		DueDate: &yearZero,
+	})
+
+	require.Error(t, err)
+	var formationErr *svc.FormationError
+	require.ErrorAs(t, err, &formationErr)
+	assert.Equal(t, "BadRequest", formationErr.Name)
+	assert.Equal(t, "due_date_invalid", formationErr.Reason)
+}

@@ -30,7 +30,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Voluptate a veritatis repellendus eveniet qui quod.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"In tempora est.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -208,7 +208,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Voluptate a veritatis repellendus eveniet qui quod.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"In tempora est.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -234,7 +234,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Numquam ratione.\" --version \"1\" --cursor \"Fuga ea sunt aperiam.\" --limit 2 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Consequatur iusto vel debitis.\" --version \"1\" --cursor \"Ut fugiat voluptate qui.\" --limit 63 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -262,7 +262,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Nostrum omnis qui aut est.\",\n      \"due_date\": \"Quaerat dolorem.\",\n      \"evidence_link\": \"Perspiciatis nobis accusamus.\",\n      \"note\": \"Libero deleniti eaque sequi.\",\n      \"skip_reason\": \"Tempore consectetur temporibus.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Facilis nihil.\",\n            \"status\": \"done\"\n         }\n      ]\n   }' --project-uid \"Officiis id consequatur.\" --item-key \"Earum et.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4039901449837963363")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Id quaerat est.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Consequatur ut.\",\n      \"skip_reason\": \"Non laborum quam numquam necessitatibus.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Laborum sit aut iure cum sit.\",\n            \"status\": \"skipped\"\n         },\n         {\n            \"key\": \"Laborum sit aut iure cum sit.\",\n            \"status\": \"skipped\"\n         }\n      ]\n   }' --project-uid \"Sit odit aperiam.\" --item-key \"Atque commodi dolor dolores vitae delectus.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1080537589362083652")
 }
 
 func lfxV2FormationServiceLivezUsage() {

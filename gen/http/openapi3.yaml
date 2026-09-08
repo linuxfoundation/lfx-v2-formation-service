@@ -33,8 +33,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Ut perferendis voluptates facilis non ullam doloremque.
-                  example: Qui numquam.
+                    example: Minus fugiat doloribus.
+                  example: Nulla modi.
             responses:
                 "200":
                     description: OK response.
@@ -43,178 +43,154 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/FormationChecklist'
                             example:
-                                is_activating: false
+                                is_activating: true
                                 items:
-                                    - action_link: Et incidunt qui animi quod aperiam ut.
-                                      assignee: Rem hic quibusdam.
-                                      checklist_type: internal
-                                      due_date: "1993-03-23"
-                                      evidence_link: Rerum magnam blanditiis est similique voluptatem.
+                                    - action_link: Quia dolorem et quia architecto rerum esse.
+                                      assignee: Natus et qui inventore atque.
+                                      checklist_type: external
+                                      due_date: "2010-03-28"
+                                      evidence_link: https://example.org/bylaws.pdf
                                       gate: true
-                                      is_required: false
-                                      item_key: Praesentium a occaecati cum sint.
-                                      note: Sed sed illum cumque facilis.
+                                      is_required: true
+                                      item_key: Quod fuga.
+                                      note: Vel voluptatem.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 6202108848774381226
-                                        resource_type: Dolores nam explicabo.
-                                      position: 8528146827958780411
+                                        min_count: 2814157466557374125
+                                        resource_type: Alias praesentium a occaecati cum sint et.
+                                      position: 7184147390624912297
                                       requires_writer: true
                                       resolved_ref:
-                                        type: Reprehenderit aut explicabo.
-                                        uid: Ipsum placeat placeat voluptas.
-                                      section_key: Aperiam maxime quia dolorem et quia.
-                                      skip_reason: Facere et tempore.
-                                      status: skipped
-                                      status_source: manual
+                                        type: Consectetur veritatis est ab nihil totam.
+                                        uid: Distinctio praesentium est saepe nobis fugiat assumenda.
+                                      section_key: Et modi velit doloribus.
+                                      skip_reason: In aut aut assumenda mollitia.
+                                      status: awaiting_acceptance
+                                      status_source: platform
                                       sub_items:
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                      title: Esse repellat id.
-                                      uid: Et omnis quo autem.
-                                      version: 5659917630949886275
-                                    - action_link: Et incidunt qui animi quod aperiam ut.
-                                      assignee: Rem hic quibusdam.
-                                      checklist_type: internal
-                                      due_date: "1993-03-23"
-                                      evidence_link: Rerum magnam blanditiis est similique voluptatem.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                      title: Fugit quam quis dolorem.
+                                      uid: Veritatis repellendus eveniet.
+                                      version: 7767140549628890237
+                                    - action_link: Quia dolorem et quia architecto rerum esse.
+                                      assignee: Natus et qui inventore atque.
+                                      checklist_type: external
+                                      due_date: "2010-03-28"
+                                      evidence_link: https://example.org/bylaws.pdf
                                       gate: true
-                                      is_required: false
-                                      item_key: Praesentium a occaecati cum sint.
-                                      note: Sed sed illum cumque facilis.
+                                      is_required: true
+                                      item_key: Quod fuga.
+                                      note: Vel voluptatem.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 6202108848774381226
-                                        resource_type: Dolores nam explicabo.
-                                      position: 8528146827958780411
+                                        min_count: 2814157466557374125
+                                        resource_type: Alias praesentium a occaecati cum sint et.
+                                      position: 7184147390624912297
                                       requires_writer: true
                                       resolved_ref:
-                                        type: Reprehenderit aut explicabo.
-                                        uid: Ipsum placeat placeat voluptas.
-                                      section_key: Aperiam maxime quia dolorem et quia.
-                                      skip_reason: Facere et tempore.
-                                      status: skipped
-                                      status_source: manual
+                                        type: Consectetur veritatis est ab nihil totam.
+                                        uid: Distinctio praesentium est saepe nobis fugiat assumenda.
+                                      section_key: Et modi velit doloribus.
+                                      skip_reason: In aut aut assumenda mollitia.
+                                      status: awaiting_acceptance
+                                      status_source: platform
                                       sub_items:
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                      title: Esse repellat id.
-                                      uid: Et omnis quo autem.
-                                      version: 5659917630949886275
-                                    - action_link: Et incidunt qui animi quod aperiam ut.
-                                      assignee: Rem hic quibusdam.
-                                      checklist_type: internal
-                                      due_date: "1993-03-23"
-                                      evidence_link: Rerum magnam blanditiis est similique voluptatem.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                      title: Fugit quam quis dolorem.
+                                      uid: Veritatis repellendus eveniet.
+                                      version: 7767140549628890237
+                                    - action_link: Quia dolorem et quia architecto rerum esse.
+                                      assignee: Natus et qui inventore atque.
+                                      checklist_type: external
+                                      due_date: "2010-03-28"
+                                      evidence_link: https://example.org/bylaws.pdf
                                       gate: true
-                                      is_required: false
-                                      item_key: Praesentium a occaecati cum sint.
-                                      note: Sed sed illum cumque facilis.
+                                      is_required: true
+                                      item_key: Quod fuga.
+                                      note: Vel voluptatem.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 6202108848774381226
-                                        resource_type: Dolores nam explicabo.
-                                      position: 8528146827958780411
+                                        min_count: 2814157466557374125
+                                        resource_type: Alias praesentium a occaecati cum sint et.
+                                      position: 7184147390624912297
                                       requires_writer: true
                                       resolved_ref:
-                                        type: Reprehenderit aut explicabo.
-                                        uid: Ipsum placeat placeat voluptas.
-                                      section_key: Aperiam maxime quia dolorem et quia.
-                                      skip_reason: Facere et tempore.
-                                      status: skipped
-                                      status_source: manual
+                                        type: Consectetur veritatis est ab nihil totam.
+                                        uid: Distinctio praesentium est saepe nobis fugiat assumenda.
+                                      section_key: Et modi velit doloribus.
+                                      skip_reason: In aut aut assumenda mollitia.
+                                      status: awaiting_acceptance
+                                      status_source: platform
                                       sub_items:
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                      title: Esse repellat id.
-                                      uid: Et omnis quo autem.
-                                      version: 5659917630949886275
-                                    - action_link: Et incidunt qui animi quod aperiam ut.
-                                      assignee: Rem hic quibusdam.
-                                      checklist_type: internal
-                                      due_date: "1993-03-23"
-                                      evidence_link: Rerum magnam blanditiis est similique voluptatem.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                      title: Fugit quam quis dolorem.
+                                      uid: Veritatis repellendus eveniet.
+                                      version: 7767140549628890237
+                                    - action_link: Quia dolorem et quia architecto rerum esse.
+                                      assignee: Natus et qui inventore atque.
+                                      checklist_type: external
+                                      due_date: "2010-03-28"
+                                      evidence_link: https://example.org/bylaws.pdf
                                       gate: true
-                                      is_required: false
-                                      item_key: Praesentium a occaecati cum sint.
-                                      note: Sed sed illum cumque facilis.
+                                      is_required: true
+                                      item_key: Quod fuga.
+                                      note: Vel voluptatem.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 6202108848774381226
-                                        resource_type: Dolores nam explicabo.
-                                      position: 8528146827958780411
+                                        min_count: 2814157466557374125
+                                        resource_type: Alias praesentium a occaecati cum sint et.
+                                      position: 7184147390624912297
                                       requires_writer: true
                                       resolved_ref:
-                                        type: Reprehenderit aut explicabo.
-                                        uid: Ipsum placeat placeat voluptas.
-                                      section_key: Aperiam maxime quia dolorem et quia.
-                                      skip_reason: Facere et tempore.
-                                      status: skipped
-                                      status_source: manual
+                                        type: Consectetur veritatis est ab nihil totam.
+                                        uid: Distinctio praesentium est saepe nobis fugiat assumenda.
+                                      section_key: Et modi velit doloribus.
+                                      skip_reason: In aut aut assumenda mollitia.
+                                      status: awaiting_acceptance
+                                      status_source: platform
                                       sub_items:
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                        - key: Doloremque quia qui placeat vitae iusto.
-                                          status: in_progress
-                                          title: Tempora qui explicabo dolores quo magni modi.
-                                      title: Esse repellat id.
-                                      uid: Et omnis quo autem.
-                                      version: 5659917630949886275
-                                lifecycle: live
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                        - key: Sed sed illum cumque facilis.
+                                          status: not_started
+                                          title: Facere et tempore.
+                                      title: Fugit quam quis dolorem.
+                                      uid: Veritatis repellendus eveniet.
+                                      version: 7767140549628890237
+                                lifecycle: completed
                                 progress:
-                                    awaiting_acceptance: 208491137620354112
-                                    blocked: 3650119989630086730
-                                    done: 1307327383733512125
-                                    in_progress: 5299348342781176197
-                                    not_started: 6349162134039867595
-                                    skipped: 7961019908851817699
-                                project_uid: Est voluptas aliquam porro.
+                                    awaiting_acceptance: 6829462144540152718
+                                    blocked: 4460720009311438824
+                                    done: 575071249967164691
+                                    in_progress: 799125014076282759
+                                    not_started: 6688941030234126379
+                                    skipped: 3000731792149656815
+                                project_uid: In corrupti quidem excepturi enim labore est.
                                 sections:
-                                    - key: Non et modi velit doloribus neque hic.
-                                      position: 3456491601354475332
-                                      title: Quam quis dolorem.
-                                    - key: Non et modi velit doloribus neque hic.
-                                      position: 3456491601354475332
-                                      title: Quam quis dolorem.
-                                template_uid: Quam voluptatem omnis.
-                                template_version: 4378485381089176630
+                                    - key: Velit atque aut.
+                                      position: 6634576024035525492
+                                      title: Autem fuga laborum eius velit fuga.
+                                    - key: Velit atque aut.
+                                      position: 6634576024035525492
+                                      title: Autem fuga laborum eius velit fuga.
+                                template_uid: Dolores voluptates facere voluptates minima.
+                                template_version: 780890740791099890
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -223,7 +199,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Quaerat libero harum similique non.
+                                message: Quis deserunt qui eos.
                 "404":
                     description: 'NotFound: No formation exists for this project'
                     content:
@@ -232,7 +208,7 @@ paths:
                                 $ref: '#/components/schemas/NotFoundError'
                             example:
                                 code: "404"
-                                message: Iusto vel debitis aut ut fugiat.
+                                message: Molestiae laborum est.
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/activity:
@@ -262,8 +238,8 @@ paths:
                   schema:
                     type: string
                     description: Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.
-                    example: Tempore assumenda consequatur.
-                  example: Aut tempore voluptatem aut non.
+                    example: Quisquam perferendis sit impedit explicabo et omnis.
+                  example: Delectus accusantium a eos ab in natus.
                 - name: limit
                   in: query
                   description: Page size. Defaults to 20, capped at 100.
@@ -272,11 +248,11 @@ paths:
                     type: integer
                     description: Page size. Defaults to 20, capped at 100.
                     default: 20
-                    example: 44
+                    example: 70
                     format: int64
                     minimum: 1
                     maximum: 100
-                  example: 14
+                  example: 21
                 - name: project_uid
                   in: path
                   description: The project's UID.
@@ -284,8 +260,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Omnis architecto laboriosam ut quis.
-                  example: Rerum rem quidem dolorum nihil omnis.
+                    example: Debitis rerum soluta amet.
+                  example: Est et amet quos.
             responses:
                 "200":
                     description: OK response.
@@ -295,23 +271,31 @@ paths:
                                 $ref: '#/components/schemas/FormationActivityPage'
                             example:
                                 entries:
-                                    - action: Enim et aut est nihil id sit.
-                                      actor: Ut quo tempora cumque quisquam et iure.
-                                      after: Eos officiis.
-                                      at: "2008-01-30T21:05:12Z"
-                                      before: Hic eaque similique similique voluptates provident perspiciatis.
-                                      item_uid: Mollitia numquam dolorem et.
-                                      set_by: system
-                                      ulid: Omnis ea.
-                                    - action: Enim et aut est nihil id sit.
-                                      actor: Ut quo tempora cumque quisquam et iure.
-                                      after: Eos officiis.
-                                      at: "2008-01-30T21:05:12Z"
-                                      before: Hic eaque similique similique voluptates provident perspiciatis.
-                                      item_uid: Mollitia numquam dolorem et.
-                                      set_by: system
-                                      ulid: Omnis ea.
-                                next_cursor: Ut dolores non.
+                                    - action: Fuga ea sunt aperiam.
+                                      actor: Dolores numquam.
+                                      after: Dolorem et vitae ut.
+                                      at: "1980-04-16T07:20:22Z"
+                                      before: Adipisci omnis ea autem mollitia.
+                                      item_uid: Non quia earum at voluptas.
+                                      set_by: user
+                                      ulid: Eligendi perferendis quaerat libero harum.
+                                    - action: Fuga ea sunt aperiam.
+                                      actor: Dolores numquam.
+                                      after: Dolorem et vitae ut.
+                                      at: "1980-04-16T07:20:22Z"
+                                      before: Adipisci omnis ea autem mollitia.
+                                      item_uid: Non quia earum at voluptas.
+                                      set_by: user
+                                      ulid: Eligendi perferendis quaerat libero harum.
+                                    - action: Fuga ea sunt aperiam.
+                                      actor: Dolores numquam.
+                                      after: Dolorem et vitae ut.
+                                      at: "1980-04-16T07:20:22Z"
+                                      before: Adipisci omnis ea autem mollitia.
+                                      item_uid: Non quia earum at voluptas.
+                                      set_by: user
+                                      ulid: Eligendi perferendis quaerat libero harum.
+                                next_cursor: Enim in saepe facere.
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -320,7 +304,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Iure cum sit reprehenderit.
+                                message: Et ipsam.
                 "404":
                     description: 'NotFound: No formation exists for this project'
                     content:
@@ -329,7 +313,7 @@ paths:
                                 $ref: '#/components/schemas/NotFoundError'
                             example:
                                 code: "404"
-                                message: Quam numquam necessitatibus fugiat nemo laborum sit.
+                                message: Est architecto.
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/items/{item_key}:
@@ -359,8 +343,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Nisi non reprehenderit sunt.
-                  example: Voluptates perspiciatis ipsa ullam qui.
+                    example: Maxime qui in minus.
+                  example: Saepe illo est tempore sit nulla in.
                 - name: item_key
                   in: path
                   description: The item's stable key.
@@ -368,8 +352,8 @@ paths:
                   schema:
                     type: string
                     description: The item's stable key.
-                    example: Dolorem repudiandae aperiam.
-                  example: Incidunt et quidem dicta veniam blanditiis.
+                    example: Qui mollitia sequi eos sed.
+                  example: Eveniet eligendi odit.
                 - name: If-Match
                   in: header
                   description: Must equal the item's current version.
@@ -378,9 +362,9 @@ paths:
                   schema:
                     type: integer
                     description: Must equal the item's current version.
-                    example: 7793956992517248509
+                    example: 6037116959520693887
                     format: int64
-                  example: 8731214771309677087
+                  example: 515397178562098829
             requestBody:
                 required: true
                 content:
@@ -388,21 +372,17 @@ paths:
                         schema:
                             $ref: '#/components/schemas/UpdateItemRequestBody'
                         example:
-                            assignee: Nostrum omnis qui aut est.
-                            due_date: Quaerat dolorem.
-                            evidence_link: Perspiciatis nobis accusamus.
-                            note: Libero deleniti eaque sequi.
-                            skip_reason: Tempore consectetur temporibus.
-                            status: not_started
+                            assignee: Id quaerat est.
+                            due_date: "2026-03-31"
+                            evidence_link: https://example.org/bylaws.pdf
+                            note: Consequatur ut.
+                            skip_reason: Non laborum quam numquam necessitatibus.
+                            status: done
                             sub_items:
-                                - key: Facilis nihil.
-                                  status: done
-                                - key: Facilis nihil.
-                                  status: done
-                                - key: Facilis nihil.
-                                  status: done
-                                - key: Facilis nihil.
-                                  status: done
+                                - key: Laborum sit aut iure cum sit.
+                                  status: skipped
+                                - key: Laborum sit aut iure cum sit.
+                                  status: skipped
             responses:
                 "200":
                     description: OK response.
@@ -411,38 +391,44 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/FormationItem'
                             example:
-                                action_link: Ea eum eveniet debitis at.
-                                assignee: Voluptas voluptatem explicabo eos.
-                                checklist_type: internal
-                                due_date: "1995-05-22"
-                                evidence_link: Doloremque facilis dolores illum.
+                                action_link: Id consequatur et earum et nam.
+                                assignee: Minima dolorum.
+                                checklist_type: external
+                                due_date: "2001-05-26"
+                                evidence_link: https://example.org/bylaws.pdf
                                 gate: false
-                                is_required: false
-                                item_key: Cum tempore quia autem vel labore magnam.
-                                note: Adipisci atque.
+                                is_required: true
+                                item_key: Quaerat dolorem.
+                                note: Fugiat aperiam unde et dignissimos dolor.
                                 owner_team: formation
                                 platform_check:
-                                    min_count: 6202108848774381226
-                                    resource_type: Dolores nam explicabo.
-                                position: 2538165195916767739
-                                requires_writer: true
+                                    min_count: 2814157466557374125
+                                    resource_type: Alias praesentium a occaecati cum sint et.
+                                position: 8700337969895826165
+                                requires_writer: false
                                 resolved_ref:
-                                    type: Reprehenderit aut explicabo.
-                                    uid: Ipsum placeat placeat voluptas.
-                                section_key: At aut.
-                                skip_reason: Nemo voluptatibus at id labore.
-                                status: done
+                                    type: Consectetur veritatis est ab nihil totam.
+                                    uid: Distinctio praesentium est saepe nobis fugiat assumenda.
+                                section_key: Libero deleniti eaque sequi.
+                                skip_reason: Voluptas accusantium.
+                                status: in_progress
                                 status_source: platform
                                 sub_items:
-                                    - key: Doloremque quia qui placeat vitae iusto.
-                                      status: in_progress
-                                      title: Tempora qui explicabo dolores quo magni modi.
-                                    - key: Doloremque quia qui placeat vitae iusto.
-                                      status: in_progress
-                                      title: Tempora qui explicabo dolores quo magni modi.
-                                title: Velit quae voluptatem quisquam aliquid optio.
-                                uid: Accusantium minima dolorum asperiores.
-                                version: 7189763466884730796
+                                    - key: Sed sed illum cumque facilis.
+                                      status: not_started
+                                      title: Facere et tempore.
+                                    - key: Sed sed illum cumque facilis.
+                                      status: not_started
+                                      title: Facere et tempore.
+                                    - key: Sed sed illum cumque facilis.
+                                      status: not_started
+                                      title: Facere et tempore.
+                                    - key: Sed sed illum cumque facilis.
+                                      status: not_started
+                                      title: Facere et tempore.
+                                title: Consectetur temporibus odio perspiciatis nobis accusamus consequatur.
+                                uid: Nostrum omnis qui aut est.
+                                version: 828711191730083599
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
                     content:
@@ -451,9 +437,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Et similique sunt repellendus quis.
-                                name: Velit et saepe.
-                                reason: link_scheme_invalid
+                                message: Autem voluptatem dolor ut sed.
+                                name: Quidem dolor molestiae consequuntur.
+                                reason: unknown_item_key
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -462,7 +448,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Possimus soluta recusandae unde.
+                                message: Modi in modi magnam impedit corrupti.
                 "404":
                     description: 'NotFound: No formation, or no item with that key, exists'
                     content:
@@ -471,9 +457,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Impedit corrupti iusto recusandae dolorem repudiandae eum.
-                                name: Ut sed rerum voluptas modi in modi.
-                                reason: unknown_item_key
+                                message: Cum vel non.
+                                name: Laudantium nobis et iure et.
+                                reason: link_scheme_invalid
                 "409":
                     description: 'Conflict: The checklist, or this item''s current state, refuses the change'
                     content:
@@ -482,9 +468,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Soluta fuga id tempore ducimus dignissimos non.
-                                name: Quis doloribus est perspiciatis quis sit.
-                                reason: version_mismatch
+                                message: Id cum.
+                                name: Labore ducimus perspiciatis sed fuga.
+                                reason: checklist_read_only
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -493,9 +479,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Fuga veritatis ut fuga consequatur.
-                                name: Dolores et.
-                                reason: unknown_item_key
+                                message: Qui cum adipisci atque ab nemo voluptatibus.
+                                name: Et fugiat.
+                                reason: checklist_read_only
             security:
                 - jwt_header_Authorization: []
 components:
@@ -505,23 +491,23 @@ components:
             properties:
                 action:
                     type: string
-                    example: Suscipit perspiciatis qui laudantium.
+                    example: Id adipisci ratione at consequatur.
                 actor:
                     type: string
-                    example: Dolor voluptatem odio ut excepturi.
+                    example: Adipisci est id.
                 after:
-                    example: Illo rerum ratione possimus iusto eum eius.
+                    example: Excepturi excepturi.
                 at:
                     type: string
-                    example: "1972-09-12T06:54:50Z"
+                    example: "1977-12-08T11:01:54Z"
                     format: date-time
                 before:
                     description: Redacted summary.
-                    example: Non officiis eum.
+                    example: Soluta quibusdam autem laudantium quibusdam placeat.
                 item_uid:
                     type: string
                     description: Nullable — absent for a formation-level entry.
-                    example: Numquam consectetur qui rem praesentium quibusdam voluptatem.
+                    example: Minus quas voluptatem quisquam voluptatem sapiente omnis.
                 set_by:
                     type: string
                     example: system
@@ -531,16 +517,16 @@ components:
                 ulid:
                     type: string
                     description: Time-ordered; doubles as the paging cursor.
-                    example: Quas ut temporibus et pariatur animi.
+                    example: Dolores et aliquid ut eveniet.
             example:
-                action: Quasi numquam culpa nulla facere.
-                actor: Dolorem possimus magni.
-                after: Dolorum et qui possimus illum voluptatem laudantium.
-                at: "1998-09-11T22:22:01Z"
-                before: Similique magni quis.
-                item_uid: Ea consequatur nobis.
-                set_by: user
-                ulid: Facere in odio.
+                action: Perspiciatis qui laudantium excepturi.
+                actor: Ut excepturi officia.
+                after: Rerum ratione possimus iusto eum eius.
+                at: "1972-09-12T06:54:50Z"
+                before: Officiis eum ut.
+                item_uid: Quibusdam voluptatem laboriosam dolor voluptatem.
+                set_by: system
+                ulid: Animi dolor numquam consectetur qui rem.
             required:
                 - ulid
                 - actor
@@ -555,61 +541,77 @@ components:
                     items:
                         $ref: '#/components/schemas/FormationActivityEntry'
                     example:
-                        - action: Non qui magni nemo reiciendis aperiam minima.
-                          actor: Distinctio voluptatibus harum expedita.
+                        - action: Voluptatibus harum expedita possimus sequi non qui.
+                          actor: Officia vero voluptatem laudantium qui.
                           after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                           at: "2002-10-10T03:40:12Z"
-                          before: Et repellendus.
-                          item_uid: Officia vero voluptatem laudantium qui.
-                          set_by: user
-                          ulid: Et quia.
-                        - action: Non qui magni nemo reiciendis aperiam minima.
-                          actor: Distinctio voluptatibus harum expedita.
+                          before: Nemo reiciendis aperiam minima dicta et repellendus.
+                          item_uid: Pariatur sint expedita nihil sint et quia.
+                          set_by: system
+                          ulid: Pariatur id.
+                        - action: Voluptatibus harum expedita possimus sequi non qui.
+                          actor: Officia vero voluptatem laudantium qui.
                           after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                           at: "2002-10-10T03:40:12Z"
-                          before: Et repellendus.
-                          item_uid: Officia vero voluptatem laudantium qui.
-                          set_by: user
-                          ulid: Et quia.
+                          before: Nemo reiciendis aperiam minima dicta et repellendus.
+                          item_uid: Pariatur sint expedita nihil sint et quia.
+                          set_by: system
+                          ulid: Pariatur id.
+                        - action: Voluptatibus harum expedita possimus sequi non qui.
+                          actor: Officia vero voluptatem laudantium qui.
+                          after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
+                          at: "2002-10-10T03:40:12Z"
+                          before: Nemo reiciendis aperiam minima dicta et repellendus.
+                          item_uid: Pariatur sint expedita nihil sint et quia.
+                          set_by: system
+                          ulid: Pariatur id.
+                        - action: Voluptatibus harum expedita possimus sequi non qui.
+                          actor: Officia vero voluptatem laudantium qui.
+                          after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
+                          at: "2002-10-10T03:40:12Z"
+                          before: Nemo reiciendis aperiam minima dicta et repellendus.
+                          item_uid: Pariatur sint expedita nihil sint et quia.
+                          set_by: system
+                          ulid: Pariatur id.
                 next_cursor:
                     type: string
                     description: Pass as cursor to fetch the next page. Empty on the last page.
-                    example: Est tempore sit.
+                    example: Laudantium ipsum rerum.
             example:
                 entries:
-                    - action: Non qui magni nemo reiciendis aperiam minima.
-                      actor: Distinctio voluptatibus harum expedita.
+                    - action: Voluptatibus harum expedita possimus sequi non qui.
+                      actor: Officia vero voluptatem laudantium qui.
                       after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                       at: "2002-10-10T03:40:12Z"
-                      before: Et repellendus.
-                      item_uid: Officia vero voluptatem laudantium qui.
-                      set_by: user
-                      ulid: Et quia.
-                    - action: Non qui magni nemo reiciendis aperiam minima.
-                      actor: Distinctio voluptatibus harum expedita.
+                      before: Nemo reiciendis aperiam minima dicta et repellendus.
+                      item_uid: Pariatur sint expedita nihil sint et quia.
+                      set_by: system
+                      ulid: Pariatur id.
+                    - action: Voluptatibus harum expedita possimus sequi non qui.
+                      actor: Officia vero voluptatem laudantium qui.
                       after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                       at: "2002-10-10T03:40:12Z"
-                      before: Et repellendus.
-                      item_uid: Officia vero voluptatem laudantium qui.
-                      set_by: user
-                      ulid: Et quia.
-                    - action: Non qui magni nemo reiciendis aperiam minima.
-                      actor: Distinctio voluptatibus harum expedita.
+                      before: Nemo reiciendis aperiam minima dicta et repellendus.
+                      item_uid: Pariatur sint expedita nihil sint et quia.
+                      set_by: system
+                      ulid: Pariatur id.
+                    - action: Voluptatibus harum expedita possimus sequi non qui.
+                      actor: Officia vero voluptatem laudantium qui.
                       after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                       at: "2002-10-10T03:40:12Z"
-                      before: Et repellendus.
-                      item_uid: Officia vero voluptatem laudantium qui.
-                      set_by: user
-                      ulid: Et quia.
-                    - action: Non qui magni nemo reiciendis aperiam minima.
-                      actor: Distinctio voluptatibus harum expedita.
+                      before: Nemo reiciendis aperiam minima dicta et repellendus.
+                      item_uid: Pariatur sint expedita nihil sint et quia.
+                      set_by: system
+                      ulid: Pariatur id.
+                    - action: Voluptatibus harum expedita possimus sequi non qui.
+                      actor: Officia vero voluptatem laudantium qui.
                       after: Quidem aliquam exercitationem perspiciatis odio voluptatum nam.
                       at: "2002-10-10T03:40:12Z"
-                      before: Et repellendus.
-                      item_uid: Officia vero voluptatem laudantium qui.
-                      set_by: user
-                      ulid: Et quia.
-                next_cursor: Architecto qui mollitia sequi eos.
+                      before: Nemo reiciendis aperiam minima dicta et repellendus.
+                      item_uid: Pariatur sint expedita nihil sint et quia.
+                      set_by: system
+                      ulid: Pariatur id.
+                next_cursor: Voluptas et voluptatem accusantium quia hic.
             required:
                 - entries
         FormationChecklist:
@@ -618,21 +620,21 @@ components:
                 is_activating:
                     type: boolean
                     description: Every gating item done, at least one gating item exists, and the project has an announcement date.
-                    example: false
+                    example: true
                 items:
                     type: array
                     items:
                         $ref: '#/components/schemas/FormationItem'
                     example:
                         - action_link: Atque quae doloremque nobis id facere itaque.
-                          assignee: Voluptatibus dolorem culpa.
+                          assignee: Suscipit non ipsam tenetur.
                           checklist_type: external
-                          due_date: "1976-03-28"
-                          evidence_link: In suscipit non ipsam.
+                          due_date: "1989-06-14"
+                          evidence_link: https://example.org/bylaws.pdf
                           gate: true
                           is_required: true
                           item_key: Quia quidem quisquam similique labore nisi consectetur.
-                          note: Illo et voluptatem est reiciendis perspiciatis aut.
+                          note: Accusantium velit ratione blanditiis.
                           owner_team: formation
                           platform_check:
                             min_count: 5756546912852851002
@@ -640,37 +642,37 @@ components:
                           position: 3079137190898711609
                           requires_writer: true
                           resolved_ref:
-                            type: Incidunt aut dignissimos qui officiis iure aperiam.
-                            uid: Tempore labore odit sint ut corrupti nihil.
+                            type: Quisquam incidunt dolor.
+                            uid: Incidunt aut dignissimos qui officiis iure aperiam.
                           section_key: Rem corrupti expedita tempore sint rerum.
-                          skip_reason: Quisquam incidunt dolor.
-                          status: blocked
+                          skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                          status: awaiting_acceptance
                           status_source: platform
                           sub_items:
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
                           title: Commodi commodi itaque iste architecto tempora qui.
                           uid: Quis eos voluptas harum non.
-                          version: 1130082758641556404
+                          version: 6373234687924533805
                         - action_link: Atque quae doloremque nobis id facere itaque.
-                          assignee: Voluptatibus dolorem culpa.
+                          assignee: Suscipit non ipsam tenetur.
                           checklist_type: external
-                          due_date: "1976-03-28"
-                          evidence_link: In suscipit non ipsam.
+                          due_date: "1989-06-14"
+                          evidence_link: https://example.org/bylaws.pdf
                           gate: true
                           is_required: true
                           item_key: Quia quidem quisquam similique labore nisi consectetur.
-                          note: Illo et voluptatem est reiciendis perspiciatis aut.
+                          note: Accusantium velit ratione blanditiis.
                           owner_team: formation
                           platform_check:
                             min_count: 5756546912852851002
@@ -678,66 +680,28 @@ components:
                           position: 3079137190898711609
                           requires_writer: true
                           resolved_ref:
-                            type: Incidunt aut dignissimos qui officiis iure aperiam.
-                            uid: Tempore labore odit sint ut corrupti nihil.
+                            type: Quisquam incidunt dolor.
+                            uid: Incidunt aut dignissimos qui officiis iure aperiam.
                           section_key: Rem corrupti expedita tempore sint rerum.
-                          skip_reason: Quisquam incidunt dolor.
-                          status: blocked
+                          skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                          status: awaiting_acceptance
                           status_source: platform
                           sub_items:
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
+                            - key: Labore odit sint ut corrupti nihil assumenda.
+                              status: skipped
+                              title: Non voluptas.
                           title: Commodi commodi itaque iste architecto tempora qui.
                           uid: Quis eos voluptas harum non.
-                          version: 1130082758641556404
-                        - action_link: Atque quae doloremque nobis id facere itaque.
-                          assignee: Voluptatibus dolorem culpa.
-                          checklist_type: external
-                          due_date: "1976-03-28"
-                          evidence_link: In suscipit non ipsam.
-                          gate: true
-                          is_required: true
-                          item_key: Quia quidem quisquam similique labore nisi consectetur.
-                          note: Illo et voluptatem est reiciendis perspiciatis aut.
-                          owner_team: formation
-                          platform_check:
-                            min_count: 5756546912852851002
-                            resource_type: Esse id eum.
-                          position: 3079137190898711609
-                          requires_writer: true
-                          resolved_ref:
-                            type: Incidunt aut dignissimos qui officiis iure aperiam.
-                            uid: Tempore labore odit sint ut corrupti nihil.
-                          section_key: Rem corrupti expedita tempore sint rerum.
-                          skip_reason: Quisquam incidunt dolor.
-                          status: blocked
-                          status_source: platform
-                          sub_items:
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                            - key: Non voluptas.
-                              status: in_progress
-                              title: Quo dolorem molestiae nihil enim molestiae sed.
-                          title: Commodi commodi itaque iste architecto tempora qui.
-                          uid: Quis eos voluptas harum non.
-                          version: 1130082758641556404
+                          version: 6373234687924533805
                 lifecycle:
                     type: string
                     example: frozen
@@ -749,7 +713,7 @@ components:
                     $ref: '#/components/schemas/FormationProgress'
                 project_uid:
                     type: string
-                    example: Quisquam perferendis sit impedit explicabo et omnis.
+                    example: Facere in odio.
                 sections:
                     type: array
                     items:
@@ -761,31 +725,25 @@ components:
                         - key: Voluptatem non dolor voluptates.
                           position: 7312166348902862462
                           title: Eum voluptas non.
-                        - key: Voluptatem non dolor voluptates.
-                          position: 7312166348902862462
-                          title: Eum voluptas non.
-                        - key: Voluptatem non dolor voluptates.
-                          position: 7312166348902862462
-                          title: Eum voluptas non.
                 template_uid:
                     type: string
-                    example: Delectus accusantium a eos ab in natus.
+                    example: Ea consequatur nobis.
                 template_version:
                     type: integer
-                    example: 2893578065196129204
+                    example: 4518395065301487880
                     format: int64
             example:
                 is_activating: false
                 items:
                     - action_link: Atque quae doloremque nobis id facere itaque.
-                      assignee: Voluptatibus dolorem culpa.
+                      assignee: Suscipit non ipsam tenetur.
                       checklist_type: external
-                      due_date: "1976-03-28"
-                      evidence_link: In suscipit non ipsam.
+                      due_date: "1989-06-14"
+                      evidence_link: https://example.org/bylaws.pdf
                       gate: true
                       is_required: true
                       item_key: Quia quidem quisquam similique labore nisi consectetur.
-                      note: Illo et voluptatem est reiciendis perspiciatis aut.
+                      note: Accusantium velit ratione blanditiis.
                       owner_team: formation
                       platform_check:
                         min_count: 5756546912852851002
@@ -793,37 +751,37 @@ components:
                       position: 3079137190898711609
                       requires_writer: true
                       resolved_ref:
-                        type: Incidunt aut dignissimos qui officiis iure aperiam.
-                        uid: Tempore labore odit sint ut corrupti nihil.
+                        type: Quisquam incidunt dolor.
+                        uid: Incidunt aut dignissimos qui officiis iure aperiam.
                       section_key: Rem corrupti expedita tempore sint rerum.
-                      skip_reason: Quisquam incidunt dolor.
-                      status: blocked
+                      skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                      status: awaiting_acceptance
                       status_source: platform
                       sub_items:
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
                       title: Commodi commodi itaque iste architecto tempora qui.
                       uid: Quis eos voluptas harum non.
-                      version: 1130082758641556404
+                      version: 6373234687924533805
                     - action_link: Atque quae doloremque nobis id facere itaque.
-                      assignee: Voluptatibus dolorem culpa.
+                      assignee: Suscipit non ipsam tenetur.
                       checklist_type: external
-                      due_date: "1976-03-28"
-                      evidence_link: In suscipit non ipsam.
+                      due_date: "1989-06-14"
+                      evidence_link: https://example.org/bylaws.pdf
                       gate: true
                       is_required: true
                       item_key: Quia quidem quisquam similique labore nisi consectetur.
-                      note: Illo et voluptatem est reiciendis perspiciatis aut.
+                      note: Accusantium velit ratione blanditiis.
                       owner_team: formation
                       platform_check:
                         min_count: 5756546912852851002
@@ -831,37 +789,113 @@ components:
                       position: 3079137190898711609
                       requires_writer: true
                       resolved_ref:
-                        type: Incidunt aut dignissimos qui officiis iure aperiam.
-                        uid: Tempore labore odit sint ut corrupti nihil.
+                        type: Quisquam incidunt dolor.
+                        uid: Incidunt aut dignissimos qui officiis iure aperiam.
                       section_key: Rem corrupti expedita tempore sint rerum.
-                      skip_reason: Quisquam incidunt dolor.
-                      status: blocked
+                      skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                      status: awaiting_acceptance
                       status_source: platform
                       sub_items:
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
                       title: Commodi commodi itaque iste architecto tempora qui.
                       uid: Quis eos voluptas harum non.
-                      version: 1130082758641556404
+                      version: 6373234687924533805
+                    - action_link: Atque quae doloremque nobis id facere itaque.
+                      assignee: Suscipit non ipsam tenetur.
+                      checklist_type: external
+                      due_date: "1989-06-14"
+                      evidence_link: https://example.org/bylaws.pdf
+                      gate: true
+                      is_required: true
+                      item_key: Quia quidem quisquam similique labore nisi consectetur.
+                      note: Accusantium velit ratione blanditiis.
+                      owner_team: formation
+                      platform_check:
+                        min_count: 5756546912852851002
+                        resource_type: Esse id eum.
+                      position: 3079137190898711609
+                      requires_writer: true
+                      resolved_ref:
+                        type: Quisquam incidunt dolor.
+                        uid: Incidunt aut dignissimos qui officiis iure aperiam.
+                      section_key: Rem corrupti expedita tempore sint rerum.
+                      skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                      status: awaiting_acceptance
+                      status_source: platform
+                      sub_items:
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                      title: Commodi commodi itaque iste architecto tempora qui.
+                      uid: Quis eos voluptas harum non.
+                      version: 6373234687924533805
+                    - action_link: Atque quae doloremque nobis id facere itaque.
+                      assignee: Suscipit non ipsam tenetur.
+                      checklist_type: external
+                      due_date: "1989-06-14"
+                      evidence_link: https://example.org/bylaws.pdf
+                      gate: true
+                      is_required: true
+                      item_key: Quia quidem quisquam similique labore nisi consectetur.
+                      note: Accusantium velit ratione blanditiis.
+                      owner_team: formation
+                      platform_check:
+                        min_count: 5756546912852851002
+                        resource_type: Esse id eum.
+                      position: 3079137190898711609
+                      requires_writer: true
+                      resolved_ref:
+                        type: Quisquam incidunt dolor.
+                        uid: Incidunt aut dignissimos qui officiis iure aperiam.
+                      section_key: Rem corrupti expedita tempore sint rerum.
+                      skip_reason: Et voluptatem est reiciendis perspiciatis aut.
+                      status: awaiting_acceptance
+                      status_source: platform
+                      sub_items:
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                      title: Commodi commodi itaque iste architecto tempora qui.
+                      uid: Quis eos voluptas harum non.
+                      version: 6373234687924533805
                 lifecycle: frozen
                 progress:
-                    awaiting_acceptance: 5279853334236143673
-                    blocked: 7063758687712645089
-                    done: 4494499237109905664
-                    in_progress: 5473014790154517888
-                    not_started: 2850368461309592293
-                    skipped: 3670740667847376887
-                project_uid: Amet explicabo est.
+                    awaiting_acceptance: 3665236362737603287
+                    blocked: 1909815443087727919
+                    done: 8291968956814921303
+                    in_progress: 7421536534452400282
+                    not_started: 8665411137972816012
+                    skipped: 30444515611435833
+                project_uid: Quasi numquam culpa nulla facere.
                 sections:
                     - key: Voluptatem non dolor voluptates.
                       position: 7312166348902862462
@@ -872,8 +906,11 @@ components:
                     - key: Voluptatem non dolor voluptates.
                       position: 7312166348902862462
                       title: Eum voluptas non.
-                template_uid: Amet quos sequi.
-                template_version: 2718217081946579663
+                    - key: Voluptatem non dolor voluptates.
+                      position: 7312166348902862462
+                      title: Eum voluptas non.
+                template_uid: Similique magni quis.
+                template_version: 1772187187304168709
             required:
                 - project_uid
                 - template_uid
@@ -893,15 +930,15 @@ components:
                 message:
                     type: string
                     description: Human-readable message
-                    example: Aut voluptas id vel officia.
+                    example: Ea vitae aut modi officia nihil.
                 name:
                     type: string
                     description: Which declared error this is — matches the Error() name (e.g. "Conflict"). Transport dispatch only; switch on reason, not this.
-                    example: Culpa quo laudantium consequatur aut.
+                    example: Dolor placeat.
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: due_date_invalid
+                    example: sub_item_null
                     enum:
                         - not_found
                         - version_mismatch
@@ -918,9 +955,9 @@ components:
                         - no_fields_to_update
             example:
                 code: "409"
-                message: In suscipit quia.
-                name: Consequatur impedit ut distinctio laborum qui.
-                reason: invalid_transition
+                message: Deserunt voluptates voluptatem animi rem recusandae neque.
+                name: Quos ratione ipsam dolores est.
+                reason: no_fields_to_update
             required:
                 - name
                 - code
@@ -932,27 +969,27 @@ components:
                 action_link:
                     type: string
                     description: Placeholders substituted once at expansion.
-                    example: Sapiente facilis.
+                    example: Velit perferendis assumenda quibusdam.
                 assignee:
                     type: string
                     description: Username. Nothing is granted.
-                    example: Adipisci et necessitatibus fugiat fugit.
+                    example: Commodi maiores ad est sunt.
                 checklist_type:
                     type: string
                     description: Which audience this item is for. Display metadata only; the response is never filtered by it.
-                    example: internal
+                    example: both
                     enum:
                         - internal
                         - external
                         - both
                 due_date:
                     type: string
-                    example: "1973-12-31"
+                    example: "2003-05-04"
                     format: date
                 evidence_link:
                     type: string
                     description: Writer-set; feeds Quick Links.
-                    example: Iure eveniet sint.
+                    example: https://example.org/bylaws.pdf
                 gate:
                     type: boolean
                     description: Whether this item blocks going live.
@@ -964,10 +1001,10 @@ components:
                 item_key:
                     type: string
                     description: Stable identifier, e.g. charter_agreed. Never changes.
-                    example: Labore adipisci et.
+                    example: Distinctio laborum.
                 note:
                     type: string
-                    example: Occaecati deleniti tempora et eius exercitationem non.
+                    example: Ab aliquid inventore nisi.
                 owner_team:
                     type: string
                     example: formation
@@ -975,24 +1012,24 @@ components:
                     $ref: '#/components/schemas/FormationPlatformCheck'
                 position:
                     type: integer
-                    example: 732356749333137948
+                    example: 2130596110579220547
                     format: int64
                 requires_writer:
                     type: boolean
-                    example: false
+                    example: true
                 resolved_ref:
                     $ref: '#/components/schemas/FormationResolvedRef'
                 section_key:
                     type: string
-                    example: Facere mollitia aliquam omnis sint dolorem.
+                    example: Pariatur in suscipit quia omnis error sed.
                 skip_reason:
                     type: string
                     description: Required when status is skipped.
-                    example: Aut dolorum labore molestiae iusto incidunt aut.
+                    example: Temporibus est repellendus et aspernatur sapiente.
                 status:
                     type: string
                     description: Six values.
-                    example: not_started
+                    example: done
                     enum:
                         - not_started
                         - in_progress
@@ -1011,59 +1048,56 @@ components:
                     items:
                         $ref: '#/components/schemas/FormationSubItem'
                     example:
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
-                        - key: Non voluptas.
-                          status: in_progress
-                          title: Quo dolorem molestiae nihil enim molestiae sed.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
+                        - key: Labore odit sint ut corrupti nihil assumenda.
+                          status: skipped
+                          title: Non voluptas.
                 title:
                     type: string
-                    example: Est ab aliquid inventore nisi.
+                    example: Nihil sed natus exercitationem asperiores expedita.
                 uid:
                     type: string
-                    example: Sit et.
+                    example: Id vel officia explicabo officiis consequatur impedit.
                 version:
                     type: integer
                     description: Echo as If-Match on every mutation. Per item, not per formation.
-                    example: 7349003565415537604
+                    example: 1783509031986072449
                     format: int64
             example:
-                action_link: Repudiandae at est pariatur ab.
-                assignee: Repellat saepe accusamus.
-                checklist_type: both
-                due_date: "2005-03-01"
-                evidence_link: Autem qui.
-                gate: true
-                is_required: true
-                item_key: Sed voluptas est molestiae quo.
-                note: Officia earum nobis dignissimos in et.
+                action_link: Aut voluptatem dolor consequatur sint accusamus.
+                assignee: Ut nulla assumenda animi aut hic non.
+                checklist_type: external
+                due_date: "1971-05-21"
+                evidence_link: https://example.org/bylaws.pdf
+                gate: false
+                is_required: false
+                item_key: Dolores adipisci et necessitatibus fugiat fugit sed.
+                note: Ex omnis minus beatae fugit.
                 owner_team: formation
                 platform_check:
                     min_count: 5756546912852851002
                     resource_type: Esse id eum.
-                position: 637616406818837934
-                requires_writer: true
+                position: 2808092043400271883
+                requires_writer: false
                 resolved_ref:
-                    type: Incidunt aut dignissimos qui officiis iure aperiam.
-                    uid: Tempore labore odit sint ut corrupti nihil.
-                section_key: Voluptatem aliquid.
-                skip_reason: Voluptas impedit harum.
-                status: not_started
+                    type: Quisquam incidunt dolor.
+                    uid: Incidunt aut dignissimos qui officiis iure aperiam.
+                section_key: Molestiae et reprehenderit qui qui omnis ea.
+                skip_reason: Et est dolores.
+                status: in_progress
                 status_source: platform
                 sub_items:
-                    - key: Non voluptas.
-                      status: in_progress
-                      title: Quo dolorem molestiae nihil enim molestiae sed.
-                    - key: Non voluptas.
-                      status: in_progress
-                      title: Quo dolorem molestiae nihil enim molestiae sed.
-                title: Et ex omnis minus.
-                uid: Ut nisi vitae aut itaque rerum omnis.
-                version: 5286376912353361004
+                    - key: Labore odit sint ut corrupti nihil assumenda.
+                      status: skipped
+                      title: Non voluptas.
+                    - key: Labore odit sint ut corrupti nihil assumenda.
+                      status: skipped
+                      title: Non voluptas.
+                title: Perferendis culpa amet eos.
+                uid: Eveniet sint.
+                version: 6918449408959802319
             required:
                 - uid
                 - item_key
@@ -1082,48 +1116,48 @@ components:
             properties:
                 min_count:
                     type: integer
-                    example: 1826920311434941208
+                    example: 9128008066139493277
                     format: int64
                 resource_type:
                     type: string
-                    example: Qui voluptatibus.
+                    example: Ut fugiat natus modi itaque.
             example:
-                min_count: 8338170176139167226
-                resource_type: Nostrum quam optio nihil et inventore odio.
+                min_count: 8781606759543244162
+                resource_type: Incidunt quos et ut.
         FormationProgress:
             type: object
             properties:
                 awaiting_acceptance:
                     type: integer
-                    example: 1323283329985594104
+                    example: 1906174504792899943
                     format: int64
                 blocked:
                     type: integer
-                    example: 3569714317659491119
+                    example: 6412898387678967639
                     format: int64
                 done:
                     type: integer
-                    example: 7591653910293567007
+                    example: 4609598522440808494
                     format: int64
                 in_progress:
                     type: integer
-                    example: 6284053267726914654
+                    example: 672271586738488291
                     format: int64
                 not_started:
                     type: integer
-                    example: 991048266526662867
+                    example: 1029776769442403286
                     format: int64
                 skipped:
                     type: integer
-                    example: 7611268324475067265
+                    example: 75979315866571270
                     format: int64
             example:
-                awaiting_acceptance: 7594237681355028503
-                blocked: 5407398440913259309
-                done: 7903768147645376340
-                in_progress: 3537990570194061011
-                not_started: 8135316468307331102
-                skipped: 30369666600406127
+                awaiting_acceptance: 4239689935349057423
+                blocked: 6228443084936333256
+                done: 3554324395681205724
+                in_progress: 8036821520008953604
+                not_started: 3089035839562564863
+                skipped: 6421151599116899155
             required:
                 - not_started
                 - in_progress
@@ -1136,30 +1170,30 @@ components:
             properties:
                 type:
                     type: string
-                    example: Eius ut nulla cupiditate.
+                    example: Aut eligendi explicabo aspernatur eum.
                 uid:
                     type: string
-                    example: Voluptatem quos sed fugiat facere quaerat.
+                    example: Suscipit deleniti libero ipsum repellendus quae quasi.
             example:
-                type: Omnis voluptates odio inventore.
-                uid: Vel sit.
+                type: Aut provident sit dicta culpa.
+                uid: Laudantium consequatur aut nulla aut.
         FormationSection:
             type: object
             properties:
                 key:
                     type: string
-                    example: Autem minima facere aperiam non.
+                    example: Pariatur ab ducimus autem qui illum quia.
                 position:
                     type: integer
-                    example: 3529952480742485584
+                    example: 4015392610808427140
                     format: int64
                 title:
                     type: string
-                    example: Deleniti quia neque qui sint error.
+                    example: Saepe accusamus minima voluptatem.
             example:
-                key: Et eligendi non sunt.
-                position: 1019834212984032867
-                title: Ratione est dolores fugit.
+                key: Qui est.
+                position: 5795642650695807191
+                title: Neque nihil.
             required:
                 - key
                 - title
@@ -1169,10 +1203,10 @@ components:
             properties:
                 key:
                     type: string
-                    example: Sed eius et nihil.
+                    example: Neque aut.
                 status:
                     type: string
-                    example: not_started
+                    example: blocked
                     enum:
                         - not_started
                         - in_progress
@@ -1182,11 +1216,11 @@ components:
                         - skipped
                 title:
                     type: string
-                    example: Natus exercitationem asperiores expedita.
+                    example: Sed placeat consequatur ad est velit distinctio.
             example:
-                key: Et eum iure quia velit perferendis assumenda.
-                status: not_started
-                title: Error sint commodi maiores ad.
+                key: Quae assumenda quis quia.
+                status: in_progress
+                title: Accusantium ipsam nemo.
             required:
                 - key
                 - title
@@ -1196,10 +1230,10 @@ components:
             properties:
                 key:
                     type: string
-                    example: Quam vitae nesciunt.
+                    example: Nesciunt unde accusamus dolorum ad.
                 status:
                     type: string
-                    example: skipped
+                    example: awaiting_acceptance
                     enum:
                         - not_started
                         - in_progress
@@ -1208,8 +1242,8 @@ components:
                         - done
                         - skipped
             example:
-                key: Ut eum.
-                status: skipped
+                key: Sit qui ipsa natus impedit.
+                status: not_started
             required:
                 - key
                 - status
@@ -1223,10 +1257,10 @@ components:
                 message:
                     type: string
                     description: Error message
-                    example: Et ut aperiam tenetur aut eligendi explicabo.
+                    example: Optio et perspiciatis consequuntur.
             example:
                 code: "404"
-                message: Eum sequi suscipit deleniti libero.
+                message: Quibusdam voluptas impedit.
             required:
                 - code
                 - message
@@ -1257,10 +1291,10 @@ components:
                 message:
                     type: string
                     description: Error message
-                    example: Repellendus quae.
+                    example: Voluptatum cupiditate officia quisquam.
             example:
                 code: "401"
-                message: Aliquam aut provident sit.
+                message: Harum quidem qui id eligendi.
             required:
                 - code
                 - message
@@ -1270,26 +1304,26 @@ components:
                 assignee:
                     type: string
                     description: Username, or an empty string to clear.
-                    example: Eveniet eligendi odit.
+                    example: Harum deserunt magnam itaque libero excepturi ullam.
                 due_date:
                     type: string
                     description: YYYY-MM-DD, or an empty string to clear.
-                    example: Quod deleniti dolor.
+                    example: "2026-03-31"
                 evidence_link:
                     type: string
                     description: Writer-set; feeds Quick Links. http/https only.
-                    example: Ab eligendi laboriosam velit maxime aut.
+                    example: https://example.org/bylaws.pdf
                 note:
                     type: string
-                    example: Cupiditate aut expedita molestiae voluptas enim.
+                    example: Molestiae voluptatem.
                 skip_reason:
                     type: string
                     description: Required when status is skipped.
-                    example: Ut in accusantium.
+                    example: Tempora nulla doloremque deleniti voluptas minus ut.
                 status:
                     type: string
                     description: One of the six. Omit to leave unchanged.
-                    example: blocked
+                    example: not_started
                     enum:
                         - not_started
                         - in_progress
@@ -1302,24 +1336,28 @@ components:
                     items:
                         $ref: '#/components/schemas/FormationSubItemUpdate'
                     example:
-                        - key: Facilis nihil.
-                          status: done
-                        - key: Facilis nihil.
-                          status: done
+                        - key: Laborum sit aut iure cum sit.
+                          status: skipped
+                        - key: Laborum sit aut iure cum sit.
+                          status: skipped
+                        - key: Laborum sit aut iure cum sit.
+                          status: skipped
             example:
-                assignee: Rerum ducimus consectetur necessitatibus.
-                due_date: Voluptatem nam et voluptates.
-                evidence_link: Necessitatibus eaque odit et eum aperiam.
-                note: Voluptas dolorem est rem ut ipsa nulla.
-                skip_reason: Qui amet quis rerum vero.
-                status: in_progress
+                assignee: Minima architecto facilis adipisci excepturi enim.
+                due_date: "2026-03-31"
+                evidence_link: https://example.org/bylaws.pdf
+                note: Ullam deleniti.
+                skip_reason: Laborum asperiores aliquam rerum dolorem vitae ducimus.
+                status: awaiting_acceptance
                 sub_items:
-                    - key: Facilis nihil.
-                      status: done
-                    - key: Facilis nihil.
-                      status: done
-                    - key: Facilis nihil.
-                      status: done
+                    - key: Laborum sit aut iure cum sit.
+                      status: skipped
+                    - key: Laborum sit aut iure cum sit.
+                      status: skipped
+                    - key: Laborum sit aut iure cum sit.
+                      status: skipped
+                    - key: Laborum sit aut iure cum sit.
+                      status: skipped
     securitySchemes:
         jwt_header_Authorization:
             type: http

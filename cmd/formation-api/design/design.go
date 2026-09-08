@@ -132,10 +132,18 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			// signal) always fail validation and give a caller no way to
 			// clear a due date at all. The service validates the format
 			// itself for a non-empty value instead.
-			dsl.Attribute("due_date", dsl.String, "YYYY-MM-DD, or an empty string to clear.")
+			// Examples are set by hand on both: the format of each is enforced
+			// in the service rather than the DSL, so Goa would otherwise
+			// invent a random sentence and the published documents would
+			// advertise a value that earns a 400.
+			dsl.Attribute("due_date", dsl.String, "YYYY-MM-DD, or an empty string to clear.", func() {
+				dsl.Example("2026-03-31")
+			})
 			dsl.Attribute("note", dsl.String)
 			dsl.Attribute("skip_reason", dsl.String, "Required when status is skipped.")
-			dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links. http/https only.")
+			dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links. http/https only.", func() {
+				dsl.Example("https://example.org/bylaws.pdf")
+			})
 			dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItemUpdate))
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
@@ -297,7 +305,9 @@ var FormationItem = dsl.Type("FormationItem", func() {
 	})
 	dsl.Attribute("platform_check", FormationPlatformCheck)
 	dsl.Attribute("action_link", dsl.String, "Placeholders substituted once at expansion.")
-	dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links.")
+	dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links.", func() {
+		dsl.Example("https://example.org/bylaws.pdf")
+	})
 	dsl.Attribute("status", dsl.String, "Six values.", func() {
 		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
 	})

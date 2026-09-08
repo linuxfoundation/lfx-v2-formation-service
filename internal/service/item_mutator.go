@@ -234,7 +234,11 @@ func buildItemPatch(
 
 	if p.DueDate != nil {
 		if *p.DueDate != "" {
-			if _, err := time.Parse(dueDateLayout, *p.DueDate); err != nil {
+			due, err := time.Parse(dueDateLayout, *p.DueDate)
+			// Go's parser accepts a year zero and Postgres has none, so
+			// without this the value reached the DATE column and came back as
+			// a 500 rather than this 400.
+			if err != nil || due.Year() < 1 {
 				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonDueDateInvalid)
 			}
 		}
