@@ -80,6 +80,31 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, itemTwo.Revision+1, res2.Version)
 	})
 
+	t.Run("a null sub_items entry is refused, not a panic", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+		// Goa's generated validator steps over nil elements without
+		// reporting them, so `"sub_items":[null]` reaches the service as a
+		// live nil. It used to reach a field access and take the handler
+		// down with a nil dereference.
+		_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			SubItems: []*svc.FormationSubItemUpdate{nil},
+		})
+
+		require.Error(t, err)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "BadRequest", formationErr.Name)
+		assert.Equal(t, "400", formationErr.Code)
+		assert.Equal(t, "sub_item_null", formationErr.Reason)
+
+		// The refusal must leave the item untouched rather than half-applied.
+		got, getErr := s.items.Get(context.Background(), itemOne.UID)
+		require.NoError(t, getErr)
+		assert.Equal(t, itemOne.Revision, got.Revision, "the refused mutation must not have bumped the revision")
+	})
+
 	t.Run("stale precondition on the same item is refused with nothing lost", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		inProgress := "in_progress"

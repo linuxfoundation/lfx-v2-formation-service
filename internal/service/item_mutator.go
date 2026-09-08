@@ -28,6 +28,7 @@ const (
 	reasonAssigneeNotOnProject = "assignee_not_on_project"
 	reasonLinkSchemeInvalid    = "link_scheme_invalid"
 	reasonDueDateInvalid       = "due_date_invalid"
+	reasonSubItemNull          = "sub_item_null"
 )
 
 // dueDateLayout is the wire format for due_date: YYYY-MM-DD, matching the
@@ -223,6 +224,16 @@ func buildItemPatch(
 		patch.SkipReason = p.SkipReason
 	}
 	if p.SubItems != nil {
+		// Refused rather than skipped. Goa's generated validator steps over
+		// nil elements without reporting them, so `"sub_items":[null]`
+		// arrives here as a live nil and used to panic the handler on the
+		// first field access. Answering 400 also tells the caller their
+		// payload was wrong, which quietly dropping the entry would not.
+		for _, u := range p.SubItems {
+			if u == nil {
+				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubItemNull)
+			}
+		}
 		subItems := subItemsFromWire(item.SubItems, p.SubItems)
 		patch.SubItems = &subItems
 	}
@@ -249,6 +260,11 @@ func subItemsFromWire(existing []model.SubItem, updates []*svc.FormationSubItemU
 	}
 
 	for _, u := range updates {
+		if u == nil {
+			// buildItemPatch rejects these before we get here; this keeps a
+			// future caller from reintroducing the panic.
+			continue
+		}
 		newStatus := model.ItemStatus(u.Status)
 		if i, ok := index[u.Key]; ok {
 			out[i].Status = newStatus
