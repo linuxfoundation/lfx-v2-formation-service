@@ -61,6 +61,34 @@ PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres \
 PGDATABASE=formation PGSSLMODE=disable make run
 ```
 
+### Operator commands
+
+Checklist templates have no API routes, so template management is a separate
+binary. It reads the same `PG*` environment as the service and applies the
+embedded schema on connect, so it needs no migration step of its own.
+
+```bash
+make build-cli
+
+# Publish the embedded template. Idempotent, and the first publication's
+# timestamp is preserved across re-runs.
+./bin/formation-cli seed
+
+# Check the embedded template content without touching a database.
+./bin/formation-cli validate
+
+# Create one project's checklist from the published template. Idempotent.
+# This is the only trigger for creation today; the reconcile loop that will
+# do it automatically has not landed yet.
+./bin/formation-cli expand <project-uid>
+
+# Add items an existing checklist is missing, matched on key. Adds only —
+# it never removes an item or resets a status, so a row dropped from a newer
+# template stays put and work already done is untouched. With no argument it
+# covers every checklist.
+./bin/formation-cli upgrade [project-uid]
+```
+
 ### Integration tests
 
 `internal/infrastructure/postgres` gates its Postgres-backed tests on `FORMATION_TEST_DATABASE_URL`

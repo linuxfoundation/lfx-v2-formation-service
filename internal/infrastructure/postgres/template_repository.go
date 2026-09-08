@@ -71,6 +71,16 @@ func (r *TemplateRepo) Upsert(ctx context.Context, t *model.Template) (*model.Te
 		Set("match = EXCLUDED.match").
 		Set("sections = EXCLUDED.sections").
 		Set("author = EXCLUDED.author").
+		// Carried through only when there is nothing there yet. Both halves
+		// matter: leaving it alone entirely would let a draft re-seeded as
+		// published keep a NULL published_at beside state = 'published', which
+		// reads as "never published"; overwriting it unconditionally would move
+		// the timestamp forward on every re-seed, so the column would record
+		// the most recent seed rather than the first publication it is there
+		// to date.
+		// "t" is the model's Bun alias; the unaliased table name is not in scope
+		// inside ON CONFLICT DO UPDATE here.
+		Set("published_at = COALESCE(t.published_at, EXCLUDED.published_at)").
 		Set("updated_at = now()").
 		Returning("*").
 		Exec(ctx)

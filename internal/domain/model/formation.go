@@ -89,11 +89,16 @@ type Item struct {
 	ChecklistType ChecklistType `bun:"checklist_type,notnull,default:'both'"`
 
 	// Mutable by a writer.
-	Status       ItemStatus `bun:"status,notnull"`
-	Assignee     string     `bun:"assignee"`
-	Note         string     `bun:"note"`
-	SkipReason   string     `bun:"skip_reason"`
-	EvidenceLink string     `bun:"evidence_link"`
+	Status ItemStatus `bun:"status,notnull"`
+	// nullzero because formation_items_assignee_idx is partial on
+	// assignee IS NOT NULL. Without it every row Bun inserts carries '' and
+	// lands in the index of assigned work — which is the state the update
+	// path already goes out of its way to avoid by clearing to NULL rather
+	// than to ''. Insert and update have to agree on what "unassigned" is.
+	Assignee     string `bun:"assignee,nullzero"`
+	Note         string `bun:"note"`
+	SkipReason   string `bun:"skip_reason"`
+	EvidenceLink string `bun:"evidence_link"`
 
 	// Set by the service.
 	ResolvedRef *ResolvedRef `bun:"resolved_ref,type:jsonb"`

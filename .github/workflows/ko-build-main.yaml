@@ -27,7 +27,7 @@ jobs:
       - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d  # v0.9
         with:
           version: v0.18.0
-      - name: Build and publish formation-api image
+      - name: Build and publish formation-api and formation-cli images
         env:
           VERSION: development
         run: |
@@ -36,7 +36,12 @@ jobs:
           GIT_COMMIT="${GIT_COMMIT:0:7}"
           export BUILD_TIME
           export GIT_COMMIT
-          ko build github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
+          # Both binaries. The CLI is not optional tooling: template management
+          # has no API routes, so seeding the published template is a job run
+          # from this image, and without it no checklist can be created.
+          ko build \
+            github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
+            github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-cli \
             -B \
             --platform linux/amd64,linux/arm64 \
             -t ${{ github.sha }} \

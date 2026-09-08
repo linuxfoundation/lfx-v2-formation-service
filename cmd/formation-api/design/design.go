@@ -219,7 +219,7 @@ var UnauthorizedError = dsl.Type("UnauthorizedError", func() {
 // switches on reason, never on the HTTP status alone: several reasons share
 // one status (e.g. checklist_read_only, invalid_transition and
 // self_acceptance_forbidden are all 409), so status is not enough to tell
-// them apart (endpoints.md, "Errors, and two people editing at once").
+// them apart.
 var FormationError = dsl.Type("FormationError", func() {
 	// One update_item call declares four Error()s (NotFound,
 	// VersionMismatch, Conflict, BadRequest) all typed as FormationError,

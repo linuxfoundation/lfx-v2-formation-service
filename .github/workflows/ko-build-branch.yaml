@@ -34,7 +34,7 @@ jobs:
         run: |
           container_tag=$(echo "$HEAD_REF" | sed 's/[^_0-9a-zA-Z]/-/g' | cut -c -127)
           echo tag="$container_tag" >> "$GITHUB_OUTPUT"
-      - name: Build formation-api for PR
+      - name: Build formation-api and formation-cli for PR
         env:
           VERSION: ${{ steps.container_tag.outputs.tag }}
         run: |
@@ -43,7 +43,12 @@ jobs:
           GIT_COMMIT="${GIT_COMMIT:0:7}"
           export BUILD_TIME
           export GIT_COMMIT
-          ko build github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
+          # Both binaries. The CLI is not optional tooling: template management
+          # has no API routes, so seeding the published template is a job run
+          # from this image, and without it no checklist can be created.
+          ko build \
+            github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
+            github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-cli \
             -B \
             --platform linux/amd64,linux/arm64 \
             -t ${{ github.sha }} \

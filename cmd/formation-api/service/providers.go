@@ -160,10 +160,20 @@ func UnitOfWorkImpl(
 	return nil
 }
 
-// ProjectReaderImpl returns the NATS request/reply project reader. Returns
-// nil until that adapter lands (tracked separately) — a nil reader degrades
-// announcement-date lookups rather than erroring, which is the conservative
-// answer for a dependency that does not exist yet.
+// ProjectReaderImpl returns the project reader, and returns nil because there
+// is nothing yet that can implement it.
+//
+// The NATS transport and a project client now exist
+// (internal/infrastructure/nats), but the project service exposes no subject
+// that returns the settings record — only per-attribute lookups, of which
+// writers is the only role. GetSettings needs the announcement date and the
+// auditors list from that record, so it cannot be answered without an upstream
+// addition.
+//
+// Wiring a reader that filled writers and left auditors empty would be worse
+// than wiring none: assignment validation refuses anyone outside writers ∪
+// auditors, so it would start rejecting every legitimate auditor. A nil reader
+// keeps that check inert, which is wrong-but-harmless rather than harmful.
 func ProjectReaderImpl(_ context.Context, _ *config.Config) port.ProjectReader {
 	return nil
 }

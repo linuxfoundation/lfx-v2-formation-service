@@ -101,3 +101,90 @@ func TestUpdateClearsAssigneeToNull(t *testing.T) {
 		t.Errorf("cleared row still matches the partial index predicate: got %d rows, want 0", indexed)
 	}
 }
+
+// The insert path has to agree with the clear path about what "unassigned"
+// means. Every item a checklist is created with starts unassigned, so if Bun
+// writes ” here then a freshly expanded checklist puts all seventeen of its
+// rows into the index of assigned work — the exact state TestUpdateClears...
+// above proves the update path avoids. Only observable against a real column.
+func TestInsertLeavesAnUnassignedItemNull(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+
+	templateRepo := NewTemplateRepo(db)
+	template, err := templateRepo.Upsert(ctx, &model.Template{
+		Name:     "unassigned-insert-template",
+		Version:  1,
+		State:    model.TemplatePublished,
+		Priority: 100,
+		Match:    "always",
+		Sections: []model.TemplateSection{},
+	})
+	if err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+
+	formationRepo := NewFormationRepo(db)
+	formation, err := formationRepo.Create(ctx, &model.Formation{
+		ProjectUID:      "unassigned-insert-project",
+		TemplateUID:     template.UID,
+		TemplateVersion: template.Version,
+	})
+	if err != nil {
+		t.Fatalf("seed formation: %v", err)
+	}
+
+	item := &model.Item{
+		FormationUID: formation.UID,
+		ItemKey:      "unassigned_item",
+		SectionKey:   "legal_and_entity",
+		Position:     0,
+		Title:        "Unassigned item",
+		// Assignee deliberately left unset, as expansion leaves it.
+	}
+	item.ApplyInsertDefaults()
+	if err := NewItemRepo(db).InsertMany(ctx, []*model.Item{item}); err != nil {
+		t.Fatalf("insert item: %v", err)
+	}
+
+	var isNull bool
+	if err := db.NewSelect().
+		Table("formation_items").
+		ColumnExpr("assignee IS NULL").
+		Where("uid = ?", item.UID).
+		Scan(ctx, &isNull); err != nil {
+		t.Fatalf("read assignee: %v", err)
+	}
+	if !isNull {
+		t.Error("a newly inserted item stored assignee as '' rather than NULL, so it sits in the partial formation_items_assignee_idx")
+	}
+
+	// requires_writer defaults to true in the schema, and Bun would send Go's
+	// false over the top of it. Expansion resolves it before insert; this pins
+	// that the resolved value is what lands, since a row that quietly became
+	// requires_writer = false would drop the elevation prompt for that item.
+	resolved := &model.Item{
+		FormationUID:   formation.UID,
+		ItemKey:        "writer_gated_item",
+		SectionKey:     "legal_and_entity",
+		Position:       1,
+		Title:          "Writer gated item",
+		RequiresWriter: true,
+	}
+	resolved.ApplyInsertDefaults()
+	if err := NewItemRepo(db).InsertMany(ctx, []*model.Item{resolved}); err != nil {
+		t.Fatalf("insert writer-gated item: %v", err)
+	}
+
+	var requiresWriter bool
+	if err := db.NewSelect().
+		Table("formation_items").
+		Column("requires_writer").
+		Where("uid = ?", resolved.UID).
+		Scan(ctx, &requiresWriter); err != nil {
+		t.Fatalf("read requires_writer: %v", err)
+	}
+	if !requiresWriter {
+		t.Error("requires_writer stored false for an item that resolved to true")
+	}
+}

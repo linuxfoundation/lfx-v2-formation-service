@@ -68,7 +68,7 @@ var reasonMessages = map[string]string{
 // never-the-assignee guard on acceptance actually runs. A PATCH straight to
 // done would let a writer accept their own item by skipping that route
 // entirely, which is exactly what self_acceptance_forbidden exists to
-// prevent (endpoints.md, "The *who* is settled, and so is the *how*").
+// prevent.
 var allowedItemTransitions = map[model.ItemStatus][]model.ItemStatus{
 	model.StatusNotStarted: {model.StatusInProgress, model.StatusSkipped},
 	model.StatusInProgress: {model.StatusBlocked, model.StatusAwaitingAcceptance},
@@ -271,9 +271,9 @@ func buildItemPatch(
 	return patch, nil
 }
 
-// subItemsFromWire merges updates into existing by key: "send only the
-// fields being changed" (endpoints.md, "The PATCH payload") applies to
-// sub_items too, so a caller naming one sub-item must not silently drop
+// subItemsFromWire merges updates into existing by key. The payload's rule that
+// a caller sends only the fields being changed applies within sub_items too, so
+// a caller naming one sub-item must not silently drop
 // every other one from the array a plain replace would have produced. Each
 // update also carries its title forward from existing, since
 // FormationSubItemUpdate (the write shape) has no title field — sub-items are

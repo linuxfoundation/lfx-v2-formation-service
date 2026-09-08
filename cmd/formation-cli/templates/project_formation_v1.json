@@ -1,0 +1,167 @@
+[
+  {
+    "key": "legal_and_entity",
+    "title": "Legal and entity",
+    "items": [
+      {
+        "key": "formation_review_packet",
+        "title": "Formation review and packet",
+        "owner_team": "brand_counsel",
+        "gate": true,
+        "status_source": "manual"
+      },
+      {
+        "key": "preliminary_trademark_search",
+        "title": "Preliminary trademark search",
+        "owner_team": "brand_counsel",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "charter_agreed",
+        "title": "Charter agreed",
+        "owner_team": "formation",
+        "gate": true,
+        "status_source": "manual"
+      },
+      {
+        "key": "contribution_agreement",
+        "title": "Contribution agreement (DocuSign)",
+        "owner_team": "formation",
+        "gate": true,
+        "status_source": "manual"
+      },
+      {
+        "key": "indepth_trademark_search_series_llc",
+        "title": "In-depth trademark search and Series LLC",
+        "owner_team": "brand_counsel",
+        "gate": true,
+        "status_source": "manual"
+      },
+      {
+        "key": "membership_tiers",
+        "title": "Membership tiers",
+        "owner_team": "product",
+        "gate": false,
+        "status_source": "manual"
+      }
+    ]
+  },
+  {
+    "key": "community_and_launch",
+    "title": "Community and launch",
+    "items": [
+      {
+        "key": "repositories_github_owner",
+        "title": "Repositories and GitHub owner",
+        "owner_team": "community",
+        "gate": false,
+        "status_source": "platform",
+        "platform_check": {
+          "resource_type": "repository",
+          "min_count": 1
+        }
+      },
+      {
+        "key": "domain_dns",
+        "title": "Domain/DNS",
+        "owner_team": "it",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "website_logo_footer",
+        "title": "Website/logo/footer",
+        "owner_team": "marketing",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "mailing_lists",
+        "title": "Mailing lists",
+        "owner_team": "community",
+        "gate": false,
+        "status_source": "platform",
+        "platform_check": {
+          "resource_type": "mailing_list",
+          "min_count": 1
+        }
+      },
+      {
+        "key": "chat_workspace",
+        "title": "Chat workspace",
+        "owner_team": "it",
+        "gate": false,
+        "status_source": "manual",
+        "sub_items": [
+          {
+            "key": "chat_workspace_create",
+            "title": "Create workspace",
+            "owner_team": "it"
+          },
+          {
+            "key": "chat_workspace_channels",
+            "title": "Configure channels",
+            "owner_team": "it"
+          },
+          {
+            "key": "chat_workspace_roles",
+            "title": "Set up roles and permissions",
+            "owner_team": "it"
+          },
+          {
+            "key": "chat_workspace_onboard_admins",
+            "title": "Onboard admins",
+            "owner_team": "it"
+          }
+        ]
+      },
+      {
+        "key": "insights_access",
+        "title": "Insights access",
+        "owner_team": "product_ops",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "asset_transfers",
+        "title": "Asset transfers",
+        "owner_team": "formation",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "tsc_kickoff",
+        "title": "TSC and kickoff",
+        "owner_team": "community",
+        "gate": false,
+        "status_source": "platform",
+        "platform_check": {
+          "resource_type": "committee",
+          "min_count": 1
+        }
+      },
+      {
+        "key": "member_join_page",
+        "title": "Member join page",
+        "owner_team": "product",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "comms",
+        "title": "Launch comms",
+        "owner_team": "marketing",
+        "gate": false,
+        "status_source": "manual"
+      },
+      {
+        "key": "blog_post",
+        "title": "Launch blog post",
+        "owner_team": "marketing",
+        "gate": false,
+        "status_source": "manual"
+      }
+    ]
+  }
+]
