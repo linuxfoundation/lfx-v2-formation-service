@@ -263,3 +263,61 @@ func TestListPublishedOrdersNewestVersionFirstWithinAPriority(t *testing.T) {
 		}
 	}
 }
+
+// The guard covers a version that has ever been published, not one that is
+// published at this moment. Gating on the current state alone left a two-step
+// way around it: re-seed the same content under a different state, which passes
+// because only content is compared, and the row is then no longer published, so
+// the next seed may rewrite content some checklist already expanded from.
+//
+// Nothing reachable demotes a template today — the seed command always publishes
+// and no code sets the archived state — so this is the invariant being made
+// independent of that rather than a live path being closed.
+func TestPublishedContentStaysProtectedAfterTheStateMovesOn(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+
+	published := time.Now().UTC()
+	original := []model.TemplateSection{{
+		Key:   "legal",
+		Title: "Legal",
+		Items: []model.TemplateItem{{Key: "entity", Title: "Entity formed", StatusSource: model.SourceManual}},
+	}}
+	stored, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplatePublished,
+		Priority: 100, Match: "always", Sections: original, PublishedAt: &published,
+	})
+	if err != nil {
+		t.Fatalf("seeding the published version: %v", err)
+	}
+
+	// Step one: identical content, so the content check passes, but the state
+	// moves off published.
+	if _, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplateDraft,
+		Priority: 100, Match: "always", Sections: original,
+	}); err != nil {
+		t.Fatalf("re-seeding identical content must still be allowed: %v", err)
+	}
+
+	// Step two: the rewrite the guard exists to refuse.
+	edited := []model.TemplateSection{{
+		Key:   "legal",
+		Title: "Legal",
+		Items: []model.TemplateItem{{Key: "entity", Title: "Something else", StatusSource: model.SourceManual}},
+	}}
+	if _, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplateDraft,
+		Priority: 100, Match: "always", Sections: edited,
+	}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("error = %v, want domain.ErrConflict — a version that has been published stays protected", err)
+	}
+
+	after, err := repo.Get(ctx, stored.UID)
+	if err != nil {
+		t.Fatalf("reading the stored template: %v", err)
+	}
+	if got := after.Sections[0].Items[0].Title; got != "Entity formed" {
+		t.Errorf("stored title = %q, want the published content untouched", got)
+	}
+}

@@ -98,8 +98,12 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 
 	for uid, existing := range r.templates {
 		if existing.Name == t.Name && existing.Version == t.Version {
-			if existing.State == model.TemplatePublished && !sameSections(existing.Sections, t.Sections) {
-				return nil, fmt.Errorf("%w: %s v%d is published and its content cannot be edited in place; "+
+			// Ever published, not published right now, matching the repository:
+			// the guarantee covers a version some checklist already expanded
+			// from, and a state that has moved on since does not release it.
+			everPublished := existing.State == model.TemplatePublished || existing.PublishedAt != nil
+			if everPublished && !sameSections(existing.Sections, t.Sections) {
+				return nil, fmt.Errorf("%w: %s v%d has been published and its content cannot be edited in place; "+
 					"bump the version instead so existing checklists keep pinning what they expanded from",
 					domain.ErrConflict, t.Name, t.Version)
 			}

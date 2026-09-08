@@ -5,9 +5,11 @@ package mock
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 )
 
@@ -88,5 +90,36 @@ func TestUpsertDatesAPromotedDraft(t *testing.T) {
 	if promoted.PublishedAt == nil || !promoted.PublishedAt.Equal(promotedAt) {
 		t.Errorf("published_at = %v, want %v — a promoted draft must be dated",
 			promoted.PublishedAt, promotedAt)
+	}
+}
+
+// Mirrors the repository's guard: a version that has ever been published stays
+// protected even once its state has moved on. Duplicated here for the same
+// reason the PublishedAt double is — a divergence would let the seed command's
+// guard pass in tests and fail against Postgres.
+func TestUpsertProtectsContentAfterTheStateMovesOn(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepository()
+
+	published := time.Now().UTC()
+	original := []model.TemplateSection{{Key: "legal", Title: "Legal"}}
+	if _, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplatePublished,
+		Sections: original, PublishedAt: &published,
+	}); err != nil {
+		t.Fatalf("seeding the published version: %v", err)
+	}
+	if _, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplateDraft, Sections: original,
+	}); err != nil {
+		t.Fatalf("re-seeding identical content must still be allowed: %v", err)
+	}
+
+	_, err := repo.Upsert(ctx, &model.Template{
+		Name: "guard-test", Version: 1, State: model.TemplateDraft,
+		Sections: []model.TemplateSection{{Key: "legal", Title: "Rewritten"}},
+	})
+	if !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("error = %v, want domain.ErrConflict", err)
 	}
 }

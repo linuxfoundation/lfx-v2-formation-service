@@ -130,8 +130,16 @@ func (r *TemplateRepo) refuseEditingAPublishedVersion(ctx context.Context, t *mo
 		}
 		return fmt.Errorf("reading the stored template before seeding: %w", err)
 	}
-	if existing.State != model.TemplatePublished {
-		return nil // Still a draft, so its content is still open to change.
+	// Anything that has ever been published is protected, not only what is
+	// published right now. The guarantee this enforces is about the past — a
+	// checklist pinned this version and expanded from its content — so a check
+	// on the current state alone is one a caller can step around: seeding the
+	// same content with a different state passes here, because only content is
+	// compared, and the row it leaves behind is no longer published, so the next
+	// seed may rewrite it freely. published_at is the durable half, kept by the
+	// COALESCE in Upsert precisely so the first publication survives a re-seed.
+	if existing.State != model.TemplatePublished && existing.PublishedAt == nil {
+		return nil // Never published, so its content is still open to change.
 	}
 
 	same, err := sameSections(existing.Sections, t.Sections)
@@ -142,7 +150,7 @@ func (r *TemplateRepo) refuseEditingAPublishedVersion(ctx context.Context, t *mo
 		return nil
 	}
 
-	return fmt.Errorf("%w: %s v%d is published and its content cannot be edited in place; "+
+	return fmt.Errorf("%w: %s v%d has been published and its content cannot be edited in place; "+
 		"bump the version instead so existing checklists keep pinning what they expanded from",
 		domain.ErrConflict, t.Name, t.Version)
 }
