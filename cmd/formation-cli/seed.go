@@ -8,7 +8,9 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"time"
@@ -64,6 +66,20 @@ func loadSeedSections() ([]model.TemplateSection, error) {
 		return nil, fmt.Errorf("reading %s: %w", seedContentPath, err)
 	}
 
+	sections, err := decodeSections(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateSections(sections); err != nil {
+		return nil, err
+	}
+	return sections, nil
+}
+
+// decodeSections parses the content file. Separate from loadSeedSections so its
+// refusals can be tested against content the embedded file is not allowed to
+// contain.
+func decodeSections(raw []byte) ([]model.TemplateSection, error) {
 	var sections []model.TemplateSection
 	// Unknown fields are refused: the content file is edited by hand, and a
 	// misspelled "gating" silently becoming a non-gating row is exactly the
@@ -73,9 +89,12 @@ func loadSeedSections() ([]model.TemplateSection, error) {
 	if err := decoder.Decode(&sections); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", seedContentPath, err)
 	}
-
-	if err := validateSections(sections); err != nil {
-		return nil, err
+	// The file has to be exactly one document. A streaming decoder stops at the
+	// end of the first value, so a second array — or anything left after a
+	// truncated edit or a bad merge — would otherwise be dropped in silence and
+	// the seed would report success having published only part of the template.
+	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parsing %s: expected one JSON document, found more after the first", seedContentPath)
 	}
 	return sections, nil
 }

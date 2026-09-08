@@ -40,10 +40,11 @@ func newItemMutatorTestService(t *testing.T) (*Service, *model.Formation, *model
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, items.InsertMany(context.Background(), []*model.Item{
+	_, err = items.InsertMany(context.Background(), []*model.Item{
 		{FormationUID: formation.UID, ItemKey: "item-1", SectionKey: "sec-1", Title: "Item One", Status: model.StatusNotStarted},
 		{FormationUID: formation.UID, ItemKey: "item-2", SectionKey: "sec-1", Title: "Item Two", Status: model.StatusNotStarted},
-	}))
+	})
+	require.NoError(t, err)
 
 	itemOne, err := items.GetByKey(context.Background(), formation.UID, "item-1")
 	require.NoError(t, err)

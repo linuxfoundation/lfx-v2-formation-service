@@ -6,9 +6,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
@@ -330,6 +332,30 @@ func TestBuildSeedTemplatePublishes(t *testing.T) {
 // Re-running the job must be a no-op rather than a second template: the
 // reconcile picks by priority and first match, so two published rows with the
 // same priority would make selection depend on row order.
+// A streaming decoder stops at the end of the first value, so anything after it
+// is invisible. That is the shape a truncated edit or a bad merge leaves behind,
+// and the seed reporting success on a template it only half read is worse than
+// failing.
+func TestDecodeSectionsRefusesTrailingContent(t *testing.T) {
+	one := `[{"key":"sec","title":"Section","items":[]}]`
+
+	for name, raw := range map[string]string{
+		"a second document": one + one,
+		"trailing garbage":  one + " nonsense",
+		"trailing object":   one + ` {"key":"extra"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := decodeSections([]byte(raw)); err == nil {
+				t.Error("decodeSections() = no error, want a refusal of the content after the first document")
+			}
+		})
+	}
+
+	if _, err := decodeSections([]byte(one + "\n")); err != nil {
+		t.Errorf("decodeSections() with trailing whitespace = %v, want no error", err)
+	}
+}
+
 func TestRunSeedIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	repo := mock.NewTemplateRepository()
@@ -349,5 +375,37 @@ func TestRunSeedIsIdempotent(t *testing.T) {
 	}
 	if got := countItems(published[0].Sections); got != 17 {
 		t.Errorf("seeded items = %d, want 17", got)
+	}
+}
+
+// Editing content without bumping the version has to fail rather than quietly
+// rewrite a published row. Checklists pin the version they expanded from, so an
+// in-place edit would change what every existing pin refers to, and two
+// checklists could claim the same version having been built from different
+// content.
+func TestSeedRefusesEditingAPublishedVersion(t *testing.T) {
+	ctx := context.Background()
+	repo := mock.NewTemplateRepository()
+
+	if err := runSeed(ctx, repo); err != nil {
+		t.Fatalf("runSeed() = %v, want no error", err)
+	}
+
+	edited := buildSeedTemplate([]model.TemplateSection{{
+		Key:   "changed",
+		Title: "Changed after publication",
+	}}, time.Now())
+
+	_, err := repo.Upsert(ctx, edited)
+	if !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("Upsert() with edited content = %v, want domain.ErrConflict", err)
+	}
+
+	published, err := repo.ListPublished(ctx)
+	if err != nil {
+		t.Fatalf("ListPublished() = %v, want no error", err)
+	}
+	if got := countItems(published[0].Sections); got != 17 {
+		t.Errorf("items after the refused edit = %d, want the published 17 untouched", got)
 	}
 }

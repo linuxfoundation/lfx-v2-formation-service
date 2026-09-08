@@ -110,8 +110,19 @@ func (r *FormationRepo) UpdateLifecycle(ctx context.Context, uid uuid.UUID, life
 
 	// completed_at is part of becoming completed, so it moves in the same
 	// statement rather than in a second write that could fail on its own.
-	if lifecycle == model.LifecycleCompleted {
+	//
+	// Going back to live clears it, because a checklist that has re-entered
+	// formation is not complete and a stale timestamp beside a live lifecycle
+	// reads as a contradiction. Freezing deliberately leaves it alone: a
+	// checklist that completed and was later archived did genuinely complete,
+	// and that is history worth keeping rather than a stale value.
+	switch lifecycle {
+	case model.LifecycleCompleted:
 		q = q.Set("completed_at = now()")
+	case model.LifecycleLive:
+		q = q.Set("completed_at = NULL")
+	case model.LifecycleFrozen:
+		// Left as it is, per the reasoning above.
 	}
 
 	res, err := q.Exec(ctx)

@@ -31,6 +31,17 @@ func (l *listProjects) GetSettings(_ context.Context, projectUID string) (*port.
 	return &port.ProjectSettings{ProjectUID: projectUID, AnnouncementDate: &l.announcement}, nil
 }
 
+// ListFormingProjects returns whatever a test set, including projects in stages
+// the real reader would not return at all.
+//
+// That is a deliberate overreach and worth naming, because it is what lets the
+// lifecycle tests below reach the completed and frozen branches: the real
+// contract is forming projects only, so in a deployed pod a project that has
+// just become Active or been archived is not in this list and its checklist is
+// never visited. Those branches are correct and unreachable today, and they stay
+// unreachable until the project reader can also return projects that already
+// have a checklist. Until then these tests prove the mapping, not that the sweep
+// applies it in production.
 func (l *listProjects) ListFormingProjects(_ context.Context) ([]port.ProjectRef, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -614,6 +625,56 @@ func TestReconcileSyncsLifecyclesWhenNoTemplateIsPublished(t *testing.T) {
 	}
 	if report.Failed != 0 {
 		t.Errorf("failed = %d, want 0 — a shared condition is not a per-project failure", report.Failed)
+	}
+}
+
+// Blocked means "should have had a checklist created and could not". A forming
+// project that already has one is waiting on nothing, so a missing template must
+// not count it — otherwise a fresh environment reports every project on the
+// platform as blocked and the number stops being usable as a signal.
+func TestAMissingTemplateDoesNotBlockProjectsThatAlreadyHaveChecklists(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{}
+
+	// No fixture, so no published template: the sweep-wide condition under test.
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	templates := mock.NewTemplateRepository()
+	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates)
+
+	r := NewReconciler(
+		projects,
+		formations,
+		NewExpander(NewTemplateSelector(templates), uow, projects),
+		NewLifecycler(formations),
+		time.Minute,
+	)
+
+	// Two forming projects, one of which already has its checklist.
+	if _, err := formations.Create(ctx, &model.Formation{
+		ProjectUID: "has-one",
+		Lifecycle:  model.LifecycleLive,
+		Revision:   1,
+	}); err != nil {
+		t.Fatalf("seeding a formation = %v", err)
+	}
+	projects.setRefs([]port.ProjectRef{
+		{UID: "has-one", SubStage: model.StageFormationEngaged},
+		{UID: "needs-one", SubStage: model.StageFormationEngaged},
+	})
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.Blocked != 1 {
+		t.Errorf("blocked = %d, want 1 — only the project with no checklist is held up", report.Blocked)
+	}
+	if report.Created != 0 {
+		t.Errorf("created = %d, want 0", report.Created)
+	}
+	if report.Failed != 0 {
+		t.Errorf("failed = %d, want 0", report.Failed)
 	}
 }
 

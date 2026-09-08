@@ -10,6 +10,7 @@ package mock
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -88,6 +89,17 @@ func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, 
 
 	f.Lifecycle = lifecycle
 	f.Revision++
+	// Mirrors the repository: completing stamps the time, returning to live
+	// clears it, and freezing leaves whatever is there — a checklist that
+	// completed before being archived did complete.
+	switch lifecycle {
+	case model.LifecycleCompleted:
+		now := time.Now().UTC()
+		f.CompletedAt = &now
+	case model.LifecycleLive:
+		f.CompletedAt = nil
+	case model.LifecycleFrozen:
+	}
 	out := *f
 	return &out, nil
 }

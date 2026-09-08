@@ -40,9 +40,9 @@ const usage = `formation-cli — operator commands for the LFX V2 Formation Serv
 Usage:
   formation-cli seed              Publish the seeded project formation template
   formation-cli expand <project>  Create a project's checklist from the published
-                                  template. Idempotent. The service reconciles
-                                  this automatically; use this to create one
-                                  ahead of the next sweep.
+                                  template. Idempotent. Required today: the
+                                  service's reconcile loop does not start until
+                                  something can list forming projects.
   formation-cli upgrade [project] Add missing items to existing checklists.
                                   With no argument, covers every checklist.
                                   Adds only; never removes an item or resets a status.

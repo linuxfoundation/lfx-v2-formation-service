@@ -58,7 +58,7 @@ func TestUnitOfWorkAtomicity(t *testing.T) {
 		Title:        "TX test item",
 		Status:       model.StatusNotStarted,
 	}
-	if err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
+	if _, err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
 		t.Fatalf("seed item: %v", err)
 	}
 
@@ -220,7 +220,7 @@ func TestUnitOfWorkCommitsBothTogether(t *testing.T) {
 		Title:        "TX test item",
 		Status:       model.StatusNotStarted,
 	}
-	if err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
+	if _, err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
 		t.Fatalf("seed item: %v", err)
 	}
 

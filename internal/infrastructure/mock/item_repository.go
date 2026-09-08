@@ -36,11 +36,12 @@ func NewItemRepository() *ItemRepository {
 
 // InsertMany expands a checklist. Items already present by (formation, key)
 // are left untouched, matching the real repository's idempotent-expansion
-// contract.
-func (r *ItemRepository) InsertMany(_ context.Context, items []*model.Item) error {
+// contract, and the returned keys are the ones actually added.
+func (r *ItemRepository) InsertMany(_ context.Context, items []*model.Item) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	inserted := make([]string, 0, len(items))
 	for _, item := range items {
 		if r.hasKeyLocked(item.FormationUID, item.ItemKey) {
 			continue
@@ -51,8 +52,9 @@ func (r *ItemRepository) InsertMany(_ context.Context, items []*model.Item) erro
 		}
 		clone.ApplyInsertDefaults()
 		r.items[clone.UID] = &clone
+		inserted = append(inserted, clone.ItemKey)
 	}
-	return nil
+	return inserted, nil
 }
 
 func (r *ItemRepository) hasKeyLocked(formationUID uuid.UUID, itemKey string) bool {

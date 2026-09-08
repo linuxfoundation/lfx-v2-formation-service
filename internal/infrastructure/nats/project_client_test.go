@@ -186,7 +186,8 @@ func TestProjectClientRejectsAnEmptyUID(t *testing.T) {
 }
 
 // With nobody answering, the call has to fail on the timeout rather than block
-// indefinitely — these reads run inside an open transaction.
+// indefinitely: a caller waiting on an unanswered request would otherwise hold
+// whatever it is holding for as long as the project service is unreachable.
 func TestRequestTimesOutWithNoResponder(t *testing.T) {
 	ctx := context.Background()
 	p := NewProjectClient(newTestClient(t, startTestNATSServer(t), 50*time.Millisecond))

@@ -159,26 +159,31 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 			continue
 		}
 
-		// No template was resolvable, which prepare has already reported once.
-		// Lifecycles still need syncing, so the sweep continues rather than
-		// returning — but nothing here can be created.
-		if sweep.template == nil {
-			report.Blocked++
-			if moved := r.syncLifecycle(ctx, project); moved {
-				report.LifecyclesMoved++
-			}
-			continue
-		}
-
 		// A project that already has a checklist needs no creation attempt.
 		// Skipping it is not an optimisation of the uniqueness constraint —
 		// that still absorbs concurrent replicas, which is what makes the loop
 		// safe. It avoids paying for a transaction and a discarded violation on
 		// every project on every tick once the backlog is drained.
 		//
+		// Checked before the template, so a sweep with no template does not
+		// report these as blocked: they are not waiting on one.
+		//
 		// Lifecycle still runs: an existing checklist is exactly the thing that
 		// may need moving.
 		if sweep.existing[project.UID] {
+			if moved := r.syncLifecycle(ctx, project); moved {
+				report.LifecyclesMoved++
+			}
+			continue
+		}
+
+		// No template was resolvable, which prepare has already reported once.
+		// Lifecycles still need syncing, so the sweep continues rather than
+		// returning — but nothing here can be created. Only projects that
+		// actually need a checklist reach this, so the count names what is
+		// genuinely held up.
+		if sweep.template == nil {
+			report.Blocked++
 			if moved := r.syncLifecycle(ctx, project); moved {
 				report.LifecyclesMoved++
 			}
@@ -248,22 +253,12 @@ func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *s
 		return state
 	}
 
-	tpl, err := r.expander.SelectTemplate(ctx)
-	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			slog.ErrorContext(ctx, "no published template, so no checklist can be created; "+
-				"seed one with formation-cli seed. Lifecycles are still synced",
-				"forming_projects", len(projects))
-		} else {
-			slog.ErrorContext(ctx, "could not read templates, so no checklist can be created "+
-				"this sweep; lifecycles are still synced", "error", err)
-		}
-		// Left nil: this sweep syncs lifecycles and creates nothing, and the
-		// next one tries again.
-		return state
-	}
-	state.template = tpl
-
+	// Read before the template, and kept even when the template cannot be
+	// resolved. The two lookups are independent, and a project that already has
+	// a checklist is unaffected by there being no template — counting it as
+	// blocked would report a sweep-wide problem against projects that need
+	// nothing.
+	//
 	// The repository exposes this for exactly this diff. Without it the sweep
 	// asked the database to refuse an insert once per project per tick and
 	// treated the refusal as success.
@@ -280,6 +275,22 @@ func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *s
 	for _, uid := range uids {
 		state.existing[uid] = true
 	}
+
+	tpl, err := r.expander.SelectTemplate(ctx)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			slog.ErrorContext(ctx, "no published template, so no checklist can be created; "+
+				"seed one with formation-cli seed. Lifecycles are still synced",
+				"forming_projects", len(projects))
+		} else {
+			slog.ErrorContext(ctx, "could not read templates, so no checklist can be created "+
+				"this sweep; lifecycles are still synced", "error", err)
+		}
+		// Left nil: this sweep syncs lifecycles and creates nothing, and the
+		// next one tries again.
+		return state
+	}
+	state.template = tpl
 
 	return state
 }

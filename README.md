@@ -78,8 +78,9 @@ make build-cli
 ./bin/formation-cli validate
 
 # Create one project's checklist from the published template. Idempotent.
-# This is the only trigger for creation today; the reconcile loop that will
-# do it automatically has not landed yet.
+# This is the only trigger for creation today. The reconcile loop that will do
+# it automatically exists but does not start: nothing can list forming projects
+# yet, which it reports at startup.
 ./bin/formation-cli expand <project-uid>
 
 # Add items an existing checklist is missing, matched on key. Adds only —

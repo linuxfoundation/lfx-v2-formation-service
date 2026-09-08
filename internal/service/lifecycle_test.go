@@ -47,6 +47,62 @@ func TestSyncToIsSilentOnAStageThatSimplyImpliesNothing(t *testing.T) {
 	}
 }
 
+// A checklist that re-enters formation is not complete any more, so the
+// completion timestamp has to go with the lifecycle. Leaving it behind puts a
+// completed_at on a live row, which reads as a contradiction to anything that
+// trusts either column.
+//
+// Freezing is deliberately not the same case: a checklist that completed and was
+// then archived did complete, and that is history rather than a stale value.
+func TestReturningToFormationClearsTheCompletionButFreezingKeepsIt(t *testing.T) {
+	ctx := context.Background()
+
+	for name, tc := range map[string]struct {
+		stage        string
+		wantCleared  bool
+		wantLifecyle model.Lifecycle
+	}{
+		"back into formation": {model.StageFormationExploratory, true, model.LifecycleLive},
+		"archived":            {model.StageArchived, false, model.LifecycleFrozen},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := mock.NewFormationRepository()
+			formation, err := repo.Create(ctx, &model.Formation{ProjectUID: "project-1"})
+			if err != nil {
+				t.Fatalf("Create() = %v, want no error", err)
+			}
+
+			l := NewLifecycler(repo)
+			if _, err := l.SyncTo(ctx, "project-1", model.StageActive); err != nil {
+				t.Fatalf("SyncTo(Active) = %v, want no error", err)
+			}
+			completed, err := repo.GetByProject(ctx, "project-1")
+			if err != nil {
+				t.Fatalf("GetByProject() = %v, want no error", err)
+			}
+			if completed.CompletedAt == nil {
+				t.Fatal("completed_at after completing = nil, want a timestamp")
+			}
+
+			if _, err := l.SyncTo(ctx, "project-1", tc.stage); err != nil {
+				t.Fatalf("SyncTo(%s) = %v, want no error", tc.stage, err)
+			}
+			got, err := repo.GetByProject(ctx, "project-1")
+			if err != nil {
+				t.Fatalf("GetByProject() = %v, want no error", err)
+			}
+			if got.Lifecycle != tc.wantLifecyle {
+				t.Errorf("lifecycle = %q, want %q", got.Lifecycle, tc.wantLifecyle)
+			}
+			if cleared := got.CompletedAt == nil; cleared != tc.wantCleared {
+				t.Errorf("completed_at cleared = %v, want %v (value %v)",
+					cleared, tc.wantCleared, got.CompletedAt)
+			}
+			_ = formation
+		})
+	}
+}
+
 // The counterpart: a value this service has not been taught must still be
 // reported, because it means the upstream enum has moved and nothing here knows.
 func TestSyncToStillReportsAStageItCannotRead(t *testing.T) {

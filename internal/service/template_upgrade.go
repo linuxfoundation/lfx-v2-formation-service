@@ -94,13 +94,20 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 			return nil
 		}
 
-		if insertErr := tx.Items().InsertMany(ctx, missing); insertErr != nil {
+		// The keys come back from the insert rather than from the set computed
+		// above, because those two differ under a concurrent upgrade: both
+		// callers can compute the same missing set, and the one that loses each
+		// row has its insert suppressed. Recording its own input would put an
+		// entry in the audit trail claiming it added items another transaction
+		// added, and the feed is the one place that has to be literally true.
+		addedKeys, insertErr := tx.Items().InsertMany(ctx, missing)
+		if insertErr != nil {
 			return fmt.Errorf("adding %d items to %s: %w", len(missing), projectUID, insertErr)
 		}
-
-		addedKeys := make([]string, 0, len(missing))
-		for _, item := range missing {
-			addedKeys = append(addedKeys, item.ItemKey)
+		// Nothing landed, so another upgrade added them all first. No entry: the
+		// same reason the unchanged case above writes none.
+		if len(addedKeys) == 0 {
+			return nil
 		}
 
 		// Recorded for the same reason the expansion is, and with more force:

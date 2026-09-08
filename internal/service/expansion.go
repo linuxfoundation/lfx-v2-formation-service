@@ -117,7 +117,10 @@ func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tp
 		// InsertMany leaves items already present by key untouched, so this
 		// is safe even if a concurrent replica inserted them between the
 		// Create above and here.
-		if insertErr := tx.Items().InsertMany(ctx, items); insertErr != nil {
+		// The inserted keys are not needed here: the Create above returned
+		// ErrAlreadyExists to any concurrent replica, so this transaction is the
+		// only one expanding this checklist and every item is its own.
+		if _, insertErr := tx.Items().InsertMany(ctx, items); insertErr != nil {
 			return fmt.Errorf("expanding %d items for %s: %w", len(items), projectUID, insertErr)
 		}
 

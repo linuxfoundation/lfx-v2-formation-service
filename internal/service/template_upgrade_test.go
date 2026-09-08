@@ -13,9 +13,14 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
 
-// republish replaces the seeded template with a newer content set at the same
-// priority, which is what an operator does before running the upgrade.
-func republish(t *testing.T, repo *mock.TemplateRepository, version int, sections []model.TemplateSection) {
+// publishVersion publishes a further template version at the same priority,
+// which is what an operator does before running the upgrade.
+//
+// It has to be a new version rather than an edit of the seeded one: a published
+// version's content is immutable, because checklists pin the version they
+// expanded from. That leaves two published versions at one priority, so these
+// tests also depend on selection preferring the newer one.
+func publishNextVersion(t *testing.T, repo *mock.TemplateRepository, version int, sections []model.TemplateSection) {
 	t.Helper()
 	_, err := repo.Upsert(context.Background(), &model.Template{
 		Name:     "Project formation",
@@ -93,7 +98,7 @@ func TestUpgradeAddsOnlyMissingItems(t *testing.T) {
 		t.Fatalf("Update() = %v, want no error", err)
 	}
 
-	republish(t, f.templates, 1, sectionsPlusOneMinusOne())
+	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
 
 	upgrader := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
 	report, err := upgrader.UpgradeFor(ctx, "project-1")
@@ -176,7 +181,7 @@ func TestUpgradeIsIdempotent(t *testing.T) {
 	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
-	republish(t, f.templates, 1, sectionsPlusOneMinusOne())
+	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
 
 	upgrader := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
 	first, err := upgrader.UpgradeFor(ctx, "project-1")
@@ -225,7 +230,7 @@ func TestUpgradeResolvesDueDatesOnAddedItems(t *testing.T) {
 
 	withDueRule := sectionsPlusOneMinusOne()
 	withDueRule[1].Items[1].DueRule = "announcement-30d"
-	republish(t, f.templates, 1, withDueRule)
+	publishNextVersion(t, f.templates, 2, withDueRule)
 
 	upgrader := NewUpgrader(NewTemplateSelector(f.templates), f.uow, projects)
 	if _, err := upgrader.UpgradeFor(ctx, "project-1"); err != nil {
@@ -268,7 +273,7 @@ func TestUpgradeAllCoversEveryChecklist(t *testing.T) {
 			t.Fatalf("ExpandFor(%s) = %v, want no error", projectUID, err)
 		}
 	}
-	republish(t, f.templates, 1, sectionsPlusOneMinusOne())
+	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
 
 	reports, err := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil).UpgradeAll(ctx)
 	if err != nil {
@@ -299,7 +304,7 @@ func TestUpgradeRecordsWhatItAdded(t *testing.T) {
 		t.Fatalf("GetByProject() = %v", err)
 	}
 
-	republish(t, f.templates, 1, sectionsPlusOneMinusOne())
+	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
 
 	u := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
 	report, err := u.UpgradeFor(ctx, "project-1")
@@ -324,6 +329,73 @@ func TestUpgradeRecordsWhatItAdded(t *testing.T) {
 	keys, ok := entries[0].After["added_keys"].([]string)
 	if !ok || len(keys) != 1 || keys[0] != report.AddedKeys[0] {
 		t.Errorf("after[added_keys] = %v, want %v", entries[0].After["added_keys"], report.AddedKeys)
+	}
+}
+
+// raceLosingItems reports that every insert was suppressed, which is what the
+// repository returns when a concurrent upgrade inserted the same rows first.
+type raceLosingItems struct{ port.ItemRepository }
+
+func (raceLosingItems) InsertMany(context.Context, []*model.Item) ([]string, error) {
+	return nil, nil
+}
+
+// suppressedInsertTx swaps in the item repository above, leaving the rest of the
+// transaction as it was.
+type suppressedInsertTx struct {
+	port.Tx
+	items port.ItemRepository
+}
+
+func (s suppressedInsertTx) Items() port.ItemRepository { return s.items }
+
+type suppressedInsertUOW struct{ inner port.UnitOfWork }
+
+func (u suppressedInsertUOW) Do(ctx context.Context, fn func(port.Tx) error) error {
+	return u.inner.Do(ctx, func(tx port.Tx) error {
+		return fn(suppressedInsertTx{Tx: tx, items: raceLosingItems{tx.Items()}})
+	})
+}
+
+// Two upgrades running at once compute the same set of missing items, and the
+// one that loses has every insert suppressed by the uniqueness constraint. It
+// must not then write an activity entry claiming it added them: the feed is the
+// audit trail, so an entry naming rows this transaction did not write is a
+// record of something that did not happen, and both upgrades would report having
+// added the same items.
+func TestAnUpgradeThatLosesTheRaceRecordsNothing(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+
+	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
+
+	u := NewUpgrader(NewTemplateSelector(f.templates), suppressedInsertUOW{f.uow}, nil)
+	report, err := u.UpgradeFor(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("UpgradeFor() = %v, want no error — losing the race is not a failure", err)
+	}
+	if len(report.AddedKeys) != 0 {
+		t.Errorf("added keys = %v, want none — the other upgrade added them", report.AddedKeys)
+	}
+
+	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	// Only the expansion, which ran before this.
+	if len(entries) != 1 {
+		t.Fatalf("activity entries = %d, want 1 — no entry for an upgrade that added nothing", len(entries))
+	}
+	if entries[0].Action == ActionTemplateUpgraded {
+		t.Error("an upgrade that inserted nothing recorded itself as having upgraded")
 	}
 }
 

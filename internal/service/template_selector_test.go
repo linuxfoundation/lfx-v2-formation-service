@@ -27,6 +27,20 @@ func publish(t *testing.T, repo *mock.TemplateRepository, name string, priority 
 	}
 }
 
+func publishVersion(t *testing.T, repo *mock.TemplateRepository, name string, version, priority int, match string) {
+	t.Helper()
+	_, err := repo.Upsert(context.Background(), &model.Template{
+		Name:     name,
+		Version:  version,
+		State:    model.TemplatePublished,
+		Priority: priority,
+		Match:    match,
+	})
+	if err != nil {
+		t.Fatalf("Upsert(%q v%d) = %v, want no error", name, version, err)
+	}
+}
+
 func TestSelectTakesTheLowestPriorityMatch(t *testing.T) {
 	ctx := context.Background()
 	repo := mock.NewTemplateRepository()
@@ -39,6 +53,43 @@ func TestSelectTakesTheLowestPriorityMatch(t *testing.T) {
 	}
 	if got.Name != "specific" {
 		t.Errorf("Select() = %q, want %q — lower priority wins", got.Name, "specific")
+	}
+}
+
+// Publishing a version does not retire the one before it, so both sit in the
+// candidate list at the same priority. Selection has to be decided by version
+// rather than by whatever order the rows come back in, or an upgrade could walk
+// a checklist onto older content depending on the query plan.
+func TestSelectTakesTheNewestVersionAtOnePriority(t *testing.T) {
+	ctx := context.Background()
+	repo := mock.NewTemplateRepository()
+	publishVersion(t, repo, "Project formation", 2, 100, MatchAlways)
+	publishVersion(t, repo, "Project formation", 1, 100, MatchAlways)
+
+	got, err := NewTemplateSelector(repo).Select(ctx)
+	if err != nil {
+		t.Fatalf("Select() = %v, want no error", err)
+	}
+	if got.Version != 2 {
+		t.Errorf("Select() = v%d, want v2 — the newest version at one priority wins", got.Version)
+	}
+}
+
+// Priority still decides first: a deliberately lower-priority template must not
+// be overtaken by a higher-numbered version of something else.
+func TestPriorityStillOutranksVersion(t *testing.T) {
+	ctx := context.Background()
+	repo := mock.NewTemplateRepository()
+	publishVersion(t, repo, "fallback", 9, 100, MatchAlways)
+	publishVersion(t, repo, "specific", 1, 10, MatchAlways)
+
+	got, err := NewTemplateSelector(repo).Select(ctx)
+	if err != nil {
+		t.Fatalf("Select() = %v, want no error", err)
+	}
+	if got.Name != "specific" {
+		t.Errorf("Select() = %q v%d, want specific — priority outranks version",
+			got.Name, got.Version)
 	}
 }
 
