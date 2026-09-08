@@ -2,8 +2,19 @@
 # Copyright The Linux Foundation and each contributor to LFX.
 # SPDX-License-Identifier: MIT
 builds:
+  # Each build names its own package directory rather than ./cmd. There are two
+  # main packages under cmd/ now, so a shared parent directory no longer
+  # identifies one — this follows committee-service, which has the same pair.
   - id: formation-api
-    dir: ./cmd
+    dir: ./cmd/formation-api
+    ldflags:
+      - -X=main.version={{.Env.VERSION}}
+      - -X=main.buildTime={{.Env.BUILD_TIME}}
+      - -X=main.gitCommit={{.Env.GIT_COMMIT}}
+  # The operator CLI: publishes the seeded template and runs template upgrades.
+  # Template management has no API routes, so this image is how those run.
+  - id: formation-cli
+    dir: ./cmd/formation-cli
     ldflags:
       - -X=main.version={{.Env.VERSION}}
       - -X=main.buildTime={{.Env.BUILD_TIME}}

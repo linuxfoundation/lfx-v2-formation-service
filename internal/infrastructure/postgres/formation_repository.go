@@ -45,16 +45,43 @@ func (r *FormationRepo) Create(ctx context.Context, f *model.Formation) (*model.
 	if f.Revision == 0 {
 		f.Revision = 1
 	}
+	// An empty slice, not nil: the column is NOT NULL DEFAULT '[]', and a nil
+	// slice marshals to JSON null rather than [] — the same reason Item's
+	// SubItems is defaulted the same way.
+	if f.Sections == nil {
+		f.Sections = []model.FormationSection{}
+	}
 
-	if _, err := r.db.NewInsert().
+	// ON CONFLICT DO NOTHING rather than catching the unique violation, because
+	// the violation aborts the surrounding transaction. The caller treats "this
+	// project already has a checklist" as success — that is what makes the
+	// reconcile safe to run on every replica — and it cannot do that from inside
+	// a transaction Postgres has already put beyond saving: the commit then
+	// fails with "commit unexpectedly resulted in rollback" and the whole sweep
+	// reports an error for a project that is perfectly fine.
+	//
+	// Letting Postgres absorb the conflict keeps the transaction usable, so the
+	// caller's decision to continue actually holds.
+	res, err := r.db.NewInsert().
 		Model(f).
+		On("CONFLICT (project_uid) DO NOTHING").
 		Returning("*").
-		Exec(ctx); err != nil {
+		Exec(ctx)
+	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, domain.ErrAlreadyExists
 		}
 		return nil, fmt.Errorf("insert formation: %w", err)
 	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("insert formation: %w", err)
+	}
+	if affected == 0 {
+		return nil, domain.ErrAlreadyExists
+	}
+
 	return f, nil
 }
 
@@ -89,8 +116,19 @@ func (r *FormationRepo) UpdateLifecycle(ctx context.Context, uid uuid.UUID, life
 
 	// completed_at is part of becoming completed, so it moves in the same
 	// statement rather than in a second write that could fail on its own.
-	if lifecycle == model.LifecycleCompleted {
+	//
+	// Going back to live clears it, because a checklist that has re-entered
+	// formation is not complete and a stale timestamp beside a live lifecycle
+	// reads as a contradiction. Freezing deliberately leaves it alone: a
+	// checklist that completed and was later archived did genuinely complete,
+	// and that is history worth keeping rather than a stale value.
+	switch lifecycle {
+	case model.LifecycleCompleted:
 		q = q.Set("completed_at = now()")
+	case model.LifecycleLive:
+		q = q.Set("completed_at = NULL")
+	case model.LifecycleFrozen:
+		// Left as it is, per the reasoning above.
 	}
 
 	res, err := q.Exec(ctx)
@@ -105,6 +143,43 @@ func (r *FormationRepo) UpdateLifecycle(ctx context.Context, uid uuid.UUID, life
 		// affected==0 means either uid doesn't exist or revision was
 		// stale. Disambiguate: a client told 412 "re-read and retry"
 		// for an unknown uid would 404 on the re-read and retry forever.
+		exists, err := r.db.NewSelect().Model((*model.Formation)(nil)).Where("uid = ?", uid).Exists(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("probe formation existence: %w", err)
+		}
+		if !exists {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrVersionMismatch
+	}
+	return f, nil
+}
+
+// UpdateSections replaces the section snapshot, refusing the write when
+// revision is stale. Mirrors UpdateLifecycle's existence-vs-staleness
+// disambiguation for the same reason: a caller acting on ErrVersionMismatch
+// needs to know a retry can succeed, which is not true for a uid that is gone.
+func (r *FormationRepo) UpdateSections(
+	ctx context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64,
+) (*model.Formation, error) {
+	f := &model.Formation{}
+	res, err := r.db.NewUpdate().
+		Model(f).
+		Set("sections = ?", sections).
+		Set("revision = revision + 1").
+		Set("updated_at = now()").
+		Where("uid = ?", uid).
+		Where("revision = ?", revision).
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("update formation sections: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
 		exists, err := r.db.NewSelect().Model((*model.Formation)(nil)).Where("uid = ?", uid).Exists(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("probe formation existence: %w", err)

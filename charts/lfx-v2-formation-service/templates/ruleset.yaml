@@ -67,7 +67,7 @@ spec:
             values:
               aud: {{ .Values.app.audience }}
     # Every item mutation except accept/reject/reopen needs only the
-    # project's writer relation ("Manage" in endpoints.md's grant table) —
+    # project's writer relation, which is what "Manage" grants —
     # never the narrower formation-team check accept/reject/reopen need,
     # which is why those are their own routes rather than sharing this one.
     - id: "rule:lfx:lfx-v2-formation-service:formations:update_item"

@@ -27,6 +27,11 @@ jobs:
       - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d  # v0.9
         with:
           version: v0.18.0
+      # One step per binary, as in committee-service and project-service, which
+      # build their api and cli pair this way. ko accepts both import paths in a
+      # single invocation and -B (--base-import-paths) names them
+      # KO_DOCKER_REPO/formation-api and KO_DOCKER_REPO/formation-cli either
+      # way, so this is for per-binary step logs, not to keep the names apart.
       - name: Build and publish formation-api image
         env:
           VERSION: development
@@ -37,6 +42,24 @@ jobs:
           export BUILD_TIME
           export GIT_COMMIT
           ko build github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
+            -B \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ github.sha }} \
+            -t development \
+            --sbom spdx
+      # The CLI is not optional tooling: template management has no API routes,
+      # so seeding the published template is a job run from this image, and
+      # without it no checklist can be created.
+      - name: Build and publish formation-cli image
+        env:
+          VERSION: development
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          GIT_COMMIT="${{ github.sha }}"
+          GIT_COMMIT="${GIT_COMMIT:0:7}"
+          export BUILD_TIME
+          export GIT_COMMIT
+          ko build github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-cli \
             -B \
             --platform linux/amd64,linux/arm64 \
             -t ${{ github.sha }} \

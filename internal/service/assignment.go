@@ -16,19 +16,22 @@ import (
 // grants nothing on its own — this only catches assigning to someone with
 // no standing on the project at all, e.g. a typo'd username.
 //
-// A nil ProjectReader (the NATS request/reply adapter has not landed yet)
-// skips the check rather than refusing every assignment, the same
-// conservative handling GetFormation already gives this same missing
+// A nil ProjectReader skips the check rather than refusing every assignment,
+// the same conservative handling GetFormation already gives this same missing
 // dependency for the announcement date. This does mean the check is
 // currently a no-op in the deployed system — assignee_not_on_project is
-// advertised in the wire contract but cannot fire until that adapter lands.
+// advertised in the wire contract but cannot fire yet.
 //
-// UpdateItem calls this from inside the open unit-of-work transaction, so
-// once the adapter lands this NATS round-trip will hold that transaction
-// (and the row lock the later Update takes) open for its duration. Move
-// this call out ahead of s.uow.Do when that lands, re-checking the item's
-// revision after (the version-mismatch re-check buildItemPatch's caller
-// already does after Update covers the analogous race for the patch itself).
+// What is missing is not the transport, which now exists, but a project-service
+// subject returning the settings record: only writers have a lookup, and there
+// is no auditors equivalent. Answering with writers alone would make this
+// refuse every auditor, so the reader stays nil until both halves are
+// readable. See ProjectReaderImpl.
+//
+// UpdateItem calls this before opening its transaction, so this round-trip does
+// not hold a row lock for its duration, and carries the result into the
+// transaction to report from the position the check used to occupy. The rationale
+// for both halves is at that call site.
 func validateAssignee(ctx context.Context, projects port.ProjectReader, projectUID, assignee string) error {
 	if projects == nil {
 		return nil

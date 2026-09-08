@@ -96,6 +96,13 @@ build: ## Build the application for local OS
 		-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)" \
 		-o bin/$(APP_NAME) ./cmd/formation-api/
 
+.PHONY: build-cli
+build-cli: ## Build the formation-cli operator binary for local OS
+	@echo "Building formation-cli for local development..."
+	go build \
+		-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)" \
+		-o bin/formation-cli ./cmd/formation-cli/
+
 .PHONY: run
 run: build ## Run the application for local development
 	@echo "Running application for local development..."

@@ -34,6 +34,16 @@ type Formation struct {
 	StartedAt   time.Time  `bun:"started_at,nullzero,notnull,default:now()"`
 	CompletedAt *time.Time `bun:"completed_at"`
 
+	// Sections is a snapshot of section metadata, not a live join to the
+	// pinned template. It starts as every section the template had at
+	// creation and only ever grows: the upgrade job appends an entry when it
+	// adds an item whose section this checklist has not recorded, and never
+	// removes one. Matches how Item.Title is already handled — copied in
+	// once so a later template edit cannot change what an existing checklist
+	// displays, and so an upgraded item can never carry a section key the
+	// response's own sections[] does not list.
+	Sections []FormationSection `bun:"sections,type:jsonb,notnull"`
+
 	// Revision is the optimistic-lock counter for this row. It is not
 	// surfaced on the wire: versioning is deliberately per item, not per
 	// checklist, so two people editing different rows both succeed. Only
@@ -42,6 +52,14 @@ type Formation struct {
 
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:now()"`
 	UpdatedAt time.Time `bun:"updated_at,nullzero,notnull,default:now()"`
+}
+
+// FormationSection is one entry in a checklist's section snapshot: enough to
+// render a section heading, and nothing an item itself needs. Order is the
+// slice order, matching how the template's own sections are ordered.
+type FormationSection struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
 }
 
 // Item is one checklist row. Revision is per row, not per formation, so
@@ -89,11 +107,16 @@ type Item struct {
 	ChecklistType ChecklistType `bun:"checklist_type,notnull,default:'both'"`
 
 	// Mutable by a writer.
-	Status       ItemStatus `bun:"status,notnull"`
-	Assignee     string     `bun:"assignee"`
-	Note         string     `bun:"note"`
-	SkipReason   string     `bun:"skip_reason"`
-	EvidenceLink string     `bun:"evidence_link"`
+	Status ItemStatus `bun:"status,notnull"`
+	// nullzero because formation_items_assignee_idx is partial on
+	// assignee IS NOT NULL. Without it every row Bun inserts carries '' and
+	// lands in the index of assigned work — which is the state the update
+	// path already goes out of its way to avoid by clearing to NULL rather
+	// than to ''. Insert and update have to agree on what "unassigned" is.
+	Assignee     string `bun:"assignee,nullzero"`
+	Note         string `bun:"note"`
+	SkipReason   string `bun:"skip_reason"`
+	EvidenceLink string `bun:"evidence_link"`
 
 	// Set by the service.
 	ResolvedRef *ResolvedRef `bun:"resolved_ref,type:jsonb"`

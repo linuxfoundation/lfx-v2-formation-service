@@ -24,7 +24,7 @@ import (
 
 // StartServer initializes and starts the HTTP server.
 func StartServer(ctx context.Context, cfg *config.Config) error {
-	svcImpl, closeFn, err := diservice.New(ctx, cfg)
+	svcImpl, deps, closeFn, err := diservice.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -33,6 +33,11 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	if cfg.Debug {
 		endpoints.Use(debug.LogPayloads())
 	}
+
+	// Started before the listener rather than after: creating checklists does
+	// not depend on serving requests, and it stops when ctx is cancelled on
+	// shutdown alongside everything else.
+	diservice.StartReconcile(ctx, cfg, deps)
 
 	return handleHTTPServer(ctx, cfg, endpoints, closeFn)
 }

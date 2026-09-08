@@ -160,10 +160,20 @@ func UnitOfWorkImpl(
 	return nil
 }
 
-// ProjectReaderImpl returns the NATS request/reply project reader. Returns
-// nil until that adapter lands (tracked separately) — a nil reader degrades
-// announcement-date lookups rather than erroring, which is the conservative
-// answer for a dependency that does not exist yet.
+// ProjectReaderImpl returns the project reader, and returns nil because there
+// is nothing yet that can implement it.
+//
+// The NATS transport and a project client now exist
+// (internal/infrastructure/nats), but the project service exposes no subject
+// that returns the settings record — only per-attribute lookups, of which
+// writers is the only role. GetSettings needs the announcement date and the
+// auditors list from that record, so it cannot be answered without an upstream
+// addition.
+//
+// Wiring a reader that filled writers and left auditors empty would be worse
+// than wiring none: assignment validation refuses anyone outside writers ∪
+// auditors, so it would start rejecting every legitimate auditor. A nil reader
+// keeps that check inert, which is wrong-but-harmless rather than harmful.
 func ProjectReaderImpl(_ context.Context, _ *config.Config) port.ProjectReader {
 	return nil
 }
@@ -215,10 +225,28 @@ func AuthServiceImpl(ctx context.Context, cfg *config.Config) port.Authenticator
 	return nil
 }
 
-// New builds the wired service. Returns a close function that releases the
-// Postgres pool when REPOSITORY_SOURCE=postgres connected one, and a no-op
-// otherwise.
-func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() error, error) {
+// Deps are the wired dependencies, kept so everything that needs them uses the
+// same instances.
+//
+// This exists because the mock repositories are per-call values, not singletons:
+// FormationRepositoryImpl and its siblings return a fresh in-memory store every
+// time they are called. Anything that builds its own set therefore gets stores
+// nobody else can see — the failure UnitOfWorkImpl's doc comment describes, and
+// the reconcile loop reproduced it by wiring itself independently.
+type Deps struct {
+	Formations port.FormationRepository
+	Items      port.ItemRepository
+	Activity   port.ActivityRepository
+	Templates  port.TemplateRepository
+	UnitOfWork port.UnitOfWork
+	Projects   port.ProjectReader
+}
+
+// New builds the wired service. Returns the dependencies so callers that need
+// them share these instances rather than building their own, and a close
+// function that releases the Postgres pool when REPOSITORY_SOURCE=postgres
+// connected one, and a no-op otherwise.
+func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, func() error, error) {
 	slog.InfoContext(ctx, "wiring service dependencies", "repository_source", repositorySource())
 
 	authService := AuthServiceImpl(ctx, cfg)
@@ -256,6 +284,51 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 		return nil
 	}
 
+	deps := &Deps{
+		Formations: formations,
+		Items:      items,
+		Activity:   activity,
+		Templates:  templates,
+		UnitOfWork: uow,
+		Projects:   projects,
+	}
+
 	slog.InfoContext(ctx, "service dependencies wired")
-	return svc, closeFn, nil
+	return svc, deps, closeFn, nil
+}
+
+// StartReconcile starts the reconcile loop, and reports whether it started.
+//
+// The loop is the mechanism of record for creating checklists, so it runs on
+// every replica with no leader election — duplicate creation is absorbed by the
+// uniqueness constraint on project_uid.
+//
+// It is not started when nothing can list forming projects. A loop that woke up
+// every fifteen minutes to sweep an empty list would log its way through the
+// retention window saying nothing useful, and the absence is worth stating once
+// at startup instead.
+//
+// It takes the already-wired deps rather than building its own. In mock mode
+// building its own meant writing checklists into stores no request could read.
+func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) bool {
+	if deps.Projects == nil {
+		slog.WarnContext(ctx, "reconcile loop not started: nothing can list forming projects yet, "+
+			"so no checklist is created automatically. Use formation-cli expand in the meantime")
+		return false
+	}
+
+	reconciler := usecaseSvc.NewReconciler(
+		deps.Projects,
+		deps.Formations,
+		usecaseSvc.NewExpander(usecaseSvc.NewTemplateSelector(deps.Templates), deps.UnitOfWork, deps.Projects),
+		usecaseSvc.NewLifecycler(deps.Formations),
+		// Configured, not hardcoded. The interval is the worst-case delay before
+		// a project that entered formation gets its checklist, so it is the one
+		// knob worth turning during an incident — and it previously parsed from
+		// the environment into a field nothing read.
+		cfg.ReconcileInterval,
+	)
+
+	go reconciler.Run(ctx)
+	return true
 }

@@ -31,22 +31,53 @@ func NewItemRepo(db bun.IDB) *ItemRepo {
 // item_key) and ignores conflicts, so re-running expansion or an upgrade job
 // against a formation that already has some items is a no-op for those rows
 // rather than an error.
-func (r *ItemRepo) InsertMany(ctx context.Context, items []*model.Item) error {
+//
+// The returned keys are the rows this statement actually wrote. DO NOTHING
+// returns nothing for a suppressed row, so the list is exactly what was added
+// and a caller recording the change describes what happened rather than what it
+// hoped would happen.
+func (r *ItemRepo) InsertMany(ctx context.Context, items []*model.Item) ([]string, error) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 	for _, item := range items {
 		item.ApplyInsertDefaults()
 	}
 
-	_, err := r.db.NewInsert().
+	// Scanned into its own slice rather than back into the models. RETURNING
+	// yields a row per inserted item and nothing for a suppressed one, so with
+	// any conflict the result no longer lines up positionally with the input —
+	// letting Bun scan it back into the models would attach one item's generated
+	// UID to another.
+	var returned []*model.Item
+	if _, err := r.db.NewInsert().
 		Model(&items).
 		On("CONFLICT (formation_uid, item_key) DO NOTHING").
-		Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("insert items: %w", err)
+		Returning("*").
+		Exec(ctx, &returned); err != nil {
+		return nil, fmt.Errorf("insert items: %w", err)
 	}
-	return nil
+
+	// Matched by key, which is what the conflict target makes unique, so each
+	// caller's item still comes back carrying what the database generated for it.
+	byKey := make(map[itemIdentity]*model.Item, len(returned))
+	inserted := make([]string, 0, len(returned))
+	for _, row := range returned {
+		byKey[itemIdentity{row.FormationUID, row.ItemKey}] = row
+		inserted = append(inserted, row.ItemKey)
+	}
+	for _, item := range items {
+		if row, ok := byKey[itemIdentity{item.FormationUID, item.ItemKey}]; ok {
+			*item = *row
+		}
+	}
+	return inserted, nil
+}
+
+// itemIdentity is the pair UNIQUE (formation_uid, item_key) covers.
+type itemIdentity struct {
+	formationUID uuid.UUID
+	itemKey      string
 }
 
 // ListByFormation returns every item, ordered the way the checklist screen

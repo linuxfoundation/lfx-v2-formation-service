@@ -125,3 +125,85 @@ func TestSkipRequiresReasonSurvivesReapply(t *testing.T) {
 		t.Errorf("skip_needs_reason: got %d constraints, want exactly 1", count)
 	}
 }
+
+// The column additions at the end of the file are the whole reason this passes:
+// CREATE TABLE IF NOT EXISTS does nothing to a table that exists, so a column
+// added to the definition alone never reaches a database that has already been
+// created — and every read and write of that table then fails on it.
+//
+// The previous table shape is reproduced by dropping the column, which is what
+// a database created before it looks like. The backfill matters as much as the
+// column: the reader takes sections from here alone, so a checklist that
+// predates it would otherwise serve an empty sections[].
+func TestApplySchemaAddsAndBackfillsSectionsOverAnOlderTable(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`TRUNCATE formation_activity, formation_items, formations, formation_templates CASCADE`,
+	); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	var templateUID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO formation_templates (name, version, state, priority, match, sections)
+		 VALUES ('migration-test', 1, 'published', 100, 'always', $1::jsonb)
+		 RETURNING uid`,
+		`[{"key":"legal_and_entity","title":"Legal and entity","items":[]},
+		  {"key":"community_and_launch","title":"Community and launch","items":[]}]`,
+	).Scan(&templateUID); err != nil {
+		t.Fatalf("seeding the template: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO formations (project_uid, template_uid, template_version, lifecycle)
+		 VALUES ('project-before-the-column', $1, 1, 'live')`,
+		templateUID,
+	); err != nil {
+		t.Fatalf("seeding the formation: %v", err)
+	}
+
+	// The database as it was before the column existed.
+	if _, err := pool.Exec(ctx, `ALTER TABLE formations DROP COLUMN sections`); err != nil {
+		t.Fatalf("reproducing the older table shape: %v", err)
+	}
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("applying over the older table shape: %v", err)
+	}
+
+	var sections string
+	if err := pool.QueryRow(ctx,
+		`SELECT sections::text FROM formations WHERE project_uid = 'project-before-the-column'`,
+	).Scan(&sections); err != nil {
+		t.Fatalf("reading sections after the migration: %v", err)
+	}
+	for _, want := range []string{"legal_and_entity", "Legal and entity", "community_and_launch"} {
+		if !strings.Contains(sections, want) {
+			t.Errorf("sections = %s, want it backfilled from the pinned template (missing %q)", sections, want)
+		}
+	}
+
+	// Re-running must not reset a snapshot an upgrade has since extended, which
+	// is what the "only rows that have nothing" guard on the backfill is for.
+	if _, err := pool.Exec(ctx,
+		`UPDATE formations SET sections = $1::jsonb WHERE project_uid = 'project-before-the-column'`,
+		`[{"key":"added_by_an_upgrade","title":"Added by an upgrade"}]`,
+	); err != nil {
+		t.Fatalf("simulating an extended snapshot: %v", err)
+	}
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("third apply: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`SELECT sections::text FROM formations WHERE project_uid = 'project-before-the-column'`,
+	).Scan(&sections); err != nil {
+		t.Fatalf("re-reading sections: %v", err)
+	}
+	if !strings.Contains(sections, "added_by_an_upgrade") {
+		t.Errorf("sections = %s, want the extended snapshot left alone by a re-apply", sections)
+	}
+}

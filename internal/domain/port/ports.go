@@ -29,6 +29,14 @@ type FormationRepository interface {
 	// when revision does not match the caller's copy.
 	UpdateLifecycle(ctx context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error)
 
+	// UpdateSections replaces the section snapshot, refusing the write when
+	// revision does not match the caller's copy. Used only by the upgrade job,
+	// to record a section a newer template introduced that this checklist has
+	// not seen. A version mismatch is not fatal to the caller: the write is
+	// idempotent, so a run that loses this race leaves the gap for the next
+	// run to close rather than losing the items it already added.
+	UpdateSections(ctx context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64) (*model.Formation, error)
+
 	// ListProjectUIDs returns the projects that already have a formation,
 	// so the reconcile loop can find the ones that do not.
 	ListProjectUIDs(ctx context.Context) ([]string, error)
@@ -39,7 +47,12 @@ type FormationRepository interface {
 type ItemRepository interface {
 	// InsertMany expands a checklist. Items already present by key are left
 	// untouched, which is what makes expansion and upgrade idempotent.
-	InsertMany(ctx context.Context, items []*model.Item) error
+	//
+	// It returns the keys it actually inserted, which is not always every key
+	// passed in: a concurrent caller may have inserted some of them first. A
+	// caller recording what it added has to use this rather than its own input,
+	// or two racing upgrades both claim to have added the same items.
+	InsertMany(ctx context.Context, items []*model.Item) ([]string, error)
 
 	// ListByFormation returns every item, ordered by section then position.
 	ListByFormation(ctx context.Context, formationUID uuid.UUID) ([]*model.Item, error)
@@ -82,14 +95,20 @@ type ActivityRepository interface {
 
 // TemplateRepository reads and seeds templates.
 type TemplateRepository interface {
-	// ListPublished returns published templates ordered by priority, so
-	// selection is a first-match walk over the result.
+	// ListPublished returns published templates ordered by priority and, within
+	// one priority, newest version first, so selection is a first-match walk
+	// over the result. Publishing a version does not retire the one before it,
+	// so the version ordering is what keeps the choice between them from
+	// depending on row order.
 	ListPublished(ctx context.Context) ([]*model.Template, error)
 
 	Get(ctx context.Context, uid uuid.UUID) (*model.Template, error)
 
-	// Upsert seeds or replaces a template version. Keyed on name and
-	// version, so re-running the seed job is a no-op.
+	// Upsert seeds a template version, or re-seeds one that is not yet
+	// published. Keyed on name and version, so re-running the seed job is a
+	// no-op. Changing the content of an already-published version is refused
+	// with domain.ErrConflict: live checklists pin the version they expanded
+	// from, so editing it in place would change what those pins mean.
 	Upsert(ctx context.Context, t *model.Template) (*model.Template, error)
 }
 

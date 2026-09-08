@@ -40,10 +40,11 @@ func newItemMutatorTestService(t *testing.T) (*Service, *model.Formation, *model
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, items.InsertMany(context.Background(), []*model.Item{
+	_, err = items.InsertMany(context.Background(), []*model.Item{
 		{FormationUID: formation.UID, ItemKey: "item-1", SectionKey: "sec-1", Title: "Item One", Status: model.StatusNotStarted},
 		{FormationUID: formation.UID, ItemKey: "item-2", SectionKey: "sec-1", Title: "Item Two", Status: model.StatusNotStarted},
-	}))
+	})
+	require.NoError(t, err)
 
 	itemOne, err := items.GetByKey(context.Background(), formation.UID, "item-1")
 	require.NoError(t, err)
@@ -409,6 +410,84 @@ func TestUpdateItem(t *testing.T) {
 		var formationErr *svc.FormationError
 		require.ErrorAs(t, err, &formationErr)
 		assert.Equal(t, "assignee_not_on_project", formationErr.Reason)
+	})
+
+	// The assignee's membership is checked before the transaction opens, since
+	// it is a call to another service — but it must still be reported after the
+	// precondition, or a stale write would answer 400 where it answers 412 and
+	// the client's retry logic would stop retrying.
+	t.Run("a stale precondition outranks a bad assignee", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		projects := mock.NewProjectReader()
+		projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
+			ProjectUID: formation.ProjectUID, Writers: []string{"alice"},
+		})
+		s.projects = projects
+
+		outsider := "mallory"
+		result, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
+			IfMatch:  itemOne.Revision + 99,
+			Assignee: &outsider,
+		})
+
+		require.Nil(t, result)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "version_mismatch", formationErr.Reason,
+			"the precondition is checked under the lock and must be reported first")
+	})
+
+	// Same ordering question for the checklist that cannot be written at all.
+	t.Run("a read-only checklist outranks a bad assignee", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		projects := mock.NewProjectReader()
+		projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
+			ProjectUID: formation.ProjectUID, Writers: []string{"alice"},
+		})
+		s.projects = projects
+		_, freezeErr := s.formations.UpdateLifecycle(
+			context.Background(), formation.UID, model.LifecycleFrozen, formation.Revision,
+		)
+		require.NoError(t, freezeErr)
+
+		outsider := "mallory"
+		result, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
+			IfMatch:  itemOne.Revision,
+			Assignee: &outsider,
+		})
+
+		require.Nil(t, result)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "checklist_read_only", formationErr.Reason)
+	})
+
+	// The assignee check sits after the status rules, so a request that is wrong
+	// about both is answered on the transition. This is the case the first
+	// attempt at moving the check out of the transaction got wrong: it hoisted
+	// the refusal to the front and turned this 409 into a 400.
+	t.Run("an invalid transition outranks a bad assignee", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		projects := mock.NewProjectReader()
+		projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
+			ProjectUID: formation.ProjectUID, Writers: []string{"alice"},
+		})
+		s.projects = projects
+
+		outsider := "mallory"
+		done := string(model.StatusDone)
+		result, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: &done, Assignee: &outsider,
+		})
+
+		require.Nil(t, result)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "invalid_transition", formationErr.Reason)
+		assert.Equal(t, "Conflict", formationErr.Name)
 	})
 
 	t.Run("assignee holding a project grant succeeds", func(t *testing.T) {

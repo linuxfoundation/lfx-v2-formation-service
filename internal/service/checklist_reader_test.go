@@ -44,10 +44,13 @@ func newChecklistTestService(t *testing.T) (*Service, *model.Formation) {
 		ProjectUID:      "project-1",
 		TemplateUID:     template.UID,
 		TemplateVersion: template.Version,
+		// Mirrors what Expander snapshots at creation: GetFormation now reads
+		// sections from here, not from a live join to the template.
+		Sections: []model.FormationSection{{Key: "sec-1", Title: "Section One"}},
 	})
 	require.NoError(t, err)
 
-	err = items.InsertMany(context.Background(), []*model.Item{
+	_, err = items.InsertMany(context.Background(), []*model.Item{
 		{
 			FormationUID: formation.UID,
 			ItemKey:      "item-1",
@@ -179,7 +182,7 @@ func TestGetFormation(t *testing.T) {
 // readiness tests can control the gate summary.
 func seedGateItem(t *testing.T, s *Service, formation *model.Formation, status model.ItemStatus) {
 	t.Helper()
-	require.NoError(t, s.items.InsertMany(context.Background(), []*model.Item{
+	_, err := s.items.InsertMany(context.Background(), []*model.Item{
 		{
 			FormationUID: formation.UID,
 			ItemKey:      "gate-1",
@@ -188,7 +191,8 @@ func seedGateItem(t *testing.T, s *Service, formation *model.Formation, status m
 			Status:       status,
 			Gate:         true,
 		},
-	}))
+	})
+	require.NoError(t, err)
 }
 
 func TestGetFormationActivity(t *testing.T) {
@@ -295,7 +299,9 @@ func TestGetFormationActivity(t *testing.T) {
 // returns err, for exercising the service's dependency-error paths.
 type failingItemRepository struct{ err error }
 
-func (f failingItemRepository) InsertMany(context.Context, []*model.Item) error { return f.err }
+func (f failingItemRepository) InsertMany(context.Context, []*model.Item) ([]string, error) {
+	return nil, f.err
+}
 func (f failingItemRepository) ListByFormation(context.Context, uuid.UUID) ([]*model.Item, error) {
 	return nil, f.err
 }

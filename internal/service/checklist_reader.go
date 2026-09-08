@@ -30,11 +30,6 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 		return nil, err
 	}
 
-	template, err := s.templates.Get(ctx, formation.TemplateUID)
-	if err != nil && !errors.Is(err, domain.ErrNotFound) {
-		return nil, err
-	}
-
 	items, err := s.items.ListByFormation(ctx, formation.UID)
 	if err != nil {
 		return nil, err
@@ -63,7 +58,7 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 		TemplateUID:     formation.TemplateUID.String(),
 		TemplateVersion: formation.TemplateVersion,
 		Lifecycle:       string(formation.Lifecycle),
-		Sections:        sectionsFromTemplate(template),
+		Sections:        sectionsFromFormation(formation),
 		Items:           itemsToWire(items),
 		Progress:        progressFromCounts(counts),
 		IsActivating:    isActivating(gateTotal, gateOutstanding, announcementDate),
@@ -105,17 +100,15 @@ func (s *Service) GetFormationActivity(ctx context.Context, p *svc.GetFormationA
 	}, nil
 }
 
-// sectionsFromTemplate reads section key, title and position from the
-// template rather than from the items, since an item carries only its
-// section_key — the title and display order are template metadata. Returns
-// an empty slice (never nil) when the template could not be loaded, so a
-// checklist whose template was later archived still renders its items.
-func sectionsFromTemplate(t *model.Template) []*svc.FormationSection {
-	if t == nil {
-		return []*svc.FormationSection{}
-	}
-	out := make([]*svc.FormationSection, 0, len(t.Sections))
-	for i, sec := range t.Sections {
+// sectionsFromFormation reads section key, title and position from the
+// checklist's own snapshot rather than from the pinned template: an item
+// carries only its section_key, and the template can gain a section an
+// upgrade has already added items for — this snapshot is what the upgrade job
+// keeps in step with those items, so every section_key an item carries is
+// guaranteed to appear here.
+func sectionsFromFormation(f *model.Formation) []*svc.FormationSection {
+	out := make([]*svc.FormationSection, 0, len(f.Sections))
+	for i, sec := range f.Sections {
 		out = append(out, &svc.FormationSection{
 			Key:      sec.Key,
 			Title:    sec.Title,

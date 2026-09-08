@@ -5,10 +5,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
@@ -55,7 +58,7 @@ func TestUnitOfWorkAtomicity(t *testing.T) {
 		Title:        "TX test item",
 		Status:       model.StatusNotStarted,
 	}
-	if err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
+	if _, err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
 		t.Fatalf("seed item: %v", err)
 	}
 
@@ -104,6 +107,80 @@ func TestUnitOfWorkAtomicity(t *testing.T) {
 	}
 }
 
+// TestASecondCreateLeavesTheTransactionUsable covers the case that makes the
+// reconcile safe to run on every replica: two replicas expand the same project,
+// the second one's insert loses the race, and the caller treats "already
+// exists" as success and carries on inside the same transaction.
+//
+// A plain insert cannot support that. Its unique violation aborts the whole
+// Postgres transaction, so the commit afterwards fails with "commit
+// unexpectedly resulted in rollback" and a sweep reports an error for a project
+// that is perfectly fine. Only a Postgres-backed test catches it — an in-memory
+// unit of work has no aborted state to get stuck in.
+func TestASecondCreateLeavesTheTransactionUsable(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	uow := NewUnitOfWork(db)
+
+	templateRepo := NewTemplateRepo(db)
+	template, err := templateRepo.Upsert(ctx, &model.Template{
+		Name:     "tx-test-template-conflict",
+		Version:  1,
+		State:    model.TemplatePublished,
+		Priority: 100,
+		Match:    "always",
+		Sections: []model.TemplateSection{},
+	})
+	if err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+
+	const projectUID = "tx-test-project-conflict"
+	formationRepo := NewFormationRepo(db)
+	if _, err := formationRepo.Create(ctx, &model.Formation{
+		ProjectUID:      projectUID,
+		TemplateUID:     template.UID,
+		TemplateVersion: template.Version,
+	}); err != nil {
+		t.Fatalf("seed formation: %v", err)
+	}
+
+	// The losing replica: create, recognise the conflict, then keep reading in
+	// the same transaction and commit.
+	var readBack *model.Formation
+	err = uow.Do(ctx, func(tx port.Tx) error {
+		_, createErr := tx.Formations().Create(ctx, &model.Formation{
+			ProjectUID:      projectUID,
+			TemplateUID:     template.UID,
+			TemplateVersion: template.Version,
+		})
+		if !errors.Is(createErr, domain.ErrAlreadyExists) {
+			return fmt.Errorf("second create: got %v, want ErrAlreadyExists", createErr)
+		}
+
+		readBack, err = tx.Formations().GetByProject(ctx, projectUID)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("the transaction must survive a lost race, got: %v", err)
+	}
+	if readBack == nil || readBack.ProjectUID != projectUID {
+		t.Errorf("read-back after the conflict: got %+v, want the existing formation", readBack)
+	}
+
+	var count int
+	if err := db.NewSelect().
+		Model((*model.Formation)(nil)).
+		Where("project_uid = ?", projectUID).
+		ColumnExpr("count(*)").
+		Scan(ctx, &count); err != nil {
+		t.Fatalf("count formations: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("formations for the project: got %d, want 1", count)
+	}
+}
+
 // TestUnitOfWorkCommitsBothTogether is the positive case: when both writes
 // succeed, both are visible after commit.
 func TestUnitOfWorkCommitsBothTogether(t *testing.T) {
@@ -143,7 +220,7 @@ func TestUnitOfWorkCommitsBothTogether(t *testing.T) {
 		Title:        "TX test item",
 		Status:       model.StatusNotStarted,
 	}
-	if err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
+	if _, err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
 		t.Fatalf("seed item: %v", err)
 	}
 
