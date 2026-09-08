@@ -127,3 +127,35 @@ CREATE TABLE IF NOT EXISTS formation_activity (
 );
 
 CREATE INDEX IF NOT EXISTS formation_activity_feed_idx ON formation_activity (formation_uid, ulid DESC);
+
+-- Additive migrations, for a database that already went through an earlier
+-- version of this file.
+--
+-- CREATE TABLE IF NOT EXISTS is a no-op against a table that exists, so a
+-- column added to one of the definitions above never reaches a database that
+-- has already been created — every read and write of that table then fails on
+-- the missing column. Columns therefore have to be added twice: in the
+-- definition, for a new database, and here, for an existing one. Each statement
+-- stays idempotent for the same reason the rest of the file does.
+
+-- formations.sections carries the section snapshot the checklist serves.
+ALTER TABLE formations ADD COLUMN IF NOT EXISTS sections JSONB NOT NULL DEFAULT '[]';
+
+-- Backfilled from the pinned template rather than left at the default: the
+-- reader takes sections from this column alone and no longer falls back to the
+-- template, so a checklist that predates the column would serve an empty
+-- sections[] and render worse than it did before the column existed.
+--
+-- Only rows that have nothing are touched, which is what makes re-running this
+-- safe: a snapshot an upgrade has since extended must not be reset to whatever
+-- its creation template says today.
+UPDATE formations f
+   SET sections = (
+           SELECT COALESCE(
+                      jsonb_agg(jsonb_build_object('key', s ->> 'key', 'title', s ->> 'title') ORDER BY ord),
+                      '[]'::jsonb)
+             FROM formation_templates t,
+                  jsonb_array_elements(t.sections) WITH ORDINALITY AS e(s, ord)
+            WHERE t.uid = f.template_uid
+       )
+ WHERE f.sections = '[]'::jsonb;

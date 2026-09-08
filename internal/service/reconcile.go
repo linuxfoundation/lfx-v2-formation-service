@@ -77,6 +77,14 @@ type ReconcileReport struct {
 	// with no hundred error logs behind them. Blocked says "one condition, this
 	// many projects waiting on it", and the condition is logged once.
 	Blocked int
+
+	// Degraded counts projects the sweep could not reach a conclusion about,
+	// because it could not read which checklists already exist and could not
+	// resolve a template either. Distinct from Blocked, which asserts the
+	// project needs a checklist and cannot have one: with both reads gone the
+	// sweep does not know that, and saying so would put a confident number on a
+	// guess. Lifecycle sync still runs for these.
+	Degraded int
 }
 
 // Run sweeps on a ticker until ctx is cancelled.
@@ -104,6 +112,7 @@ func (r *Reconciler) Run(ctx context.Context) {
 				"skipped", report.Skipped,
 				"failed", report.Failed,
 				"blocked", report.Blocked,
+				"degraded", report.Degraded,
 			)
 		}
 
@@ -175,11 +184,21 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 
 		// No template was resolvable, which prepare has already reported once.
 		// Lifecycles still need syncing, so the sweep continues rather than
-		// returning — but nothing here can be created. Only projects that
-		// actually need a checklist reach this, so the count names what is
-		// genuinely held up.
+		// returning — but nothing here can be created.
+		//
+		// Counted as blocked only when the checklist set was actually read.
+		// With both sweep-wide reads failing, every project looks absent from
+		// an empty set, and counting them all would report the whole sweep as
+		// waiting on a template when most of them may need nothing — the same
+		// misleading number the check above is ordered to avoid. Degraded is
+		// reported instead, and it is a sweep-wide state rather than a per
+		// project one, so prepare's own log already carries the reason.
 		if sweep.template == nil {
-			report.Blocked++
+			if sweep.existingKnown {
+				report.Blocked++
+			} else {
+				report.Degraded++
+			}
 			r.syncLifecycle(ctx, project, report)
 			continue
 		}
@@ -216,6 +235,11 @@ type sweepState struct {
 	template *model.Template
 	// existing holds the projects that already have a checklist.
 	existing map[string]bool
+	// existingKnown says whether existing was actually read. When the read
+	// failed it is empty for want of an answer rather than because nothing has
+	// a checklist, and the difference matters: absence is only evidence that a
+	// project needs creating if the set is known.
+	existingKnown bool
 }
 
 // prepare resolves the template and the set of projects that already have a
@@ -263,6 +287,8 @@ func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *s
 		// rather than correctness.
 		slog.WarnContext(ctx, "could not list existing checklists; attempting every forming project "+
 			"and letting the uniqueness constraint absorb the duplicates", "error", err)
+	} else {
+		state.existingKnown = true
 	}
 	for _, uid := range uids {
 		state.existing[uid] = true

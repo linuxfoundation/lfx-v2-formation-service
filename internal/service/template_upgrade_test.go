@@ -5,9 +5,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
@@ -497,5 +501,68 @@ func TestUpgradeWithNothingToAddRecordsNothing(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Errorf("activity entries = %d, want 1 — only the expansion", len(entries))
+	}
+}
+
+// failingUpdateSections refuses the section write with a version mismatch, which
+// is what a concurrent lifecycle move produces, and otherwise behaves normally.
+type failingUpdateSections struct {
+	port.FormationRepository
+}
+
+func (failingUpdateSections) UpdateSections(
+	context.Context, uuid.UUID, []model.FormationSection, int64,
+) (*model.Formation, error) {
+	return nil, domain.ErrVersionMismatch
+}
+
+type failingSectionsTx struct {
+	port.Tx
+	formations port.FormationRepository
+}
+
+func (s failingSectionsTx) Formations() port.FormationRepository { return s.formations }
+
+type failingSectionsUOW struct{ inner port.UnitOfWork }
+
+func (u failingSectionsUOW) Do(ctx context.Context, fn func(port.Tx) error) error {
+	return u.inner.Do(ctx, func(tx port.Tx) error {
+		return fn(failingSectionsTx{Tx: tx, formations: failingUpdateSections{tx.Formations()}})
+	})
+}
+
+// The section snapshot is not incidental to the items an upgrade adds: it is the
+// only place the reader gets their section from. So an upgrade that adds an item
+// in a new section and cannot record that section has to fail rather than
+// swallow it, which is what puts the items and the snapshot on the same
+// transaction and lets the operator retry and get all of it.
+//
+// What this asserts is that the error propagates. The rollback it causes is the
+// unit of work's own contract and is covered against a real transaction in
+// postgres/unit_of_work_test.go — the double here deliberately has no atomicity,
+// so it cannot be observed at this layer.
+func TestAnUpgradeThatCannotRecordANewSectionFails(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	withNewSection := append(twoItemSections(), model.TemplateSection{
+		Key:   "brand_review",
+		Title: "Brand review",
+		Items: []model.TemplateItem{
+			{Key: "logo_approved", Title: "Logo approved", StatusSource: model.SourceManual},
+		},
+	})
+	publishNextVersion(t, f.templates, 2, withNewSection)
+
+	u := NewUpgrader(NewTemplateSelector(f.templates), failingSectionsUOW{f.uow}, nil)
+	_, err := u.UpgradeFor(ctx, "project-1")
+	if err == nil {
+		t.Fatal("UpgradeFor() = nil, want an error — the section write failed, so the upgrade did not do what it reports")
+	}
+	if !errors.Is(err, domain.ErrVersionMismatch) {
+		t.Errorf("error = %v, want it to carry domain.ErrVersionMismatch so a retry is recognisable", err)
 	}
 }

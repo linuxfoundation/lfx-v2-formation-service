@@ -137,11 +137,21 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 		if len(needed) > 0 {
 			merged := append(append([]model.FormationSection{}, formation.Sections...), needed...)
 			if _, secErr := tx.Formations().UpdateSections(ctx, formation.UID, merged, formation.Revision); secErr != nil {
-				// Not fatal to this run: the items themselves are already
-				// correct, this is metadata only, and the same gap is detected
-				// and retried on the next run since nothing here is consumed.
-				slog.WarnContext(ctx, "could not record a new section for a checklist; a later run retries",
-					"project_uid", projectUID, "error", secErr)
+				// Returned, so the transaction takes the items and the activity
+				// entry back with it. The snapshot is not incidental to those
+				// items: it is the only place the reader gets their section
+				// from, so committing them without it serves an item whose
+				// section_key matches nothing in sections[] — the exact state
+				// the snapshot exists to prevent.
+				//
+				// A later run would repair it — the check above works from the
+				// items the checklist actually has, so the gap stays visible.
+				// But this is an operator job, so there may never be a later
+				// run, and until there is, that checklist serves the broken
+				// response. Failing whole means the operator sees it now and
+				// retries, instead of a warning nobody reads deciding how long
+				// a checklist stays wrong.
+				return fmt.Errorf("recording %d new section(s) for %s: %w", len(needed), projectUID, secErr)
 			}
 		}
 

@@ -828,3 +828,75 @@ func TestALifecycleThatCannotBeMovedIsCounted(t *testing.T) {
 		t.Errorf("swept = %d, want 1", report.Swept)
 	}
 }
+
+// With both sweep-wide reads gone — the existing checklists and the template —
+// every forming project is absent from an empty set, so counting them as blocked
+// would assert they need a checklist and cannot have one. The sweep does not know
+// that: it could not read which ones already have one. Blocked has to stay a
+// claim the sweep can support, with the unknown case reported separately.
+func TestBothSweepReadsFailingIsDegradedRatherThanBlocked(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationEngaged},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+
+	// project-1 already has a checklist, so it is one of the projects a blocked
+	// count would be wrong about.
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+
+	boom := errors.New("connection reset")
+	brokenFormations := &failingListFormations{FormationRepository: f.formations, err: boom}
+	brokenExpander := NewExpander(
+		NewTemplateSelector(&failingTemplates{TemplateRepository: f.templates, err: boom}), f.uow, projects)
+
+	r := NewReconciler(projects, brokenFormations, brokenExpander, NewLifecycler(f.formations), time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error — neither read is needed to sync a lifecycle", err)
+	}
+	if report.Blocked != 0 {
+		t.Errorf("blocked = %d, want 0 — the sweep cannot tell which projects need a checklist", report.Blocked)
+	}
+	if report.Degraded != 2 {
+		t.Errorf("degraded = %d, want 2 — both projects went unresolved", report.Degraded)
+	}
+	if report.Created != 0 {
+		t.Errorf("created = %d, want 0 — there is no template to create from", report.Created)
+	}
+}
+
+// The counterpart: with the checklist set readable and only the template gone,
+// absence is known, so blocked is a claim the sweep can support — and a project
+// that already has a checklist is still not counted.
+func TestOnlyTheTemplateFailingStillReportsBlocked(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationEngaged},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+
+	brokenExpander := NewExpander(
+		NewTemplateSelector(&failingTemplates{TemplateRepository: f.templates, err: errors.New("connection reset")}),
+		f.uow, projects)
+	r := NewReconciler(projects, f.formations, brokenExpander, NewLifecycler(f.formations), time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.Blocked != 1 {
+		t.Errorf("blocked = %d, want 1 — only project-2 needs a checklist and cannot have one", report.Blocked)
+	}
+	if report.Degraded != 0 {
+		t.Errorf("degraded = %d, want 0 — the checklist set was readable", report.Degraded)
+	}
+}
