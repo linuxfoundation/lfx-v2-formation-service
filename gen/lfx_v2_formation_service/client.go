@@ -18,16 +18,18 @@ import (
 type Client struct {
 	GetFormationEndpoint         goa.Endpoint
 	GetFormationActivityEndpoint goa.Endpoint
+	UpdateItemEndpoint           goa.Endpoint
 	LivezEndpoint                goa.Endpoint
 	ReadyzEndpoint               goa.Endpoint
 }
 
 // NewClient initializes a "lfx_v2_formation_service" service client given the
 // endpoints.
-func NewClient(getFormation, getFormationActivity, livez, readyz goa.Endpoint) *Client {
+func NewClient(getFormation, getFormationActivity, updateItem, livez, readyz goa.Endpoint) *Client {
 	return &Client{
 		GetFormationEndpoint:         getFormation,
 		GetFormationActivityEndpoint: getFormationActivity,
+		UpdateItemEndpoint:           updateItem,
 		LivezEndpoint:                livez,
 		ReadyzEndpoint:               readyz,
 	}
@@ -61,6 +63,24 @@ func (c *Client) GetFormationActivity(ctx context.Context, p *GetFormationActivi
 		return
 	}
 	return ires.(*FormationActivityPage), nil
+}
+
+// UpdateItem calls the "update_item" endpoint of the
+// "lfx_v2_formation_service" service.
+// UpdateItem may return the following errors:
+//   - "NotFound" (type *FormationError): No formation, or no item with that key, exists
+//   - "VersionMismatch" (type *FormationError): If-Match did not match the item's current version
+//   - "Conflict" (type *FormationError): The checklist, or this item's current state, refuses the change
+//   - "BadRequest" (type *FormationError): The payload itself is invalid
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *FormationItem, err error) {
+	var ires any
+	ires, err = c.UpdateItemEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*FormationItem), nil
 }
 
 // Livez calls the "livez" endpoint of the "lfx_v2_formation_service" service.

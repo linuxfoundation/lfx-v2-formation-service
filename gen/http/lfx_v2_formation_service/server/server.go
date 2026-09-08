@@ -22,6 +22,7 @@ type Server struct {
 	Mounts               []*MountPoint
 	GetFormation         http.Handler
 	GetFormationActivity http.Handler
+	UpdateItem           http.Handler
 	Livez                http.Handler
 	Readyz               http.Handler
 }
@@ -55,11 +56,13 @@ func New(
 		Mounts: []*MountPoint{
 			{"GetFormation", "GET", "/formations/{project_uid}"},
 			{"GetFormationActivity", "GET", "/formations/{project_uid}/activity"},
+			{"UpdateItem", "PATCH", "/formations/{project_uid}/items/{item_key}"},
 			{"Livez", "GET", "/livez"},
 			{"Readyz", "GET", "/readyz"},
 		},
 		GetFormation:         NewGetFormationHandler(e.GetFormation, mux, decoder, encoder, errhandler, formatter),
 		GetFormationActivity: NewGetFormationActivityHandler(e.GetFormationActivity, mux, decoder, encoder, errhandler, formatter),
+		UpdateItem:           NewUpdateItemHandler(e.UpdateItem, mux, decoder, encoder, errhandler, formatter),
 		Livez:                NewLivezHandler(e.Livez, mux, decoder, encoder, errhandler, formatter),
 		Readyz:               NewReadyzHandler(e.Readyz, mux, decoder, encoder, errhandler, formatter),
 	}
@@ -72,6 +75,7 @@ func (s *Server) Service() string { return "lfx_v2_formation_service" }
 func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.GetFormation = m(s.GetFormation)
 	s.GetFormationActivity = m(s.GetFormationActivity)
+	s.UpdateItem = m(s.UpdateItem)
 	s.Livez = m(s.Livez)
 	s.Readyz = m(s.Readyz)
 }
@@ -83,6 +87,7 @@ func (s *Server) MethodNames() []string { return lfxv2formationservice.MethodNam
 func Mount(mux goahttp.Muxer, h *Server) {
 	MountGetFormationHandler(mux, h.GetFormation)
 	MountGetFormationActivityHandler(mux, h.GetFormationActivity)
+	MountUpdateItemHandler(mux, h.UpdateItem)
 	MountLivezHandler(mux, h.Livez)
 	MountReadyzHandler(mux, h.Readyz)
 }
@@ -176,6 +181,59 @@ func NewGetFormationActivityHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
 		ctx = context.WithValue(ctx, goa.MethodKey, "get_formation_activity")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountUpdateItemHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "update_item" endpoint.
+func MountUpdateItemHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("PATCH", "/formations/{project_uid}/items/{item_key}", f)
+}
+
+// NewUpdateItemHandler creates a HTTP handler which loads the HTTP request and
+// calls the "lfx_v2_formation_service" service "update_item" endpoint.
+func NewUpdateItemHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeUpdateItemRequest(mux, decoder)
+		encodeResponse = EncodeUpdateItemResponse(encoder)
+		encodeError    = EncodeUpdateItemError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "update_item")
 		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
 		payload, err := decodeRequest(r)
 		if err != nil {

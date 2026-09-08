@@ -128,6 +128,38 @@ func TemplateRepositoryImpl(ctx context.Context, cfg *config.Config) port.Templa
 	return nil
 }
 
+// UnitOfWorkImpl wires the transaction UpdateItem commits an item change and
+// its activity entry through. In mock mode it must share the same repository
+// instances formations, items and activity already reference — a fresh set
+// of mock repositories would make writes inside the unit of work invisible
+// to reads outside it — so it takes them as concrete types rather than
+// deriving its own.
+func UnitOfWorkImpl(
+	ctx context.Context,
+	cfg *config.Config,
+	formations port.FormationRepository,
+	items port.ItemRepository,
+	activity port.ActivityRepository,
+	templates port.TemplateRepository,
+) port.UnitOfWork {
+	switch repositorySource() {
+	case "mock":
+		slog.InfoContext(ctx, "initializing mock unit of work")
+		return mock.NewUnitOfWork(
+			formations.(*mock.FormationRepository),
+			items.(*mock.ItemRepository),
+			activity.(*mock.ActivityRepository),
+			templates.(*mock.TemplateRepository),
+		)
+	case "postgres":
+		slog.InfoContext(ctx, "initializing postgres unit of work")
+		return postgres.NewUnitOfWork(postgresImpl(ctx, cfg).Bun)
+	default:
+		log.Fatalf("unsupported REPOSITORY_SOURCE: %s", repositorySource())
+	}
+	return nil
+}
+
 // ProjectReaderImpl returns the NATS request/reply project reader. Returns
 // nil until that adapter lands (tracked separately) — a nil reader degrades
 // announcement-date lookups rather than erroring, which is the conservative
@@ -194,6 +226,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 	items := ItemRepositoryImpl(ctx, cfg)
 	activity := ActivityRepositoryImpl(ctx, cfg)
 	templates := TemplateRepositoryImpl(ctx, cfg)
+	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates)
 	projects := ProjectReaderImpl(ctx, cfg)
 
 	// db is nil in mock mode: readiness then reports OK unconditionally,
@@ -213,6 +246,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 		usecaseSvc.WithActivity(activity),
 		usecaseSvc.WithTemplates(templates),
 		usecaseSvc.WithProjects(projects),
+		usecaseSvc.WithUnitOfWork(uow),
 	)
 
 	closeFn := func() error {

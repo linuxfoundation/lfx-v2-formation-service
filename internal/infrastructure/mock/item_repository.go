@@ -99,6 +99,21 @@ func (r *ItemRepository) Get(_ context.Context, uid uuid.UUID) (*model.Item, err
 	return &out, nil
 }
 
+// GetByKey returns the item at item_key within a formation, or
+// domain.ErrNotFound.
+func (r *ItemRepository) GetByKey(_ context.Context, formationUID uuid.UUID, itemKey string) (*model.Item, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, item := range r.items {
+		if item.FormationUID == formationUID && item.ItemKey == itemKey {
+			out := *item
+			return &out, nil
+		}
+	}
+	return nil, domain.ErrNotFound
+}
+
 // Update applies patch's non-nil fields, refusing a stale revision with
 // domain.ErrVersionMismatch.
 func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64, patch port.ItemPatch) (*model.Item, error) {
@@ -114,11 +129,17 @@ func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64
 	}
 
 	if patch.DueDate != nil {
-		due, err := time.Parse(dueDateLayout, *patch.DueDate)
-		if err != nil {
-			return nil, fmt.Errorf("mock item repository: parse due_date %q: %w", *patch.DueDate, err)
+		if *patch.DueDate == "" {
+			// Empty string clears it, matching the real repository's
+			// NULL write for the same signal.
+			item.DueDate = nil
+		} else {
+			due, err := time.Parse(dueDateLayout, *patch.DueDate)
+			if err != nil {
+				return nil, fmt.Errorf("mock item repository: parse due_date %q: %w", *patch.DueDate, err)
+			}
+			item.DueDate = &due
 		}
-		item.DueDate = &due
 	}
 
 	if patch.Status != nil {

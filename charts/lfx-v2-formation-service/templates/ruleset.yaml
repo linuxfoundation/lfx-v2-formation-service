@@ -66,4 +66,34 @@ spec:
           config:
             values:
               aud: {{ .Values.app.audience }}
+    # Every item mutation except accept/reject/reopen needs only the
+    # project's writer relation ("Manage" in endpoints.md's grant table) —
+    # never the narrower formation-team check accept/reject/reopen need,
+    # which is why those are their own routes rather than sharing this one.
+    - id: "rule:lfx:lfx-v2-formation-service:formations:update_item"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - PATCH
+        routes:
+          - path: /formations/:project_uid/items/:item_key
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: writer
+              object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
 {{- end }}

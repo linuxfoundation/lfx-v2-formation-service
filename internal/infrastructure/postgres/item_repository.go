@@ -80,6 +80,23 @@ func (r *ItemRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Item, error) 
 	return item, nil
 }
 
+// GetByKey fetches the item at item_key within a formation.
+func (r *ItemRepo) GetByKey(ctx context.Context, formationUID uuid.UUID, itemKey string) (*model.Item, error) {
+	item := &model.Item{}
+	err := r.db.NewSelect().
+		Model(item).
+		Where("formation_uid = ?", formationUID).
+		Where("item_key = ?", itemKey).
+		Scan(ctx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("select item by key: %w", err)
+	}
+	return item, nil
+}
+
 // Update applies patch under the optimistic lock. Zero rows affected means
 // the caller's revision was stale — WHERE revision = $2 is the whole
 // mechanism, per row rather than per formation, so concurrent owners editing
@@ -98,7 +115,15 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 		q = q.Set("status = ?", *patch.Status)
 	}
 	if patch.Assignee != nil {
-		q = q.Set("assignee = ?", *patch.Assignee)
+		if *patch.Assignee == "" {
+			// Same clear signal as due_date, and NULL rather than '' for the
+			// same reason it matters here: formation_items_assignee_idx is
+			// partial on assignee IS NOT NULL, so an unassigned row stored as
+			// '' stays in the index of assigned work.
+			q = q.Set("assignee = NULL")
+		} else {
+			q = q.Set("assignee = ?", *patch.Assignee)
+		}
 	}
 	if patch.Note != nil {
 		q = q.Set("note = ?", *patch.Note)
@@ -110,7 +135,15 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 		q = q.Set("evidence_link = ?", *patch.EvidenceLink)
 	}
 	if patch.DueDate != nil {
-		q = q.Set("due_date = ?", *patch.DueDate)
+		if *patch.DueDate == "" {
+			// An empty string is the clear signal (see item_mutator.go's
+			// buildItemPatch): due_date is a DATE column, which rejects ''
+			// outright, so clearing has to be a real NULL rather than the
+			// raw string passed straight through like every other field.
+			q = q.Set("due_date = NULL")
+		} else {
+			q = q.Set("due_date = ?", *patch.DueDate)
+		}
 	}
 	if patch.ResolvedRef != nil {
 		q = q.Set("resolved_ref = ?", patch.ResolvedRef)
