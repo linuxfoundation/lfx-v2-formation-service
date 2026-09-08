@@ -269,3 +269,37 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 	slog.InfoContext(ctx, "service dependencies wired")
 	return svc, closeFn, nil
 }
+
+// StartReconcile starts the reconcile loop, and reports whether it started.
+//
+// The loop is the mechanism of record for creating checklists, so it runs on
+// every replica with no leader election — duplicate creation is absorbed by the
+// uniqueness constraint on project_uid.
+//
+// It is not started when nothing can list forming projects. A loop that woke up
+// every fifteen minutes to sweep an empty list would log its way through the
+// retention window saying nothing useful, and the absence is worth stating once
+// at startup instead.
+func StartReconcile(ctx context.Context, cfg *config.Config) bool {
+	projects := ProjectReaderImpl(ctx, cfg)
+	if projects == nil {
+		slog.WarnContext(ctx, "reconcile loop not started: nothing can list forming projects yet, "+
+			"so no checklist is created automatically. Use formation-cli expand in the meantime")
+		return false
+	}
+
+	formations := FormationRepositoryImpl(ctx, cfg)
+	items := ItemRepositoryImpl(ctx, cfg)
+	activity := ActivityRepositoryImpl(ctx, cfg)
+	templates := TemplateRepositoryImpl(ctx, cfg)
+	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates)
+
+	reconciler := usecaseSvc.NewReconciler(
+		projects,
+		usecaseSvc.NewExpander(usecaseSvc.NewTemplateSelector(templates), uow, projects),
+		usecaseSvc.NewLifecycler(formations),
+	)
+
+	go reconciler.Run(ctx)
+	return true
+}

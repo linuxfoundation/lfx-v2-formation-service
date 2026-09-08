@@ -34,6 +34,11 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		endpoints.Use(debug.LogPayloads())
 	}
 
+	// Started before the listener rather than after: creating checklists does
+	// not depend on serving requests, and it stops when ctx is cancelled on
+	// shutdown alongside everything else.
+	diservice.StartReconcile(ctx, cfg)
+
 	return handleHTTPServer(ctx, cfg, endpoints, closeFn)
 }
 
