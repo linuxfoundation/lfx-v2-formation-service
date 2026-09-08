@@ -15,3 +15,14 @@ const (
 	DefaultWriteTimeout      = 60 * time.Second
 	DefaultIdleTimeout       = 90 * time.Second
 )
+
+type contextID int
+
+const (
+	// PrincipalContextID is the context ID for the principal (LFX username) from JWT claims
+	PrincipalContextID contextID = iota
+	// EmailContextID is the context ID for the email claim from the Heimdall JWT, populated by JWTAuth.
+	EmailContextID
+	// RequestIDContextID is the context ID for the per-request ID set by RequestIDMiddleware.
+	RequestIDContextID
+)

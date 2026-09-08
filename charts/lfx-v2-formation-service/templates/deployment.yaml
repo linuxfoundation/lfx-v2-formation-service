@@ -31,6 +31,10 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default .Chart.Name }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -46,6 +50,73 @@ spec:
             valueFrom:
               {{- toYaml $config.valueFrom | nindent 14 }}
             {{- end }}
+          {{- end }}
+          {{- if eq .Values.database.mode "external" }}
+          # External Postgres referenced by a multi-key Secret (the
+          # ExternalSecret in templates/externalsecret.yaml, which pulls
+          # /cloudops/rds-managed/lfx-v2/formation from AWS Secrets Manager
+          # and exposes each JSON field as its own Secret key). The app
+          # composes the DSN in process, so no PG* value is ever passed as
+          # a plain env-var value in the pod spec — that would make the
+          # password visible via `kubectl describe pod` even though the
+          # source is a Secret.
+          - name: PGHOST
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
+                key: {{ default "host" .Values.database.external.keys.host }}
+          - name: PGPORT
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
+                key: {{ default "port" .Values.database.external.keys.port }}
+          - name: PGUSER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
+                key: {{ default "username" .Values.database.external.keys.username }}
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
+                key: {{ default "password" .Values.database.external.keys.password }}
+          - name: PGDATABASE
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.external.secretName | default .Chart.Name }}
+                key: {{ default "dbname" .Values.database.external.keys.dbname }}
+          {{- else if or (eq .Values.database.mode "database") (eq .Values.database.mode "cluster+database") }}
+          # CloudNativePG-managed Postgres (templates/database.yaml). The
+          # operator materializes a kubernetes.io/basic-auth Secret named
+          # "<clusterName>-app" with host/port/user/password/dbname keys for
+          # the cluster's owning user — see
+          # https://cloudnative-pg.io/documentation/current/applications/.
+          # The secret's own "dbname" key names the *bootstrap* database
+          # (the cluster's initial "app" database), not the separate
+          # Database CR provisioned below with databaseName — so PGDATABASE
+          # is set from that chart value directly rather than the secret.
+          - name: PGHOST
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: host
+          - name: PGPORT
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: port
+          - name: PGUSER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: user
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.database.cloudNativePG.clusterName }}-app
+                key: password
+          - name: PGDATABASE
+            value: {{ .Values.database.cloudNativePG.databaseName | quote }}
           {{- end }}
           {{- with .Values.app.extraEnv }}
           {{- toYaml . | nindent 10 }}

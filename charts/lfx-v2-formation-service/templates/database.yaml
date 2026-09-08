@@ -1,0 +1,37 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+{{- $mode := .Values.database.mode }}
+{{- if or (eq $mode "database") (eq $mode "cluster+database") }}
+{{- if eq $mode "cluster+database" }}
+---
+# CloudNativePG Cluster provisioned by this chart (mode: cluster+database).
+# Use this mode when deploying the chart standalone without an umbrella chart.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.database.cloudNativePG.clusterName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  instances: {{ .Values.database.cloudNativePG.cluster.instances }}
+  storage:
+    size: {{ .Values.database.cloudNativePG.cluster.storage.size }}
+{{- end }}
+---
+# CloudNativePG Database CR — instructs the operator to run
+# CREATE DATABASE <databaseName> OWNER app on the cluster.
+# Rendered for modes "database" and "cluster+database".
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ .Values.database.cloudNativePG.databaseName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  name: {{ .Values.database.cloudNativePG.databaseName }}
+  owner: app
+  cluster:
+    name: {{ .Values.database.cloudNativePG.clusterName }}
+{{- end }}

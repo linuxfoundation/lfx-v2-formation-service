@@ -1,0 +1,55 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Chart.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow HTTP traffic to the service port from anywhere in the cluster
+    # (API gateway / lfx-v2-ui proxy). Restrict further via namespace
+    # selectors once the gateway topology stabilizes.
+    - ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # OpenTelemetry collector (gRPC and HTTP)
+    - ports:
+        - port: {{ .Values.networkPolicy.otelGRPCPort }}
+          protocol: TCP
+        - port: {{ .Values.networkPolicy.otelHTTPPort }}
+          protocol: TCP
+    # PostgreSQL, provisioned externally per database.mode: external
+    - ports:
+        - port: {{ .Values.networkPolicy.postgresPort }}
+          protocol: TCP
+    # NATS request/reply — the primary service-to-service transport, and the
+    # upstream for the platform-resolved-item and project-settings reads.
+    - ports:
+        - port: {{ .Values.networkPolicy.natsPort }}
+          protocol: TCP
+    # Heimdall — the JWKS endpoint for JWT validation and the authorization
+    # gateway call it fronts.
+    - ports:
+        - port: {{ .Values.networkPolicy.heimdallPort }}
+          protocol: TCP
+        - port: {{ .Values.networkPolicy.heimdallJWKSPort }}
+          protocol: TCP
+{{- end }}

@@ -32,13 +32,13 @@ jobs:
           VERSION: development
         run: |
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          GIT_COMMIT=""
+          GIT_COMMIT="${{ github.sha }}"
           GIT_COMMIT="${GIT_COMMIT:0:7}"
           export BUILD_TIME
           export GIT_COMMIT
           ko build github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api \
             -B \
             --platform linux/amd64,linux/arm64 \
-            -t  \
+            -t ${{ github.sha }} \
             -t development \
             --sbom spdx

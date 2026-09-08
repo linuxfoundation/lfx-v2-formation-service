@@ -15,6 +15,29 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
 
+    # Throwaway Postgres for the schema and repository tests
+    # (internal/infrastructure/postgres/*_test.go, which skip when
+    # FORMATION_TEST_DATABASE_URL is unset). Trust auth (no password) keeps a
+    # credential-shaped postgres://user:pass@ literal out of the workflow for
+    # secret scanners, matching lfx-v2-newsletter-service's build workflow.
+    services:
+      postgres:
+        # Pinned by digest: a service container starts before any hardening
+        # step can constrain it, so a mutable tag would be an unpinned image
+        # running early. The tag is kept for readability; the digest is the
+        # multi-arch index for postgres:16-alpine.
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: formation_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
@@ -29,8 +52,42 @@ jobs:
       - name: Generate service code
         run: make apigen
 
+      # gen/ is committed, so a design change with no regeneration would
+      # otherwise pass here silently: the step above regenerates it in the
+      # runner, and reviewers approve a contract the repository does not hold.
+      - name: Verify generated code is up to date
+        run: git diff --exit-code -- gen/
+
       - name: Build
         run: make build
 
+      # Building proves it compiles, not that it runs. Everything in main
+      # before the server binds — configuration, telemetry setup, dependency
+      # wiring — is unreachable from the package tests, and a fatal error
+      # there produces a binary that exits 1 on every start while all other
+      # checks stay green.
+      - name: Smoke test startup
+        run: |
+          REPOSITORY_SOURCE=mock AUTH_SOURCE=mock PORT=18099 ./bin/lfx-v2-formation-service &
+          pid=$!
+          for _ in $(seq 1 20); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18099/livez >/dev/null 2>&1; then
+              echo "service answered /livez"
+              kill "$pid"
+              exit 0
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "::error::service exited during startup"
+              wait "$pid"
+              exit 1
+            fi
+            sleep 0.5
+          done
+          echo "::error::service never answered /livez"
+          kill -9 "$pid" 2>/dev/null || true
+          exit 1
+
       - name: Test
+        env:
+          FORMATION_TEST_DATABASE_URL: postgres://postgres@localhost:5432/formation_test?sslmode=disable
         run: make test

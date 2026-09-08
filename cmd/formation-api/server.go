@@ -8,11 +8,10 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"sync"
 
-	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	diservice "github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api/service"
 	svcsvr "github.com/linuxfoundation/lfx-v2-formation-service/gen/http/lfx_v2_formation_service/server"
-	"github.com/linuxfoundation/lfx-v2-formation-service/internal/container"
+	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/config"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/middleware"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
@@ -25,20 +24,20 @@ import (
 
 // StartServer initializes and starts the HTTP server.
 func StartServer(ctx context.Context, cfg *config.Config) error {
-	cont, err := container.NewContainer(cfg)
+	svcImpl, closeFn, err := diservice.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	endpoints := svc.NewEndpoints(cont.Service)
+	endpoints := svc.NewEndpoints(svcImpl)
 	if cfg.Debug {
 		endpoints.Use(debug.LogPayloads())
 	}
 
-	return handleHTTPServer(ctx, cfg, endpoints, cont)
+	return handleHTTPServer(ctx, cfg, endpoints, closeFn)
 }
 
-func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, cont *container.Container) error {
+func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error) error {
 	mux := goahttp.NewMuxer()
 	if cfg.Debug {
 		debug.MountPprofHandlers(debug.Adapt(mux))
@@ -71,7 +70,7 @@ func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.En
 		IdleTimeout:       constants.DefaultIdleTimeout,
 	}
 
-	return runServerWithContext(ctx, srv, cont)
+	return runServerWithContext(ctx, srv, closeFn)
 }
 
 func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWriter, error) {
@@ -80,7 +79,7 @@ func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWri
 	}
 }
 
-func runServerWithContext(ctx context.Context, srv *http.Server, cont *container.Container) error {
+func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() error) error {
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -97,25 +96,25 @@ func runServerWithContext(ctx context.Context, srv *http.Server, cont *container
 		slog.InfoContext(ctx, "shutdown initiated")
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultShutdownTimeout)
-		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			slog.ErrorContext(ctx, "HTTP server shutdown error", log.ErrKey, err)
+	// Drain in-flight requests before releasing the Postgres pool: closing
+	// it concurrently with Shutdown risks a mid-flight request seeing a
+	// closed pool instead of completing.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultShutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		// Shutdown timed out with requests still in flight. Force-close the
+		// listener and any remaining connections now, rather than leaving
+		// them running while closeFn() below releases the DB pool out from
+		// under them — the exact race this ordering exists to prevent.
+		slog.ErrorContext(ctx, "HTTP server shutdown error; forcing close", log.ErrKey, err)
+		if closeErr := srv.Close(); closeErr != nil {
+			slog.ErrorContext(ctx, "HTTP server force-close error", log.ErrKey, closeErr)
 		}
-	}()
+	}
 
-	go func() {
-		defer wg.Done()
-		if err := cont.Close(); err != nil {
-			slog.ErrorContext(ctx, "container close error", log.ErrKey, err)
-		}
-	}()
+	if err := closeFn(); err != nil {
+		slog.ErrorContext(ctx, "service close error", log.ErrKey, err)
+	}
 
-	wg.Wait()
 	return nil
 }
