@@ -58,9 +58,11 @@ jobs:
         with:
           version: v0.18.0
 
-      # One step per binary. With -B every import path publishes to the bare
-      # KO_DOCKER_REPO, so passing both to one invocation gives them the same
-      # name and the same tags and one overwrites the other.
+      # One step per binary, as in committee-service and project-service, which
+      # build their api and cli pair this way. ko accepts both import paths in a
+      # single invocation and -B (--base-import-paths) names them
+      # KO_DOCKER_REPO/formation-api and KO_DOCKER_REPO/formation-cli either
+      # way, so this is for per-binary step logs, not to keep the names apart.
       - name: Build and publish formation-api image
         env:
           VERSION: ${{ steps.prepare.outputs.app_version }}
