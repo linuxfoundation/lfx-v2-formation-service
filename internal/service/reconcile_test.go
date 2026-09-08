@@ -328,8 +328,10 @@ func TestReconcileLeavesLifecycleAloneOnAnUnknownStage(t *testing.T) {
 	}
 }
 
-// One project failing must not abandon the others in the same sweep.
-func TestReconcileContinuesPastOneFailure(t *testing.T) {
+// No published template is the state a freshly deployed environment is in. It is
+// a condition of the sweep rather than of any one project, so the sweep ends
+// after the first rather than repeating the identical error for every project.
+func TestReconcileEndsTheSweepWhenNoTemplateIsPublished(t *testing.T) {
 	ctx := context.Background()
 	projects := &listProjects{refs: []port.ProjectRef{
 		{UID: "project-1", SubStage: model.StageFormationEngaged},
@@ -351,13 +353,42 @@ func TestReconcileContinuesPastOneFailure(t *testing.T) {
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
-		t.Fatalf("ReconcileOnce() = %v, want no error — a per-project failure must not end the sweep", err)
+		t.Fatalf("ReconcileOnce() = %v, want no error — the loop must survive this", err)
+	}
+	if report.Swept != 1 {
+		t.Errorf("swept = %d, want 1 — the sweep should stop after the first project, not retry all of them", report.Swept)
+	}
+	if report.Failed != 1 {
+		t.Errorf("failed = %d, want 1", report.Failed)
+	}
+}
+
+// A failure that belongs to one project must not end the sweep: the rest still
+// need their checklists.
+func TestReconcileContinuesPastOneProjectsFailure(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationEngaged},
+	}}
+	r, f := newReconciler(t, projects)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
 	}
 	if report.Swept != 2 {
 		t.Errorf("swept = %d, want 2", report.Swept)
 	}
-	if report.Failed != 2 {
-		t.Errorf("failed = %d, want 2", report.Failed)
+	// The blank UID is refused; the project behind it is still served.
+	if report.Failed != 1 {
+		t.Errorf("failed = %d, want 1", report.Failed)
+	}
+	if report.Created != 1 {
+		t.Errorf("created = %d, want 1 — the sweep abandoned the project after the failing one", report.Created)
+	}
+	if _, err := f.formations.GetByProject(ctx, "project-2"); err != nil {
+		t.Errorf("project-2 has no checklist: %v", err)
 	}
 }
 

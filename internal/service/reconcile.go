@@ -5,9 +5,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
@@ -131,9 +133,23 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 
 		created, expandErr := r.expander.ExpandFor(ctx, project.UID)
 		if expandErr != nil {
-			// One project's failure must not end the sweep. The rest still need
-			// their checklists, and this one is retried in fifteen minutes.
 			report.Failed++
+
+			// No published template is a condition of the whole sweep rather
+			// than of this project, and it is the state a freshly deployed
+			// environment is in until the template is seeded. Reported once and
+			// the sweep ends, instead of logging the same error for every
+			// forming project every fifteen minutes.
+			if errors.Is(expandErr, domain.ErrNotFound) {
+				slog.ErrorContext(ctx, "no published template, so no checklist can be created; "+
+					"seed one with formation-cli seed. Ending this sweep",
+					"projects_remaining", len(projects)-report.Swept)
+				return report, nil
+			}
+
+			// Anything else is this project's problem alone, and must not end
+			// the sweep — the rest still need their checklists, and this one is
+			// retried in fifteen minutes.
 			slog.ErrorContext(ctx, "could not create checklist; continuing the sweep",
 				"project_uid", project.UID, "stage", project.SubStage, "error", expandErr)
 			continue
