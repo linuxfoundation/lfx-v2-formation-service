@@ -153,9 +153,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// case the gate must not skip past.
 		if !model.FormingStage(project.SubStage) {
 			report.Skipped++
-			if moved := r.syncLifecycle(ctx, project); moved {
-				report.LifecyclesMoved++
-			}
+			r.syncLifecycle(ctx, project, report)
 			continue
 		}
 
@@ -171,9 +169,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// Lifecycle still runs: an existing checklist is exactly the thing that
 		// may need moving.
 		if sweep.existing[project.UID] {
-			if moved := r.syncLifecycle(ctx, project); moved {
-				report.LifecyclesMoved++
-			}
+			r.syncLifecycle(ctx, project, report)
 			continue
 		}
 
@@ -184,9 +180,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// genuinely held up.
 		if sweep.template == nil {
 			report.Blocked++
-			if moved := r.syncLifecycle(ctx, project); moved {
-				report.LifecyclesMoved++
-			}
+			r.syncLifecycle(ctx, project, report)
 			continue
 		}
 
@@ -208,9 +202,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// A project can re-enter formation, so a checklist that was frozen or
 		// completed has to come back to live. Run after creation because the
 		// checklist has to exist before its lifecycle can be moved.
-		if moved := r.syncLifecycle(ctx, project); moved {
-			report.LifecyclesMoved++
-		}
+		r.syncLifecycle(ctx, project, report)
 	}
 
 	return report, nil
@@ -295,14 +287,21 @@ func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *s
 	return state
 }
 
-// syncLifecycle moves one project's lifecycle, logging rather than propagating a
-// failure so the sweep continues.
-func (r *Reconciler) syncLifecycle(ctx context.Context, project port.ProjectRef) bool {
+// syncLifecycle moves one project's lifecycle and records the outcome on the
+// report, logging rather than propagating a failure so the sweep continues.
+//
+// The failure is counted rather than only logged. Reporting the outcome here is
+// what makes that possible: returning a bare "did it move" collapsed a failure
+// into the same false as a checklist that needed no move, so a sweep that could
+// not move a single lifecycle still summarised itself as failed=0.
+func (r *Reconciler) syncLifecycle(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
 	moved, err := r.lifecycler.SyncTo(ctx, project.UID, project.SubStage)
-	if err != nil {
+	switch {
+	case err != nil:
 		slog.ErrorContext(ctx, "could not sync lifecycle; continuing the sweep",
 			"project_uid", project.UID, "stage", project.SubStage, "error", err)
-		return false
+		report.Failed++
+	case moved:
+		report.LifecyclesMoved++
 	}
-	return moved
 }

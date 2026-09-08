@@ -52,6 +52,9 @@ func (r *FormationRepository) Create(_ context.Context, f *model.Formation) (*mo
 	if clone.Lifecycle == "" {
 		clone.Lifecycle = model.LifecycleLive
 	}
+	if clone.Sections == nil {
+		clone.Sections = []model.FormationSection{}
+	}
 	clone.Revision = 1
 	r.byUID[clone.UID] = &clone
 	r.byProject[clone.ProjectUID] = clone.UID
@@ -100,6 +103,28 @@ func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, 
 		f.CompletedAt = nil
 	case model.LifecycleFrozen:
 	}
+	out := *f
+	return &out, nil
+}
+
+// UpdateSections replaces the section snapshot, refusing the write when
+// revision is stale (domain.ErrVersionMismatch), matching the repository.
+func (r *FormationRepository) UpdateSections(
+	_ context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64,
+) (*model.Formation, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	f, ok := r.byUID[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if f.Revision != revision {
+		return nil, domain.ErrVersionMismatch
+	}
+
+	f.Sections = sections
+	f.Revision++
 	out := *f
 	return &out, nil
 }

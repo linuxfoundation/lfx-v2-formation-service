@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
@@ -131,6 +132,86 @@ func TestUpsertStillReplacesADraft(t *testing.T) {
 	if edited.Sections[0].Title != "Second attempt" {
 		t.Errorf("title = %q, want the edit applied", edited.Sections[0].Title)
 	}
+}
+
+// published_at dates the first publication, not the most recent seed, and the
+// COALESCE in the upsert is the only thing implementing that. Both directions
+// are checked here because the clause has two halves and each fails silently on
+// its own: without the existing value it moves forward on every re-seed, and
+// without the incoming one a draft promoted to published keeps a NULL beside
+// state = 'published'.
+func TestUpsertKeepsTheFirstPublicationTime(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+
+	firstPublished := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	seeded, err := repo.Upsert(ctx, &model.Template{
+		Name:        "published-at-test",
+		Version:     1,
+		State:       model.TemplatePublished,
+		Priority:    100,
+		Match:       "always",
+		Sections:    oneSection("Legal and entity"),
+		PublishedAt: &firstPublished,
+	})
+	if err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	if seeded.PublishedAt == nil || !seeded.PublishedAt.Equal(firstPublished) {
+		t.Fatalf("published_at = %v, want %v on the first seed", seeded.PublishedAt, firstPublished)
+	}
+
+	t.Run("a later identical re-seed does not move it", func(t *testing.T) {
+		laterSeed := firstPublished.AddDate(0, 1, 0)
+		again, err := repo.Upsert(ctx, &model.Template{
+			Name:        "published-at-test",
+			Version:     1,
+			State:       model.TemplatePublished,
+			Priority:    100,
+			Match:       "always",
+			Sections:    oneSection("Legal and entity"),
+			PublishedAt: &laterSeed,
+		})
+		if err != nil {
+			t.Fatalf("re-seed: %v, want no error", err)
+		}
+		if again.PublishedAt == nil || !again.PublishedAt.Equal(firstPublished) {
+			t.Errorf("published_at = %v, want the original %v — a re-seed must not redate publication",
+				again.PublishedAt, firstPublished)
+		}
+	})
+
+	// The other half: nothing to preserve yet, so the incoming value lands.
+	t.Run("promoting a draft populates it", func(t *testing.T) {
+		if _, err := repo.Upsert(ctx, &model.Template{
+			Name:     "published-at-draft",
+			Version:  1,
+			State:    model.TemplateDraft,
+			Priority: 100,
+			Match:    "always",
+			Sections: oneSection("Legal and entity"),
+		}); err != nil {
+			t.Fatalf("seeding the draft: %v", err)
+		}
+
+		promotedAt := time.Date(2026, 4, 2, 9, 30, 0, 0, time.UTC)
+		promoted, err := repo.Upsert(ctx, &model.Template{
+			Name:        "published-at-draft",
+			Version:     1,
+			State:       model.TemplatePublished,
+			Priority:    100,
+			Match:       "always",
+			Sections:    oneSection("Legal and entity"),
+			PublishedAt: &promotedAt,
+		})
+		if err != nil {
+			t.Fatalf("promoting the draft: %v, want no error", err)
+		}
+		if promoted.PublishedAt == nil || !promoted.PublishedAt.Equal(promotedAt) {
+			t.Errorf("published_at = %v, want %v — a promoted draft must be dated",
+				promoted.PublishedAt, promotedAt)
+		}
+	})
 }
 
 // Selection walks this list and takes the first match, so ordering is the whole

@@ -399,6 +399,79 @@ func TestAnUpgradeThatLosesTheRaceRecordsNothing(t *testing.T) {
 	}
 }
 
+// A version that introduces a whole new section, not just a new item in an
+// existing one, is the case the checklist's section snapshot exists for: the
+// upgrade adds an item whose section_key the pinned template never had, and
+// the checklist's own record of its sections must grow to cover it — nothing
+// downstream should ever see an item pointing at a section absent from
+// sections[].
+func TestUpgradeThatAddsANewSectionRecordsItOnTheChecklist(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	before, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v, want no error", err)
+	}
+	if len(before.Sections) != 2 {
+		t.Fatalf("sections before upgrade = %d, want 2 (from the v1 template)", len(before.Sections))
+	}
+
+	withNewSection := append(twoItemSections(), model.TemplateSection{
+		Key:   "brand_review",
+		Title: "Brand review",
+		Items: []model.TemplateItem{
+			{Key: "logo_approved", Title: "Logo approved", StatusSource: model.SourceManual},
+		},
+	})
+	publishNextVersion(t, f.templates, 2, withNewSection)
+
+	upgrader := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
+	report, err := upgrader.UpgradeFor(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("UpgradeFor() = %v, want no error", err)
+	}
+	if len(report.AddedKeys) != 1 || report.AddedKeys[0] != "logo_approved" {
+		t.Fatalf("added = %v, want [logo_approved]", report.AddedKeys)
+	}
+
+	after, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v, want no error", err)
+	}
+	if len(after.Sections) != 3 {
+		t.Fatalf("sections after upgrade = %d, want 3 (2 original + brand_review)", len(after.Sections))
+	}
+	var got *model.FormationSection
+	for i := range after.Sections {
+		if after.Sections[i].Key == "brand_review" {
+			got = &after.Sections[i]
+		}
+	}
+	if got == nil {
+		t.Fatal("brand_review is not in the checklist's sections snapshot; the added item's section_key matches nothing in sections[]")
+	}
+	if got.Title != "Brand review" {
+		t.Errorf("title = %q, want %q", got.Title, "Brand review")
+	}
+
+	// The two original sections are untouched — this only ever grows.
+	for _, key := range []string{"legal_and_entity", "community_and_launch"} {
+		found := false
+		for _, s := range after.Sections {
+			if s.Key == key {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("original section %q is missing after the upgrade", key)
+		}
+	}
+}
+
 // An upgrade that finds nothing to add must leave no trace: the feed records
 // changes to the checklist, not the fact that an operator ran a job.
 func TestUpgradeWithNothingToAddRecordsNothing(t *testing.T) {

@@ -90,49 +90,61 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 		}
 
 		missing := missingItems(formation.UID, tpl, projectUID, existing, announcement)
-		if len(missing) == 0 {
-			return nil
+		if len(missing) > 0 {
+			// The keys come back from the insert rather than from the set
+			// computed above, because those two differ under a concurrent
+			// upgrade: both callers can compute the same missing set, and the
+			// one that loses each row has its insert suppressed. Recording its
+			// own input would put an entry in the audit trail claiming it
+			// added items another transaction added, and the feed is the one
+			// place that has to be literally true.
+			addedKeys, insertErr := tx.Items().InsertMany(ctx, missing)
+			if insertErr != nil {
+				return fmt.Errorf("adding %d items to %s: %w", len(missing), projectUID, insertErr)
+			}
+			// Nothing landed if addedKeys is empty, so another upgrade added
+			// them all first — no entry, for the same reason a fully caught-up
+			// checklist writes none.
+			if len(addedKeys) > 0 {
+				// Recorded for the same reason the expansion is, and with more
+				// force: items appearing on a checklist someone is part-way
+				// through is exactly the change they will ask about, and the
+				// keys are what answers it.
+				if activityErr := tx.Activity().Append(ctx, &model.ActivityEntry{
+					FormationUID: formation.UID,
+					Actor:        actorSystem,
+					SetBy:        model.SetBySystem,
+					Action:       ActionTemplateUpgraded,
+					After: map[string]any{
+						"template_uid":     tpl.UID.String(),
+						"template_version": tpl.Version,
+						"added":            len(addedKeys),
+						"added_keys":       addedKeys,
+					},
+				}); activityErr != nil {
+					return fmt.Errorf("recording the upgrade for %s: %w", projectUID, activityErr)
+				}
+				report.AddedKeys = append(report.AddedKeys, addedKeys...)
+			}
 		}
 
-		// The keys come back from the insert rather than from the set computed
-		// above, because those two differ under a concurrent upgrade: both
-		// callers can compute the same missing set, and the one that loses each
-		// row has its insert suppressed. Recording its own input would put an
-		// entry in the audit trail claiming it added items another transaction
-		// added, and the feed is the one place that has to be literally true.
-		addedKeys, insertErr := tx.Items().InsertMany(ctx, missing)
-		if insertErr != nil {
-			return fmt.Errorf("adding %d items to %s: %w", len(missing), projectUID, insertErr)
-		}
-		// Nothing landed, so another upgrade added them all first. No entry: the
-		// same reason the unchanged case above writes none.
-		if len(addedKeys) == 0 {
-			return nil
-		}
-
-		// Recorded for the same reason the expansion is, and with more force:
-		// items appearing on a checklist someone is part-way through is exactly
-		// the change they will ask about, and the keys are what answers it.
-		//
-		// Only written when something was added — the early return above means
-		// an upgrade that changes nothing leaves no entry, so the feed does not
-		// fill with rows saying an operator ran a job.
-		if activityErr := tx.Activity().Append(ctx, &model.ActivityEntry{
-			FormationUID: formation.UID,
-			Actor:        actorSystem,
-			SetBy:        model.SetBySystem,
-			Action:       ActionTemplateUpgraded,
-			After: map[string]any{
-				"template_uid":     tpl.UID.String(),
-				"template_version": tpl.Version,
-				"added":            len(addedKeys),
-				"added_keys":       addedKeys,
-			},
-		}); activityErr != nil {
-			return fmt.Errorf("recording the upgrade for %s: %w", projectUID, activityErr)
+		// Checked every run, not only when something was just added: a section
+		// this checklist has an item for but never recorded is a gap a past
+		// run may have left — its own item insert landed but its section write
+		// did not — and re-checking against the actual items is what closes
+		// that gap rather than only ever widening it forward.
+		needed := sectionsToRecord(formation.Sections, tpl, existing, missing)
+		if len(needed) > 0 {
+			merged := append(append([]model.FormationSection{}, formation.Sections...), needed...)
+			if _, secErr := tx.Formations().UpdateSections(ctx, formation.UID, merged, formation.Revision); secErr != nil {
+				// Not fatal to this run: the items themselves are already
+				// correct, this is metadata only, and the same gap is detected
+				// and retried on the next run since nothing here is consumed.
+				slog.WarnContext(ctx, "could not record a new section for a checklist; a later run retries",
+					"project_uid", projectUID, "error", secErr)
+			}
 		}
 
-		report.AddedKeys = append(report.AddedKeys, addedKeys...)
 		return nil
 	})
 	if err != nil {
@@ -189,6 +201,38 @@ func (u *Upgrader) UpgradeAll(ctx context.Context) ([]*UpgradeReport, error) {
 		return reports, fmt.Errorf("%d of %d checklists failed to upgrade", failed, len(projectUIDs))
 	}
 	return reports, nil
+}
+
+// sectionsToRecord returns the section entries the checklist has an item for,
+// across every group given, but has not recorded in have. Title is resolved
+// from the template, which is why a section with no items in the current
+// template (only ever true of a section only old, already-inserted items still
+// reference) would come back with no title — a case this only reaches when have
+// already omits a section every current item is in, which does not happen from
+// this job alone.
+func sectionsToRecord(
+	have []model.FormationSection, tpl *model.Template, itemGroups ...[]*model.Item,
+) []model.FormationSection {
+	known := make(map[string]bool, len(have))
+	for _, s := range have {
+		known[s.Key] = true
+	}
+	titles := make(map[string]string, len(tpl.Sections))
+	for _, s := range tpl.Sections {
+		titles[s.Key] = s.Title
+	}
+
+	var out []model.FormationSection
+	for _, items := range itemGroups {
+		for _, item := range items {
+			if known[item.SectionKey] {
+				continue
+			}
+			known[item.SectionKey] = true
+			out = append(out, model.FormationSection{Key: item.SectionKey, Title: titles[item.SectionKey]})
+		}
+	}
+	return out
 }
 
 // missingItems returns the template's items that the checklist does not already

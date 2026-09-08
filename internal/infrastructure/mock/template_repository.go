@@ -105,6 +105,15 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 			}
 			clone := *t
 			clone.UID = uid
+			// COALESCE(existing, incoming), matching the repository's ON
+			// CONFLICT clause: the first publication time survives a re-seed,
+			// and a draft re-seeded as published picks one up. Overwriting it
+			// here would make the double record the latest seed instead, and
+			// the guarantee is only implemented in SQL — nothing service-level
+			// would catch the difference.
+			if existing.PublishedAt != nil {
+				clone.PublishedAt = existing.PublishedAt
+			}
 			r.templates[uid] = &clone
 			out := clone
 			return &out, nil

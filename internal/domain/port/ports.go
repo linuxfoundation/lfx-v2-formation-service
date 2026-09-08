@@ -29,6 +29,14 @@ type FormationRepository interface {
 	// when revision does not match the caller's copy.
 	UpdateLifecycle(ctx context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error)
 
+	// UpdateSections replaces the section snapshot, refusing the write when
+	// revision does not match the caller's copy. Used only by the upgrade job,
+	// to record a section a newer template introduced that this checklist has
+	// not seen. A version mismatch is not fatal to the caller: the write is
+	// idempotent, so a run that loses this race leaves the gap for the next
+	// run to close rather than losing the items it already added.
+	UpdateSections(ctx context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64) (*model.Formation, error)
+
 	// ListProjectUIDs returns the projects that already have a formation,
 	// so the reconcile loop can find the ones that do not.
 	ListProjectUIDs(ctx context.Context) ([]string, error)

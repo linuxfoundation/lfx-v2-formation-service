@@ -45,6 +45,12 @@ func (r *FormationRepo) Create(ctx context.Context, f *model.Formation) (*model.
 	if f.Revision == 0 {
 		f.Revision = 1
 	}
+	// An empty slice, not nil: the column is NOT NULL DEFAULT '[]', and a nil
+	// slice marshals to JSON null rather than [] — the same reason Item's
+	// SubItems is defaulted the same way.
+	if f.Sections == nil {
+		f.Sections = []model.FormationSection{}
+	}
 
 	// ON CONFLICT DO NOTHING rather than catching the unique violation, because
 	// the violation aborts the surrounding transaction. The caller treats "this
@@ -137,6 +143,43 @@ func (r *FormationRepo) UpdateLifecycle(ctx context.Context, uid uuid.UUID, life
 		// affected==0 means either uid doesn't exist or revision was
 		// stale. Disambiguate: a client told 412 "re-read and retry"
 		// for an unknown uid would 404 on the re-read and retry forever.
+		exists, err := r.db.NewSelect().Model((*model.Formation)(nil)).Where("uid = ?", uid).Exists(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("probe formation existence: %w", err)
+		}
+		if !exists {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrVersionMismatch
+	}
+	return f, nil
+}
+
+// UpdateSections replaces the section snapshot, refusing the write when
+// revision is stale. Mirrors UpdateLifecycle's existence-vs-staleness
+// disambiguation for the same reason: a caller acting on ErrVersionMismatch
+// needs to know a retry can succeed, which is not true for a uid that is gone.
+func (r *FormationRepo) UpdateSections(
+	ctx context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64,
+) (*model.Formation, error) {
+	f := &model.Formation{}
+	res, err := r.db.NewUpdate().
+		Model(f).
+		Set("sections = ?", sections).
+		Set("revision = revision + 1").
+		Set("updated_at = now()").
+		Where("uid = ?", uid).
+		Where("revision = ?", revision).
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("update formation sections: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
 		exists, err := r.db.NewSelect().Model((*model.Formation)(nil)).Where("uid = ?", uid).Exists(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("probe formation existence: %w", err)

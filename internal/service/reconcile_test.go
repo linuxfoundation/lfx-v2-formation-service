@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
@@ -772,5 +774,57 @@ func TestRunSweepsImmediatelyAndStopsOnCancel(t *testing.T) {
 
 	if projects.calls() == 0 {
 		t.Error("Run never listed projects")
+	}
+}
+
+// failingUpdateLifecycle answers UpdateLifecycle with an error and otherwise
+// behaves normally, so a sweep can be driven with only the lifecycle write
+// broken.
+type failingUpdateLifecycle struct {
+	port.FormationRepository
+	err error
+}
+
+func (f *failingUpdateLifecycle) UpdateLifecycle(
+	_ context.Context, _ uuid.UUID, _ model.Lifecycle, _ int64,
+) (*model.Formation, error) {
+	return nil, f.err
+}
+
+// A lifecycle that could not be moved has to reach the summary. The sweep
+// deliberately continues past one, but continuing quietly is what made a sweep
+// where every single move failed still report failed=0 — an operator reading
+// that line saw a clean run and had no reason to go looking for the error logs
+// underneath it.
+func TestALifecycleThatCannotBeMovedIsCounted(t *testing.T) {
+	ctx := context.Background()
+
+	// Active, so the checklist that exists has a move to make: without one
+	// there is nothing to fail.
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageActive},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+
+	broken := &failingUpdateLifecycle{FormationRepository: f.formations, err: errors.New("connection reset")}
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(broken), time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error — one project must not end the sweep", err)
+	}
+	if report.Failed != 1 {
+		t.Errorf("failed = %d, want 1 — a lifecycle that could not move is a failure worth reporting", report.Failed)
+	}
+	if report.LifecyclesMoved != 0 {
+		t.Errorf("lifecycles_moved = %d, want 0 — nothing moved", report.LifecyclesMoved)
+	}
+	// The sweep still visited it, which is what distinguishes a counted failure
+	// from a project that was never reached.
+	if report.Swept != 1 {
+		t.Errorf("swept = %d, want 1", report.Swept)
 	}
 }

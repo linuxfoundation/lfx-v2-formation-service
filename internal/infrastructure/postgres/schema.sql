@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS formations (
     lifecycle        TEXT        NOT NULL DEFAULT 'live',     -- live | completed | frozen
     started_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at     TIMESTAMPTZ,
+    sections         JSONB       NOT NULL DEFAULT '[]',       -- [{key,title}] snapshot; only grows
     revision         BIGINT      NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -44,6 +44,9 @@ func newChecklistTestService(t *testing.T) (*Service, *model.Formation) {
 		ProjectUID:      "project-1",
 		TemplateUID:     template.UID,
 		TemplateVersion: template.Version,
+		// Mirrors what Expander snapshots at creation: GetFormation now reads
+		// sections from here, not from a live join to the template.
+		Sections: []model.FormationSection{{Key: "sec-1", Title: "Section One"}},
 	})
 	require.NoError(t, err)
 

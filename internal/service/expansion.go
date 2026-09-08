@@ -105,6 +105,11 @@ func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tp
 			TemplateVersion: tpl.Version,
 			Lifecycle:       model.LifecycleLive,
 			Revision:        1,
+			// Copied in for the same reason Item.Title is: so a later edit to
+			// the template's section titles cannot change what an existing
+			// checklist displays, and so the response's sections[] always
+			// covers whatever section_key an item on this checklist carries.
+			Sections: sectionsSnapshot(tpl),
 		})
 		if createErr != nil {
 			if errors.Is(createErr, domain.ErrAlreadyExists) {
@@ -249,6 +254,18 @@ func newItemFromTemplate(
 	// Postgres and mock paths cannot disagree.
 	item.ApplyInsertDefaults()
 	return item
+}
+
+// sectionsSnapshot copies key and title from every section the template has,
+// in template order, regardless of whether the section currently has items —
+// matching what the response derived when it read this straight from the
+// pinned template.
+func sectionsSnapshot(tpl *model.Template) []model.FormationSection {
+	out := make([]model.FormationSection, 0, len(tpl.Sections))
+	for _, section := range tpl.Sections {
+		out = append(out, model.FormationSection{Key: section.Key, Title: section.Title})
+	}
+	return out
 }
 
 func countTemplateItems(tpl *model.Template) int {
