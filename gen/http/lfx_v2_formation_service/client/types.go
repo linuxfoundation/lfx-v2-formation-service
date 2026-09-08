@@ -679,8 +679,8 @@ func ValidateUpdateItemNotFoundResponseBody(body *UpdateItemNotFoundResponseBody
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key"}))
 		}
 	}
 	return
@@ -702,8 +702,8 @@ func ValidateUpdateItemVersionMismatchResponseBody(body *UpdateItemVersionMismat
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key"}))
 		}
 	}
 	return
@@ -725,8 +725,8 @@ func ValidateUpdateItemConflictResponseBody(body *UpdateItemConflictResponseBody
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key"}))
 		}
 	}
 	return
@@ -748,8 +748,8 @@ func ValidateUpdateItemBadRequestResponseBody(body *UpdateItemBadRequestResponse
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key"}))
 		}
 	}
 	return

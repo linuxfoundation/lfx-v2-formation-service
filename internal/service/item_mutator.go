@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
@@ -15,9 +16,10 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
-// The nine reasons endpoints.md ("Errors, and two people editing at once")
-// requires the UI to be able to switch on. self_acceptance_forbidden belongs
-// to the accept route, not this one.
+// The machine-readable reasons this route can refuse with. They exist so the
+// browser can switch on the cause rather than parse a message, which is why
+// several distinct ones share a single HTTP status.
+// self_acceptance_forbidden belongs to the accept route, not this one.
 const (
 	reasonNotFound             = "not_found"
 	reasonVersionMismatch      = "version_mismatch"
@@ -29,6 +31,7 @@ const (
 	reasonLinkSchemeInvalid    = "link_scheme_invalid"
 	reasonDueDateInvalid       = "due_date_invalid"
 	reasonSubItemNull          = "sub_item_null"
+	reasonUnknownSubItemKey    = "unknown_sub_item_key"
 )
 
 // dueDateLayout is the wire format for due_date: YYYY-MM-DD, matching the
@@ -51,6 +54,8 @@ var reasonMessages = map[string]string{
 	reasonAssigneeNotOnProject: "the assignee holds no writer or auditor grant on this project",
 	reasonLinkSchemeInvalid:    "evidence_link must use the http or https scheme",
 	reasonDueDateInvalid:       "due_date must be YYYY-MM-DD, or an empty string to clear it",
+	reasonSubItemNull:          "sub_items must not contain null entries",
+	reasonUnknownSubItemKey:    "the item has no sub-item with that key",
 }
 
 // allowedItemTransitions is every status edge this route may make. done is
@@ -177,20 +182,28 @@ func buildItemPatch(
 		if newStatus != item.Status && !isAllowedItemTransition(item.Status, newStatus) {
 			return port.ItemPatch{}, domain.NewReasonError(domain.ErrConflict, reasonInvalidTransition)
 		}
-		// Checked whether or not status is actually changing, not just on
-		// the transition into skipped: a no-op re-PATCH of an already-
-		// skipped item with skip_reason: "" would otherwise clear the
-		// reason on a skipped item with no re-validation.
-		if newStatus == model.StatusSkipped {
-			resolvedReason := item.SkipReason
-			if p.SkipReason != nil {
-				resolvedReason = *p.SkipReason
-			}
-			if resolvedReason == "" {
-				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSkipReasonRequired)
-			}
-		}
 		patch.Status = &newStatus
+	}
+
+	// The skipped-item invariant is checked against the values this PATCH
+	// resolves to, not against the fields it happens to carry. Scoping it to
+	// requests that include status left two ways to reach a state the
+	// skip_needs_reason constraint rejects: an already-skipped item can send
+	// skip_reason alone, and the constraint compares btrim(skip_reason), so a
+	// whitespace-only reason passes an == "" test here. Either one used to
+	// surface as a 500 from Postgres while the mock stored it happily.
+	resolvedStatus := item.Status
+	if patch.Status != nil {
+		resolvedStatus = *patch.Status
+	}
+	if resolvedStatus == model.StatusSkipped {
+		resolvedReason := item.SkipReason
+		if p.SkipReason != nil {
+			resolvedReason = *p.SkipReason
+		}
+		if strings.TrimSpace(resolvedReason) == "" {
+			return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSkipReasonRequired)
+		}
 	}
 
 	if p.Assignee != nil {
@@ -234,7 +247,10 @@ func buildItemPatch(
 				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubItemNull)
 			}
 		}
-		subItems := subItemsFromWire(item.SubItems, p.SubItems)
+		subItems, err := subItemsFromWire(item.SubItems, p.SubItems)
+		if err != nil {
+			return port.ItemPatch{}, err
+		}
 		patch.SubItems = &subItems
 	}
 
@@ -246,11 +262,12 @@ func buildItemPatch(
 // sub_items too, so a caller naming one sub-item must not silently drop
 // every other one from the array a plain replace would have produced. Each
 // update also carries its title forward from existing, since
-// FormationSubItemUpdate (the write shape) has no title field — sub-items
-// are copied from the template and immutable except for status. An update
-// naming a key existing does not have is appended as a new row rather than
-// dropped, so a caller is never silently ignored.
-func subItemsFromWire(existing []model.SubItem, updates []*svc.FormationSubItemUpdate) []model.SubItem {
+// FormationSubItemUpdate (the write shape) has no title field — sub-items are
+// copied from the template and immutable except for status. A key the item
+// does not have is therefore refused by the caller rather than appended:
+// appending built a row with no title, which is both a malformed display row
+// and a way to change checklist structure through a status-only route.
+func subItemsFromWire(existing []model.SubItem, updates []*svc.FormationSubItemUpdate) ([]model.SubItem, error) {
 	out := make([]model.SubItem, len(existing))
 	copy(out, existing)
 
@@ -265,15 +282,14 @@ func subItemsFromWire(existing []model.SubItem, updates []*svc.FormationSubItemU
 			// future caller from reintroducing the panic.
 			continue
 		}
-		newStatus := model.ItemStatus(u.Status)
-		if i, ok := index[u.Key]; ok {
-			out[i].Status = newStatus
-		} else {
-			out = append(out, model.SubItem{Key: u.Key, Status: newStatus})
-			index[u.Key] = len(out) - 1
+		i, ok := index[u.Key]
+		if !ok {
+			return nil, domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonUnknownSubItemKey,
+				"the item has no sub-item with key %q", u.Key)
 		}
+		out[i].Status = model.ItemStatus(u.Status)
 	}
-	return out
+	return out, nil
 }
 
 // mutationAction names the activity entry after the field the caller led
@@ -294,6 +310,11 @@ func mutationAction(p *svc.UpdateItemPayload) string {
 		return "note_changed"
 	case p.SubItems != nil:
 		return "sub_items_changed"
+	// Last so that adding it left every other combination's label alone; a
+	// skip reason only ever travels with a status in practice, and status
+	// already wins.
+	case p.SkipReason != nil:
+		return "skip_reason_changed"
 	default:
 		return "item_updated"
 	}

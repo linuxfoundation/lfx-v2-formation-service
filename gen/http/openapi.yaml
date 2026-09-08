@@ -578,7 +578,7 @@ definitions:
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: assignee_not_on_project
+                example: unknown_sub_item_key
                 enum:
                     - not_found
                     - version_mismatch
@@ -590,12 +590,14 @@ definitions:
                     - assignee_not_on_project
                     - link_scheme_invalid
                     - due_date_invalid
+                    - sub_item_null
+                    - unknown_sub_item_key
         description: No formation, or no item with that key, exists
         example:
             code: "409"
             message: Voluptas impedit labore voluptatum cupiditate.
             name: Sed optio et perspiciatis consequuntur et.
-            reason: checklist_read_only
+            reason: assignee_not_on_project
         required:
             - name
             - code

@@ -115,7 +115,15 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 		q = q.Set("status = ?", *patch.Status)
 	}
 	if patch.Assignee != nil {
-		q = q.Set("assignee = ?", *patch.Assignee)
+		if *patch.Assignee == "" {
+			// Same clear signal as due_date, and NULL rather than '' for the
+			// same reason it matters here: formation_items_assignee_idx is
+			// partial on assignee IS NOT NULL, so an unassigned row stored as
+			// '' stays in the index of assigned work.
+			q = q.Set("assignee = NULL")
+		} else {
+			q = q.Set("assignee = ?", *patch.Assignee)
+		}
 	}
 	if patch.Note != nil {
 		q = q.Set("note = ?", *patch.Note)

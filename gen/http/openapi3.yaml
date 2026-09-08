@@ -453,7 +453,7 @@ paths:
                                 code: "409"
                                 message: Et similique sunt repellendus quis.
                                 name: Velit et saepe.
-                                reason: link_scheme_invalid
+                                reason: unknown_item_key
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -484,7 +484,7 @@ paths:
                                 code: "409"
                                 message: Soluta fuga id tempore ducimus dignissimos non.
                                 name: Quis doloribus est perspiciatis quis sit.
-                                reason: not_found
+                                reason: skip_reason_required
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -901,7 +901,7 @@ components:
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: unknown_item_key
+                    example: sub_item_null
                     enum:
                         - not_found
                         - version_mismatch
@@ -913,11 +913,13 @@ components:
                         - assignee_not_on_project
                         - link_scheme_invalid
                         - due_date_invalid
+                        - sub_item_null
+                        - unknown_sub_item_key
             example:
                 code: "409"
                 message: In suscipit quia.
                 name: Consequatur impedit ut distinctio laborum qui.
-                reason: assignee_not_on_project
+                reason: self_acceptance_forbidden
             required:
                 - name
                 - code

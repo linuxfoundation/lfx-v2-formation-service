@@ -105,6 +105,95 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, itemOne.Revision, got.Revision, "the refused mutation must not have bumped the revision")
 	})
 
+	t.Run("an already-skipped item cannot have its reason cleared without a status", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		skipped, reason := "skipped", "not applicable to this project"
+
+		// Get the item into skipped-with-a-reason first.
+		first, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: &skipped, SkipReason: &reason,
+		})
+		require.NoError(t, err)
+
+		// Now clear the reason alone. The old check only ran when status was
+		// present, so this reached the skip_needs_reason constraint and came
+		// back as a 500.
+		empty := ""
+		_, err = s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: first.Version,
+			SkipReason: &empty,
+		})
+
+		require.Error(t, err)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "BadRequest", formationErr.Name)
+		assert.Equal(t, "skip_reason_required", formationErr.Reason)
+	})
+
+	t.Run("a skipped item can still be patched on an unrelated field", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		skipped, reason := "skipped", "not applicable to this project"
+
+		first, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: &skipped, SkipReason: &reason,
+		})
+		require.NoError(t, err)
+
+		// Guards the cost of checking the invariant against resolved values
+		// rather than the fields present: the reason falls back to the stored
+		// one, so a note-only PATCH must not be read as clearing it.
+		note := "still worth recording why"
+		got, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: first.Version,
+			Note: &note,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, "skipped", got.Status)
+	})
+
+	t.Run("a whitespace-only skip reason is refused", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		skipped, blank := "skipped", "   "
+
+		// Postgres compares btrim(skip_reason), so this passed an == "" test
+		// in the service and failed only in the database.
+		_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: &skipped, SkipReason: &blank,
+		})
+
+		require.Error(t, err)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "skip_reason_required", formationErr.Reason)
+	})
+
+	t.Run("an unknown sub-item key is refused, not appended", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+		// Appending would have created a sub-item with no title, and let a
+		// status-only route change the checklist's structure.
+		_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			SubItems: []*svc.FormationSubItemUpdate{{Key: "not-a-real-key", Status: "done"}},
+		})
+
+		require.Error(t, err)
+		var formationErr *svc.FormationError
+		require.ErrorAs(t, err, &formationErr)
+		assert.Equal(t, "BadRequest", formationErr.Name)
+		assert.Equal(t, "unknown_sub_item_key", formationErr.Reason)
+		assert.Contains(t, formationErr.Message, "not-a-real-key")
+
+		got, getErr := s.items.Get(context.Background(), itemOne.UID)
+		require.NoError(t, getErr)
+		assert.Equal(t, itemOne.Revision, got.Revision, "the refused mutation must not have bumped the revision")
+	})
+
 	t.Run("stale precondition on the same item is refused with nothing lost", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		inProgress := "in_progress"
@@ -443,4 +532,43 @@ func TestUpdateItem(t *testing.T) {
 		require.ErrorAs(t, err, &formationErr)
 		assert.Equal(t, "skip_reason_required", formationErr.Reason)
 	})
+}
+
+// The activity feed names an entry after the field the caller led with, so the
+// precedence between cases is the behaviour worth pinning, not just the
+// mapping. skip_reason is deliberately last: it was added after the others and
+// keeping it there left every existing combination's label unchanged.
+func TestMutationAction(t *testing.T) {
+	str := func(s string) *string { return &s }
+
+	tests := []struct {
+		name string
+		p    *svc.UpdateItemPayload
+		want string
+	}{
+		{"status alone", &svc.UpdateItemPayload{Status: str("done")}, "status_changed"},
+		{"assignee alone", &svc.UpdateItemPayload{Assignee: str("someone")}, "assignee_changed"},
+		{"evidence link alone", &svc.UpdateItemPayload{EvidenceLink: str("https://example.test")}, "evidence_link_changed"},
+		{"due date alone", &svc.UpdateItemPayload{DueDate: str("2026-01-01")}, "due_date_changed"},
+		{"note alone", &svc.UpdateItemPayload{Note: str("a note")}, "note_changed"},
+		{"sub items alone", &svc.UpdateItemPayload{SubItems: []*svc.FormationSubItemUpdate{}}, "sub_items_changed"},
+		{"skip reason alone", &svc.UpdateItemPayload{SkipReason: str("not applicable")}, "skip_reason_changed"},
+		{
+			"status wins over a co-submitted skip reason",
+			&svc.UpdateItemPayload{Status: str("skipped"), SkipReason: str("not applicable")},
+			"status_changed",
+		},
+		{
+			"sub items win over a co-submitted skip reason",
+			&svc.UpdateItemPayload{SubItems: []*svc.FormationSubItemUpdate{}, SkipReason: str("not applicable")},
+			"sub_items_changed",
+		},
+		{"nothing recognised", &svc.UpdateItemPayload{}, "item_updated"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, mutationAction(tc.p))
+		})
+	}
 }

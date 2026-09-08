@@ -235,6 +235,8 @@ var FormationError = dsl.Type("FormationError", func() {
 			"assignee_not_on_project",
 			"link_scheme_invalid",
 			"due_date_invalid",
+			"sub_item_null",
+			"unknown_sub_item_key",
 		)
 	})
 	dsl.Required("name", "code", "message", "reason")
