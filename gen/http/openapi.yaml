@@ -578,7 +578,7 @@ definitions:
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: unknown_sub_item_key
+                example: link_scheme_invalid
                 enum:
                     - not_found
                     - version_mismatch
@@ -592,12 +592,13 @@ definitions:
                     - due_date_invalid
                     - sub_item_null
                     - unknown_sub_item_key
+                    - no_fields_to_update
         description: No formation, or no item with that key, exists
         example:
             code: "409"
             message: Voluptas impedit labore voluptatum cupiditate.
             name: Sed optio et perspiciatis consequuntur et.
-            reason: assignee_not_on_project
+            reason: skip_reason_required
         required:
             - name
             - code

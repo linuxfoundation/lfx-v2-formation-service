@@ -237,6 +237,7 @@ var FormationError = dsl.Type("FormationError", func() {
 			"due_date_invalid",
 			"sub_item_null",
 			"unknown_sub_item_key",
+			"no_fields_to_update",
 		)
 	})
 	dsl.Required("name", "code", "message", "reason")

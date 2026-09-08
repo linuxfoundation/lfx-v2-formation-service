@@ -32,6 +32,7 @@ const (
 	reasonDueDateInvalid       = "due_date_invalid"
 	reasonSubItemNull          = "sub_item_null"
 	reasonUnknownSubItemKey    = "unknown_sub_item_key"
+	reasonNoFieldsToUpdate     = "no_fields_to_update"
 )
 
 // dueDateLayout is the wire format for due_date: YYYY-MM-DD, matching the
@@ -56,6 +57,7 @@ var reasonMessages = map[string]string{
 	reasonDueDateInvalid:       "due_date must be YYYY-MM-DD, or an empty string to clear it",
 	reasonSubItemNull:          "sub_items must not contain null entries",
 	reasonUnknownSubItemKey:    "the item has no sub-item with that key",
+	reasonNoFieldsToUpdate:     "the request changes no field",
 }
 
 // allowedItemTransitions is every status edge this route may make. done is
@@ -176,6 +178,14 @@ func buildItemPatch(
 	p *svc.UpdateItemPayload,
 ) (port.ItemPatch, error) {
 	var patch port.ItemPatch
+
+	// Refused rather than applied as a no-op: Update always increments the
+	// revision, so an empty body would invalidate every other client's
+	// if_match and append an activity entry recording no change.
+	if p.Status == nil && p.Assignee == nil && p.Note == nil && p.SkipReason == nil &&
+		p.EvidenceLink == nil && p.DueDate == nil && p.SubItems == nil {
+		return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonNoFieldsToUpdate)
+	}
 
 	if p.Status != nil {
 		newStatus := model.ItemStatus(*p.Status)

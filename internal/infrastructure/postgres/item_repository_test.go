@@ -11,7 +11,8 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
-// Clearing an assignee has to reach the column as SQL NULL rather than ”.
+// Clearing an assignee has to reach the column as SQL NULL rather than an
+// empty string.
 // The distinction is invisible through the model, whose Assignee is a plain
 // string either way, and invisible in the mock — it is only observable here,
 // which is why this test exists at the repository level.

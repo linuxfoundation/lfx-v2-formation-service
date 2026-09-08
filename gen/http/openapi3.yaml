@@ -453,7 +453,7 @@ paths:
                                 code: "409"
                                 message: Et similique sunt repellendus quis.
                                 name: Velit et saepe.
-                                reason: unknown_item_key
+                                reason: link_scheme_invalid
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -473,7 +473,7 @@ paths:
                                 code: "409"
                                 message: Impedit corrupti iusto recusandae dolorem repudiandae eum.
                                 name: Ut sed rerum voluptas modi in modi.
-                                reason: self_acceptance_forbidden
+                                reason: unknown_item_key
                 "409":
                     description: 'Conflict: The checklist, or this item''s current state, refuses the change'
                     content:
@@ -484,7 +484,7 @@ paths:
                                 code: "409"
                                 message: Soluta fuga id tempore ducimus dignissimos non.
                                 name: Quis doloribus est perspiciatis quis sit.
-                                reason: skip_reason_required
+                                reason: version_mismatch
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -495,7 +495,7 @@ paths:
                                 code: "409"
                                 message: Fuga veritatis ut fuga consequatur.
                                 name: Dolores et.
-                                reason: due_date_invalid
+                                reason: unknown_item_key
             security:
                 - jwt_header_Authorization: []
 components:
@@ -901,7 +901,7 @@ components:
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: sub_item_null
+                    example: due_date_invalid
                     enum:
                         - not_found
                         - version_mismatch
@@ -915,11 +915,12 @@ components:
                         - due_date_invalid
                         - sub_item_null
                         - unknown_sub_item_key
+                        - no_fields_to_update
             example:
                 code: "409"
                 message: In suscipit quia.
                 name: Consequatur impedit ut distinctio laborum qui.
-                reason: self_acceptance_forbidden
+                reason: invalid_transition
             required:
                 - name
                 - code

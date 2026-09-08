@@ -572,3 +572,24 @@ func TestMutationAction(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateItemRefusesANoOp(t *testing.T) {
+	s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+	// Update always increments the revision, so applying this would have
+	// invalidated other clients' if_match and logged a change that never
+	// happened.
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+	})
+
+	require.Error(t, err)
+	var formationErr *svc.FormationError
+	require.ErrorAs(t, err, &formationErr)
+	assert.Equal(t, "BadRequest", formationErr.Name)
+	assert.Equal(t, "no_fields_to_update", formationErr.Reason)
+
+	got, getErr := s.items.Get(context.Background(), itemOne.UID)
+	require.NoError(t, getErr)
+	assert.Equal(t, itemOne.Revision, got.Revision, "a refused no-op must not bump the revision")
+}
