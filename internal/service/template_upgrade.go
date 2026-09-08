@@ -98,9 +98,34 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 			return fmt.Errorf("adding %d items to %s: %w", len(missing), projectUID, insertErr)
 		}
 
+		addedKeys := make([]string, 0, len(missing))
 		for _, item := range missing {
-			report.AddedKeys = append(report.AddedKeys, item.ItemKey)
+			addedKeys = append(addedKeys, item.ItemKey)
 		}
+
+		// Recorded for the same reason the expansion is, and with more force:
+		// items appearing on a checklist someone is part-way through is exactly
+		// the change they will ask about, and the keys are what answers it.
+		//
+		// Only written when something was added — the early return above means
+		// an upgrade that changes nothing leaves no entry, so the feed does not
+		// fill with rows saying an operator ran a job.
+		if activityErr := tx.Activity().Append(ctx, &model.ActivityEntry{
+			FormationUID: formation.UID,
+			Actor:        actorSystem,
+			SetBy:        model.SetBySystem,
+			Action:       ActionTemplateUpgraded,
+			After: map[string]any{
+				"template_uid":     tpl.UID.String(),
+				"template_version": tpl.Version,
+				"added":            len(addedKeys),
+				"added_keys":       addedKeys,
+			},
+		}); activityErr != nil {
+			return fmt.Errorf("recording the upgrade for %s: %w", projectUID, activityErr)
+		}
+
+		report.AddedKeys = append(report.AddedKeys, addedKeys...)
 		return nil
 	})
 	if err != nil {

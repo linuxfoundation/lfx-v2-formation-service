@@ -14,6 +14,7 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
+	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
 // listProjects is a ProjectReader whose forming-project list the test controls,
@@ -56,7 +57,7 @@ func (l *listProjects) calls() int {
 func newReconciler(t *testing.T, projects port.ProjectReader) (*Reconciler, *expansionFixture) {
 	t.Helper()
 	f := newExpansionFixture(t, twoItemSections(), projects)
-	return NewReconciler(projects, f.expander, NewLifecycler(f.formations)), f
+	return NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), time.Minute), f
 }
 
 // The stage gate: only the four forming stages get a checklist, and the ones
@@ -328,10 +329,239 @@ func TestReconcileLeavesLifecycleAloneOnAnUnknownStage(t *testing.T) {
 	}
 }
 
-// No published template is the state a freshly deployed environment is in. It is
-// a condition of the sweep rather than of any one project, so the sweep ends
-// after the first rather than repeating the identical error for every project.
-func TestReconcileEndsTheSweepWhenNoTemplateIsPublished(t *testing.T) {
+// The interval is configuration, and the startup log reports it — so a value
+// that arrives from the environment has to reach the ticker rather than being
+// parsed into a field nothing reads, which is what happened before.
+func TestReconcilerUsesTheConfiguredInterval(t *testing.T) {
+	projects := &listProjects{}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), 90*time.Second)
+	if r.interval != 90*time.Second {
+		t.Errorf("interval = %v, want 90s", r.interval)
+	}
+
+	// A zero or negative duration would panic time.NewTicker, so an unparseable
+	// or absent setting falls back rather than taking the loop down.
+	for _, bad := range []time.Duration{0, -time.Minute} {
+		r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), bad)
+		if r.interval != constants.DefaultReconcileInterval {
+			t.Errorf("interval for %v = %v, want the default %v", bad, r.interval, constants.DefaultReconcileInterval)
+		}
+	}
+}
+
+// failingListFormations answers ListProjectUIDs with an error and otherwise
+// behaves normally, so a sweep can be driven with only that read broken.
+type failingListFormations struct {
+	port.FormationRepository
+	err error
+}
+
+func (f *failingListFormations) ListProjectUIDs(_ context.Context) ([]string, error) {
+	return nil, f.err
+}
+
+// Listing the existing checklists is an optimisation, so failing to read it must
+// cost efficiency and nothing else: every forming project is attempted, and the
+// uniqueness constraint absorbs the ones that already exist. That is what the
+// sweep did before the diff, so the fallback is the old behaviour rather than a
+// stalled loop.
+func TestReconcileStillCreatesWhenTheExistingListCannotBeRead(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationEngaged},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	broken := &failingListFormations{FormationRepository: f.formations, err: errors.New("connection reset")}
+
+	r := NewReconciler(projects, broken, f.expander, NewLifecycler(f.formations), time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error — a broken optimisation must not fail the sweep", err)
+	}
+	if report.Created != 2 {
+		t.Errorf("created = %d, want 2", report.Created)
+	}
+
+	// And a second sweep is still safe: the constraint, not the diff, is what
+	// makes repeated attempts a no-op.
+	again, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	if again.Created != 0 {
+		t.Errorf("created = %d on the second sweep, want 0", again.Created)
+	}
+	if again.Failed != 0 {
+		t.Errorf("failed = %d, want 0 — an existing checklist is success, not failure", again.Failed)
+	}
+}
+
+// A template read that fails for a reason other than "none published" must also
+// leave the loop running and lifecycles moving.
+func TestReconcileSyncsLifecyclesWhenTemplatesCannotBeRead(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+
+	if _, err := f.formations.Create(ctx, &model.Formation{
+		ProjectUID: "project-2",
+		Lifecycle:  model.LifecycleLive,
+		Revision:   1,
+	}); err != nil {
+		t.Fatalf("seeding a formation = %v", err)
+	}
+	projects.setRefs([]port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageActive},
+	})
+
+	broken := &failingTemplates{err: errors.New("statement timeout")}
+	r := NewReconciler(
+		projects,
+		f.formations,
+		NewExpander(NewTemplateSelector(broken), f.uow, projects),
+		NewLifecycler(f.formations),
+		time.Minute,
+	)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.Created != 0 {
+		t.Errorf("created = %d, want 0", report.Created)
+	}
+	if report.LifecyclesMoved != 1 {
+		t.Errorf("lifecycles_moved = %d, want 1 — a template failure must not stop lifecycle sync", report.LifecyclesMoved)
+	}
+}
+
+// failingTemplates fails every read.
+type failingTemplates struct {
+	port.TemplateRepository
+	err error
+}
+
+func (f *failingTemplates) ListPublished(_ context.Context) ([]*model.Template, error) {
+	return nil, f.err
+}
+
+// countingTemplates counts the reads a sweep makes, which is the only way to
+// observe that selection is resolved once per sweep rather than once per
+// project — the outcome is identical either way.
+type countingTemplates struct {
+	port.TemplateRepository
+	mu    sync.Mutex
+	lists int
+}
+
+func (c *countingTemplates) ListPublished(ctx context.Context) ([]*model.Template, error) {
+	c.mu.Lock()
+	c.lists++
+	c.mu.Unlock()
+	return c.TemplateRepository.ListPublished(ctx)
+}
+
+func (c *countingTemplates) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lists
+}
+
+// The template is the same for every project in a sweep — the selector takes no
+// project facts at all — so it is read once however many projects there are.
+// Reading it per project meant a query and a full decode of the sections
+// document for each one, on every tick, forever.
+func TestReconcileReadsTheTemplateOncePerSweep(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationOnHold},
+		{UID: "project-3", SubStage: model.StageFormationConfidential},
+		{UID: "project-4", SubStage: model.StageFormationExploratory},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	counting := &countingTemplates{TemplateRepository: f.templates}
+
+	r := NewReconciler(
+		projects,
+		f.formations,
+		NewExpander(NewTemplateSelector(counting), f.uow, projects),
+		NewLifecycler(f.formations),
+		time.Minute,
+	)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.Created != 4 {
+		t.Fatalf("created = %d, want 4", report.Created)
+	}
+	if got := counting.count(); got != 1 {
+		t.Errorf("template read %d times for a 4-project sweep, want 1", got)
+	}
+}
+
+// A second sweep over projects that already have checklists must not attempt
+// creation again. The uniqueness constraint would absorb it, but paying for a
+// transaction and a discarded violation per project per tick is the cost this
+// avoids once the backlog is drained — which is the steady state.
+func TestReconcileSkipsProjectsThatAlreadyHaveChecklists(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationOnHold},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	counting := &countingTemplates{TemplateRepository: f.templates}
+	r := NewReconciler(
+		projects,
+		f.formations,
+		NewExpander(NewTemplateSelector(counting), f.uow, projects),
+		NewLifecycler(f.formations),
+		time.Minute,
+	)
+
+	first, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+	if first.Created != 2 {
+		t.Fatalf("created = %d, want 2", first.Created)
+	}
+
+	// A third project joins; the two existing ones must be left alone.
+	projects.setRefs([]port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageFormationOnHold},
+		{UID: "project-3", SubStage: model.StageFormationEngaged},
+	})
+
+	second, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	if second.Swept != 3 {
+		t.Errorf("swept = %d, want 3", second.Swept)
+	}
+	if second.Created != 1 {
+		t.Errorf("created = %d, want 1 — only the new project needed a checklist", second.Created)
+	}
+	if second.Failed != 0 {
+		t.Errorf("failed = %d, want 0", second.Failed)
+	}
+}
+
+// No published template is the state a freshly deployed environment is in, and
+// it is a condition of the sweep rather than of any one project. It is looked up
+// and reported once, and — the part worth pinning — lifecycles are still synced,
+// because moving a checklist that already exists needs no template.
+func TestReconcileSyncsLifecyclesWhenNoTemplateIsPublished(t *testing.T) {
 	ctx := context.Background()
 	projects := &listProjects{refs: []port.ProjectRef{
 		{UID: "project-1", SubStage: model.StageFormationEngaged},
@@ -347,19 +577,43 @@ func TestReconcileEndsTheSweepWhenNoTemplateIsPublished(t *testing.T) {
 
 	r := NewReconciler(
 		projects,
+		formations,
 		NewExpander(NewTemplateSelector(templates), uow, projects),
 		NewLifecycler(formations),
+		time.Minute,
 	)
+
+	// One project is already at a stage that completes its checklist, so there
+	// is lifecycle work to do that must survive the missing template.
+	if _, err := formations.Create(ctx, &model.Formation{
+		ProjectUID: "project-2",
+		Lifecycle:  model.LifecycleLive,
+		Revision:   1,
+	}); err != nil {
+		t.Fatalf("seeding a formation = %v", err)
+	}
+	projects.setRefs([]port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+		{UID: "project-2", SubStage: model.StageActive},
+	})
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
 		t.Fatalf("ReconcileOnce() = %v, want no error — the loop must survive this", err)
 	}
-	if report.Swept != 1 {
-		t.Errorf("swept = %d, want 1 — the sweep should stop after the first project, not retry all of them", report.Swept)
+	if report.Created != 0 {
+		t.Errorf("created = %d, want 0 — nothing can be created with no template", report.Created)
 	}
-	if report.Failed != 1 {
-		t.Errorf("failed = %d, want 1", report.Failed)
+	if report.LifecyclesMoved != 1 {
+		t.Errorf("lifecycles_moved = %d, want 1 — a missing template must not stop lifecycle sync", report.LifecyclesMoved)
+	}
+	// Counted as blocked, not failed: one condition holds up the forming
+	// project, and it is logged once rather than once per project.
+	if report.Blocked != 1 {
+		t.Errorf("blocked = %d, want 1", report.Blocked)
+	}
+	if report.Failed != 0 {
+		t.Errorf("failed = %d, want 0 — a shared condition is not a per-project failure", report.Failed)
 	}
 }
 
@@ -408,7 +662,7 @@ func TestReconcileReportsAListingFailure(t *testing.T) {
 func TestReconcileWithNoProjectReader(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
-	r := NewReconciler(nil, f.expander, NewLifecycler(f.formations))
+	r := NewReconciler(nil, f.formations, f.expander, NewLifecycler(f.formations), time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {

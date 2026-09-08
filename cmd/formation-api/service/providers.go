@@ -225,10 +225,28 @@ func AuthServiceImpl(ctx context.Context, cfg *config.Config) port.Authenticator
 	return nil
 }
 
-// New builds the wired service. Returns a close function that releases the
-// Postgres pool when REPOSITORY_SOURCE=postgres connected one, and a no-op
-// otherwise.
-func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() error, error) {
+// Deps are the wired dependencies, kept so everything that needs them uses the
+// same instances.
+//
+// This exists because the mock repositories are per-call values, not singletons:
+// FormationRepositoryImpl and its siblings return a fresh in-memory store every
+// time they are called. Anything that builds its own set therefore gets stores
+// nobody else can see — the failure UnitOfWorkImpl's doc comment describes, and
+// the reconcile loop reproduced it by wiring itself independently.
+type Deps struct {
+	Formations port.FormationRepository
+	Items      port.ItemRepository
+	Activity   port.ActivityRepository
+	Templates  port.TemplateRepository
+	UnitOfWork port.UnitOfWork
+	Projects   port.ProjectReader
+}
+
+// New builds the wired service. Returns the dependencies so callers that need
+// them share these instances rather than building their own, and a close
+// function that releases the Postgres pool when REPOSITORY_SOURCE=postgres
+// connected one, and a no-op otherwise.
+func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, func() error, error) {
 	slog.InfoContext(ctx, "wiring service dependencies", "repository_source", repositorySource())
 
 	authService := AuthServiceImpl(ctx, cfg)
@@ -266,8 +284,17 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 		return nil
 	}
 
+	deps := &Deps{
+		Formations: formations,
+		Items:      items,
+		Activity:   activity,
+		Templates:  templates,
+		UnitOfWork: uow,
+		Projects:   projects,
+	}
+
 	slog.InfoContext(ctx, "service dependencies wired")
-	return svc, closeFn, nil
+	return svc, deps, closeFn, nil
 }
 
 // StartReconcile starts the reconcile loop, and reports whether it started.
@@ -280,24 +307,26 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, func() e
 // every fifteen minutes to sweep an empty list would log its way through the
 // retention window saying nothing useful, and the absence is worth stating once
 // at startup instead.
-func StartReconcile(ctx context.Context, cfg *config.Config) bool {
-	projects := ProjectReaderImpl(ctx, cfg)
-	if projects == nil {
+//
+// It takes the already-wired deps rather than building its own. In mock mode
+// building its own meant writing checklists into stores no request could read.
+func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) bool {
+	if deps.Projects == nil {
 		slog.WarnContext(ctx, "reconcile loop not started: nothing can list forming projects yet, "+
 			"so no checklist is created automatically. Use formation-cli expand in the meantime")
 		return false
 	}
 
-	formations := FormationRepositoryImpl(ctx, cfg)
-	items := ItemRepositoryImpl(ctx, cfg)
-	activity := ActivityRepositoryImpl(ctx, cfg)
-	templates := TemplateRepositoryImpl(ctx, cfg)
-	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates)
-
 	reconciler := usecaseSvc.NewReconciler(
-		projects,
-		usecaseSvc.NewExpander(usecaseSvc.NewTemplateSelector(templates), uow, projects),
-		usecaseSvc.NewLifecycler(formations),
+		deps.Projects,
+		deps.Formations,
+		usecaseSvc.NewExpander(usecaseSvc.NewTemplateSelector(deps.Templates), deps.UnitOfWork, deps.Projects),
+		usecaseSvc.NewLifecycler(deps.Formations),
+		// Configured, not hardcoded. The interval is the worst-case delay before
+		// a project that entered formation gets its checklist, so it is the one
+		// knob worth turning during an incident — and it previously parsed from
+		// the environment into a field nothing read.
+		cfg.ReconcileInterval,
 	)
 
 	go reconciler.Run(ctx)

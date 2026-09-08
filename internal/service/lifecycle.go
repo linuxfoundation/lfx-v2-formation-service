@@ -37,14 +37,20 @@ func NewLifecycler(formations port.FormationRepository) *Lifecycler {
 // A project with no checklist is not an error: most projects never have one, and
 // the reconcile calls this for every project it sweeps.
 func (l *Lifecycler) SyncTo(ctx context.Context, projectUID, stage string) (bool, error) {
-	want, ok := model.LifecycleForStage(stage)
-	if !ok {
+	want, known := model.LifecycleForStage(stage)
+	if !known {
 		// An unreadable stage must not be treated as "no longer forming".
 		// Freezing a live checklist because a value could not be parsed would
 		// lock people out of work in progress, so nothing happens and the next
 		// reconcile tries again.
 		slog.WarnContext(ctx, "unrecognised project stage; lifecycle left as it is",
 			"project_uid", projectUID, "stage", stage)
+		return false, nil
+	}
+	if want == "" {
+		// Recognised, and says nothing about a lifecycle — Prospect. Silent on
+		// purpose: warning here would report the platform's most common stage as
+		// a problem on every sweep, for every replica.
 		return false, nil
 	}
 

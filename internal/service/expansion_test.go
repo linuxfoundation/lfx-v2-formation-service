@@ -23,6 +23,7 @@ type expansionFixture struct {
 	formations *mock.FormationRepository
 	items      *mock.ItemRepository
 	templates  *mock.TemplateRepository
+	activity   *mock.ActivityRepository
 }
 
 func newExpansionFixture(t *testing.T, sections []model.TemplateSection, projects port.ProjectReader) *expansionFixture {
@@ -52,6 +53,77 @@ func newExpansionFixture(t *testing.T, sections []model.TemplateSection, project
 		formations: formations,
 		items:      items,
 		templates:  templates,
+		activity:   activity,
+	}
+}
+
+// The spec requires an activity entry for template expansion, committed with the
+// change it records. Without it the feed opens on a checklist that cannot
+// explain where any of its items came from.
+func TestExpansionRecordsItselfInTheActivityFeed(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), &stubProjects{})
+
+	created, err := f.expander.ExpandFor(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	if !created {
+		t.Fatal("created = false, want true")
+	}
+
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("activity entries = %d, want 1", len(entries))
+	}
+
+	entry := entries[0]
+	if entry.Action != ActionTemplateExpanded {
+		t.Errorf("action = %q, want %q", entry.Action, ActionTemplateExpanded)
+	}
+	if entry.SetBy != model.SetBySystem {
+		t.Errorf("set_by = %q, want system — no person asked for this", entry.SetBy)
+	}
+	// Formation-level: it is the whole checklist that came into being, not an
+	// item within it.
+	if entry.ItemUID != nil {
+		t.Errorf("item_uid = %v, want nil", entry.ItemUID)
+	}
+	if entry.After["items"] != 3 {
+		t.Errorf("after[items] = %v, want 3", entry.After["items"])
+	}
+}
+
+// A second expansion is absorbed by the uniqueness constraint and creates
+// nothing, so it must not leave a second entry claiming otherwise.
+func TestASecondExpansionRecordsNothing(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), &stubProjects{})
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("first ExpandFor() = %v", err)
+	}
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("second ExpandFor() = %v", err)
+	}
+
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("activity entries = %d, want 1 — the second expansion created nothing", len(entries))
 	}
 }
 

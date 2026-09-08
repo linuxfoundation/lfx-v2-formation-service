@@ -46,15 +46,36 @@ func (r *FormationRepo) Create(ctx context.Context, f *model.Formation) (*model.
 		f.Revision = 1
 	}
 
-	if _, err := r.db.NewInsert().
+	// ON CONFLICT DO NOTHING rather than catching the unique violation, because
+	// the violation aborts the surrounding transaction. The caller treats "this
+	// project already has a checklist" as success — that is what makes the
+	// reconcile safe to run on every replica — and it cannot do that from inside
+	// a transaction Postgres has already put beyond saving: the commit then
+	// fails with "commit unexpectedly resulted in rollback" and the whole sweep
+	// reports an error for a project that is perfectly fine.
+	//
+	// Letting Postgres absorb the conflict keeps the transaction usable, so the
+	// caller's decision to continue actually holds.
+	res, err := r.db.NewInsert().
 		Model(f).
+		On("CONFLICT (project_uid) DO NOTHING").
 		Returning("*").
-		Exec(ctx); err != nil {
+		Exec(ctx)
+	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, domain.ErrAlreadyExists
 		}
 		return nil, fmt.Errorf("insert formation: %w", err)
 	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("insert formation: %w", err)
+	}
+	if affected == 0 {
+		return nil, domain.ErrAlreadyExists
+	}
+
 	return f, nil
 }
 

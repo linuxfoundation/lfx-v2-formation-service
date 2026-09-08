@@ -283,3 +283,74 @@ func TestUpgradeAllCoversEveryChecklist(t *testing.T) {
 		}
 	}
 }
+
+// The spec requires an activity entry for a template upgrade as well as an
+// expansion. Items appearing on a checklist someone is part-way through is
+// precisely the change they will ask about, and the keys are the answer.
+func TestUpgradeRecordsWhatItAdded(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+
+	republish(t, f.templates, 1, sectionsPlusOneMinusOne())
+
+	u := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
+	report, err := u.UpgradeFor(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("UpgradeFor() = %v, want no error", err)
+	}
+	if len(report.AddedKeys) != 1 {
+		t.Fatalf("added keys = %v, want one", report.AddedKeys)
+	}
+
+	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	// Newest first: the upgrade, then the expansion that preceded it.
+	if len(entries) != 2 {
+		t.Fatalf("activity entries = %d, want 2", len(entries))
+	}
+	if entries[0].Action != ActionTemplateUpgraded {
+		t.Errorf("action = %q, want %q", entries[0].Action, ActionTemplateUpgraded)
+	}
+	keys, ok := entries[0].After["added_keys"].([]string)
+	if !ok || len(keys) != 1 || keys[0] != report.AddedKeys[0] {
+		t.Errorf("after[added_keys] = %v, want %v", entries[0].After["added_keys"], report.AddedKeys)
+	}
+}
+
+// An upgrade that finds nothing to add must leave no trace: the feed records
+// changes to the checklist, not the fact that an operator ran a job.
+func TestUpgradeWithNothingToAddRecordsNothing(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+
+	u := NewUpgrader(NewTemplateSelector(f.templates), f.uow, nil)
+	if _, err := u.UpgradeFor(ctx, "project-1"); err != nil {
+		t.Fatalf("UpgradeFor() = %v, want no error", err)
+	}
+
+	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("activity entries = %d, want 1 — only the expansion", len(entries))
+	}
+}

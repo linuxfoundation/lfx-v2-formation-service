@@ -28,12 +28,10 @@ import (
 // refuse every auditor, so the reader stays nil until both halves are
 // readable. See ProjectReaderImpl.
 //
-// UpdateItem calls this from inside the open unit-of-work transaction, so
-// once the adapter lands this NATS round-trip will hold that transaction
-// (and the row lock the later Update takes) open for its duration. Move
-// this call out ahead of s.uow.Do when that lands, re-checking the item's
-// revision after (the version-mismatch re-check buildItemPatch's caller
-// already does after Update covers the analogous race for the patch itself).
+// UpdateItem calls this before opening its transaction, so this round-trip does
+// not hold a row lock for its duration, and carries the result into the
+// transaction to report from the position the check used to occupy. The rationale
+// for both halves is at that call site.
 func validateAssignee(ctx context.Context, projects port.ProjectReader, projectUID, assignee string) error {
 	if projects == nil {
 		return nil

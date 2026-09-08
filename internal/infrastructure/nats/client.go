@@ -88,8 +88,9 @@ func (c *Client) IsReady() error {
 // Request sends a synchronous request and returns the raw reply bytes.
 //
 // The deadline is the lesser of the client timeout and any deadline already on
-// ctx, so a slow upstream cannot outlast what the caller was willing to wait —
-// which matters because these calls run inside an open transaction.
+// ctx, so a slow upstream cannot outlast what the caller was willing to wait.
+// Callers keep these calls outside their transactions, so the bound is on the
+// request's own latency rather than on how long a row stays locked.
 func (c *Client) Request(ctx context.Context, subject string, data []byte) ([]byte, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()

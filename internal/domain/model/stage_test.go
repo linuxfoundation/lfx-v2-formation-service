@@ -11,10 +11,10 @@ import "testing"
 // silently falling to the default.
 func TestStageGate(t *testing.T) {
 	tests := []struct {
-		stage     string
-		forming   bool
-		lifecycle Lifecycle
-		known     bool
+		stage      string
+		forming    bool
+		lifecycle  Lifecycle
+		recognised bool
 	}{
 		{StageFormationExploratory, true, LifecycleLive, true},
 		{StageFormationEngaged, true, LifecycleLive, true},
@@ -29,7 +29,8 @@ func TestStageGate(t *testing.T) {
 		{StageArchived, false, LifecycleFrozen, true},
 
 		// Creates nothing and says nothing about lifecycle — a Prospect has no
-		// checklist to move.
+		// checklist to move. Recognised all the same, so it is not reported as
+		// an unreadable stage on every sweep.
 		{StageProspect, false, "", true},
 
 		// Not the project service's spelling. Must not create a checklist, and
@@ -50,14 +51,11 @@ func TestStageGate(t *testing.T) {
 			if lifecycle != tc.lifecycle {
 				t.Errorf("LifecycleForStage(%q) = %q, want %q", tc.stage, lifecycle, tc.lifecycle)
 			}
-			// A stage that yields no lifecycle must report so, or a caller
-			// switching on the value would treat "" as a real state.
-			if ok != (tc.lifecycle != "") {
-				t.Errorf("LifecycleForStage(%q) ok = %v, want %v", tc.stage, ok, tc.lifecycle != "")
-			}
-
-			if got := KnownStage(tc.stage); got != tc.known {
-				t.Errorf("KnownStage(%q) = %v, want %v", tc.stage, got, tc.known)
+			// Recognition is a separate answer from the lifecycle itself:
+			// Prospect is recognised and still yields none, and only a value
+			// this service has not been taught is unrecognised.
+			if ok != tc.recognised {
+				t.Errorf("LifecycleForStage(%q) recognised = %v, want %v", tc.stage, ok, tc.recognised)
 			}
 		})
 	}
@@ -70,18 +68,5 @@ func TestStagesThatCreateNothing(t *testing.T) {
 		if FormingStage(stage) {
 			t.Errorf("FormingStage(%q) = true, want false", stage)
 		}
-	}
-}
-
-// Disengaged is the reason these two are separate questions.
-func TestFormationPrefixIsNotTheGate(t *testing.T) {
-	if !HasFormationPrefix(StageFormationDisengaged) {
-		t.Error("HasFormationPrefix(Disengaged) = false, want true")
-	}
-	if FormingStage(StageFormationDisengaged) {
-		t.Error("FormingStage(Disengaged) = true, want false")
-	}
-	if HasFormationPrefix(StageActive) {
-		t.Error("HasFormationPrefix(Active) = true, want false")
 	}
 }

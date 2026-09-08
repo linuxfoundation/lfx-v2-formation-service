@@ -99,6 +99,27 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		return nil, errors.New("no unit of work wired")
 	}
 
+	// Checked before the transaction opens, because it is a NATS round-trip to
+	// another service bounded only by that client's timeout, and inside the
+	// transaction it would hold the row lock the later Update takes for the
+	// whole trip — the same reason the template upgrade resolves its project
+	// facts before opening one.
+	//
+	// The result is carried, not returned, and reported by buildItemPatch from
+	// the exact position the check used to occupy. Returning it here would put
+	// this refusal ahead of the missing-checklist, read-only, stale-precondition
+	// and invalid-transition ones, so a stale write to a frozen checklist would
+	// answer 400 where it used to answer 409 — a change to the wire contract,
+	// made by accident, in the name of not holding a lock.
+	//
+	// The cost is one wasted round-trip when the request was going to be
+	// refused on a precondition anyway. That is the right trade against holding
+	// a row lock across a call to another service.
+	var assigneeErr error
+	if p.Assignee != nil && *p.Assignee != "" {
+		assigneeErr = validateAssignee(ctx, s.projects, p.ProjectUID, *p.Assignee)
+	}
+
 	var result *model.Item
 	txErr := s.uow.Do(ctx, func(tx port.Tx) error {
 		formation, err := tx.Formations().GetByProject(ctx, p.ProjectUID)
@@ -128,7 +149,7 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 
-		patch, err := buildItemPatch(ctx, s.projects, p.ProjectUID, item, p)
+		patch, err := buildItemPatch(item, p, assigneeErr)
 		if err != nil {
 			return err
 		}
@@ -170,13 +191,10 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 // current state and turns them into a port.ItemPatch. It returns before
 // setting anything on the returned patch once it finds a refusal, so a
 // caller never sees a partial patch alongside an error.
-func buildItemPatch(
-	ctx context.Context,
-	projects port.ProjectReader,
-	projectUID string,
-	item *model.Item,
-	p *svc.UpdateItemPayload,
-) (port.ItemPatch, error) {
+// assigneeErr carries the result of the assignee check the caller ran before
+// opening the transaction, so it can be reported from the position it used to be
+// checked in.
+func buildItemPatch(item *model.Item, p *svc.UpdateItemPayload, assigneeErr error) (port.ItemPatch, error) {
 	var patch port.ItemPatch
 
 	// Refused rather than applied as a no-op: Update always increments the
@@ -217,10 +235,13 @@ func buildItemPatch(
 	}
 
 	if p.Assignee != nil {
-		if *p.Assignee != "" {
-			if err := validateAssignee(ctx, projects, projectUID, *p.Assignee); err != nil {
-				return port.ItemPatch{}, err
-			}
+		// The membership itself was checked by the caller, before the
+		// transaction opened, because it is a call to another service. It is
+		// reported here, where the check used to happen, so which refusal a
+		// caller sees does not depend on where the check runs: an invalid
+		// transition and a skipped item with no reason both still outrank it.
+		if assigneeErr != nil {
+			return port.ItemPatch{}, assigneeErr
 		}
 		patch.Assignee = p.Assignee
 	}

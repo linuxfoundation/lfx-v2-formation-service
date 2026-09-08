@@ -276,6 +276,17 @@ app:
     REPOSITORY_SOURCE:
       value: postgres
 
+    # RECONCILE_INTERVAL is how often the reconcile loop sweeps for projects that
+    # entered formation without a checklist, and for lifecycles that need moving.
+    # Optional, defaults to 15m. Accepts a Go duration ("30s", "5m", "1h").
+    #
+    # This is the worst-case delay before a project that entered formation gets
+    # its checklist, so it is the value to lower when a backlog needs draining
+    # sooner. Every replica sweeps; there is no leader, so lowering it multiplies
+    # the read load by the replica count.
+    RECONCILE_INTERVAL:
+      value: 15m
+
 # serviceAccount is the configuration for the Kubernetes service account (used by multiple components)
 serviceAccount:
   # create specifies whether a service account should be created

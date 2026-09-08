@@ -19,6 +19,19 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
+// The activity vocabulary for the two things that happen to a checklist without
+// anyone asking. Named rather than inlined because both the expansion and the
+// upgrade record them and the pair has to agree.
+const (
+	ActionTemplateExpanded = "template_expanded"
+	ActionTemplateUpgraded = "template_upgraded"
+)
+
+// actorSystem is the actor on an entry no person caused. The activity feed
+// requires an actor, and attributing an automatic expansion to whichever user
+// happened to trigger the sweep would be a lie in the audit trail.
+const actorSystem = "system"
+
 // projectUIDPlaceholder is substituted into a template's action link once, at
 // expansion, and the result is then fixed. Resolving it on every read would make
 // a link change with a template edit, which is the opposite of the pinning rule
@@ -53,19 +66,36 @@ func NewExpander(selector *TemplateSelector, uow port.UnitOfWork, projects port.
 // every replica, so losing that race is the expected outcome rather than a
 // failure to report.
 func (e *Expander) ExpandFor(ctx context.Context, projectUID string) (bool, error) {
+	tpl, err := e.SelectTemplate(ctx)
+	if err != nil {
+		return false, err
+	}
+	return e.ExpandWithTemplate(ctx, projectUID, tpl)
+}
+
+// SelectTemplate resolves the template a checklist would be created from.
+//
+// Separate from expansion so a caller creating many checklists resolves it once.
+// The selector takes no project facts, so the answer is the same for every
+// project in a sweep — resolving it per project meant one ListPublished, and one
+// decode of the whole sections document, per project.
+func (e *Expander) SelectTemplate(ctx context.Context) (*model.Template, error) {
+	return e.selector.Select(ctx)
+}
+
+// ExpandWithTemplate creates the checklist from an already-resolved template.
+func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tpl *model.Template) (bool, error) {
 	if projectUID == "" {
 		return false, fmt.Errorf("expanding a checklist: %w", domain.ErrInvalidRequest)
 	}
-
-	tpl, err := e.selector.Select(ctx)
-	if err != nil {
-		return false, err
+	if tpl == nil {
+		return false, fmt.Errorf("expanding a checklist for %s with no template: %w", projectUID, domain.ErrNotFound)
 	}
 
 	announcement := announcementDate(ctx, e.projects, projectUID)
 
 	created := false
-	err = e.uow.Do(ctx, func(tx port.Tx) error {
+	err := e.uow.Do(ctx, func(tx port.Tx) error {
 		formation, createErr := tx.Formations().Create(ctx, &model.Formation{
 			ProjectUID: projectUID,
 			// Pinned here and never revisited. A template published later
@@ -89,6 +119,27 @@ func (e *Expander) ExpandFor(ctx context.Context, projectUID string) (bool, erro
 		// Create above and here.
 		if insertErr := tx.Items().InsertMany(ctx, items); insertErr != nil {
 			return fmt.Errorf("expanding %d items for %s: %w", len(items), projectUID, insertErr)
+		}
+
+		// The expansion is an auditable event in its own right: it is how every
+		// item on the checklist came to exist, and without it the feed opens on
+		// a checklist whose origin is the one thing it cannot explain.
+		//
+		// Formation-level, so no item UID — it is the whole checklist that was
+		// created. Attributed to the system because no person asked for it; the
+		// reconcile did, on the strength of the project's stage.
+		if activityErr := tx.Activity().Append(ctx, &model.ActivityEntry{
+			FormationUID: formation.UID,
+			Actor:        actorSystem,
+			SetBy:        model.SetBySystem,
+			Action:       ActionTemplateExpanded,
+			After: map[string]any{
+				"template_uid":     tpl.UID.String(),
+				"template_version": tpl.Version,
+				"items":            len(items),
+			},
+		}); activityErr != nil {
+			return fmt.Errorf("recording the expansion for %s: %w", projectUID, activityErr)
 		}
 
 		created = true

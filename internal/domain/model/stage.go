@@ -3,8 +3,6 @@
 
 package model
 
-import "strings"
-
 // A project's stage, as the project service defines it.
 //
 // There is no separate sub-stage field: the formation sub-stages are compound
@@ -22,10 +20,6 @@ const (
 	StageArchived              = "Archived"
 	StageProspect              = "Prospect"
 )
-
-// stagePrefix is what makes a stage a formation stage. Matching the prefix is
-// not enough on its own to create a checklist — Disengaged carries it too.
-const stagePrefix = "Formation - "
 
 // FormingStage reports whether a project at this stage should have a checklist.
 //
@@ -51,13 +45,22 @@ func FormingStage(stage string) bool {
 }
 
 // LifecycleForStage returns the lifecycle a checklist should hold at this stage,
-// and whether the stage says anything about it at all.
+// and whether the stage is one this service recognises.
 //
-// Only leaving formation is expressed here. A stage that still forms returns
-// live, a project that has become Active completes its checklist, and Archived
-// or Disengaged freeze it. An unrecognised stage returns false rather than a
-// lifecycle: it must not be read as "no longer forming", because that would
-// freeze live checklists on a value this simply has not been taught.
+// The two answers are separate because three cases have to be told apart, and
+// collapsing any two of them produces a wrong behaviour:
+//
+//   - a recognised stage with a lifecycle to hold — forming stays live, Active
+//     completes the checklist, Archived and Disengaged freeze it
+//   - a recognised stage that implies nothing, which is Prospect: it has no
+//     checklist to move, and that is ordinary rather than notable
+//   - an unrecognised value, which must be reported and otherwise left alone
+//
+// An unrecognised stage must never be read as "no longer forming": that would
+// freeze live checklists over a value this has simply not been taught. And
+// Prospect must not be reported as unrecognised, or the log line that exists to
+// surface a genuine upstream change is buried under the most common stage on the
+// platform.
 func LifecycleForStage(stage string) (Lifecycle, bool) {
 	switch {
 	case FormingStage(stage):
@@ -66,21 +69,10 @@ func LifecycleForStage(stage string) (Lifecycle, bool) {
 		return LifecycleCompleted, true
 	case stage == StageArchived, stage == StageFormationDisengaged:
 		return LifecycleFrozen, true
+	case stage == StageProspect:
+		// Recognised, with nothing to say about a lifecycle.
+		return "", true
 	default:
 		return "", false
 	}
-}
-
-// KnownStage reports whether the stage is one the project service defines.
-// Used to tell "this project has left formation" apart from "this project's
-// stage is missing or unreadable", which need opposite handling.
-func KnownStage(stage string) bool {
-	_, ok := LifecycleForStage(stage)
-	return ok || stage == StageProspect
-}
-
-// HasFormationPrefix reports whether a stage is any formation stage, Disengaged
-// included. Distinct from FormingStage, which asks whether a checklist is due.
-func HasFormationPrefix(stage string) bool {
-	return strings.HasPrefix(stage, stagePrefix)
 }
