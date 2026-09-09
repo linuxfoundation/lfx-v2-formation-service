@@ -27,6 +27,21 @@ func UpdateItemLfxV2FormationServicePath(projectUID string, itemKey string) stri
 	return fmt.Sprintf("/formations/%v/items/%v", projectUID, itemKey)
 }
 
+// AcceptItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service accept_item HTTP endpoint.
+func AcceptItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v/accept", projectUID, itemKey)
+}
+
+// RejectItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service reject_item HTTP endpoint.
+func RejectItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v/reject", projectUID, itemKey)
+}
+
+// ReopenItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service reopen_item HTTP endpoint.
+func ReopenItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v/reopen", projectUID, itemKey)
+}
+
 // LivezLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service livez HTTP endpoint.
 func LivezLfxV2FormationServicePath() string {
 	return "/livez"

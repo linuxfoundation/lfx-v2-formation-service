@@ -96,4 +96,50 @@ spec:
           config:
             values:
               aud: {{ .Values.app.audience }}
+
+    # Accept, reject and reopen. Three rules rather than one, because a Heimdall
+    # rule selects on method and path and these are three paths.
+    #
+    # Each checks membership of the formation team, with NO resource in the object:
+    # the question is "is this person on the formation team", which has nothing to
+    # do with which project the request names. That is why these cannot be folded
+    # into the PATCH rule above — that one is gated on the project's writer
+    # relation, and a rule cannot express two different objects for two different
+    # request bodies on the same route.
+    #
+    # This is the narrower guard, so the routes it protects are the ones that reach
+    # done and the one that reverses it. A project writer who is not on the
+    # formation team is refused here, before the service is reached.
+    #
+    # The self-acceptance refusal is NOT here and cannot be: it compares the caller
+    # to a value stored on the row, which no gateway rule can read. It lives in the
+    # service and answers 409.
+    {{- range $action := list "accept" "reject" "reopen" }}
+    - id: "rule:lfx:lfx-v2-formation-service:formations:{{ $action }}_item"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /formations/:project_uid/items/:item_key/{{ $action }}
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if $.Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if $.Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: member
+              object: "team:{{ $.Values.app.formationTeamName | trim }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ $.Values.app.audience }}
+    {{- end }}
 {{- end }}

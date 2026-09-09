@@ -54,6 +54,12 @@ func (l *listProjects) ListFormingProjects(_ context.Context, alsoUIDs []string)
 	return l.refs, nil
 }
 
+// Name is unused by the reconcile — it is the queue projection that displays a
+// project name — and is here to satisfy the port.
+func (l *listProjects) Name(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 // askedFor reports the UIDs the most recent sweep asked to have included.
 func (l *listProjects) askedFor() []string {
 	l.mu.Lock()
@@ -73,11 +79,81 @@ func (l *listProjects) calls() int {
 	return l.listCalls
 }
 
-// newReconciler builds a reconciler over the shared expansion fixture.
+// newReconciler builds a reconciler over the shared expansion fixture, with a
+// capturing publisher so every existing sweep test also exercises the
+// projection path rather than leaving it nil and untested.
 func newReconciler(t *testing.T, projects port.ProjectReader) (*Reconciler, *expansionFixture) {
 	t.Helper()
+	r, f, _ := newReconcilerWithIndex(t, projects)
+	return r, f
+}
+
+// newReconcilerWithIndex is newReconciler plus the publisher it wired, for the
+// tests that assert on what the queue would show.
+func newReconcilerWithIndex(
+	t *testing.T, projects port.ProjectReader,
+) (*Reconciler, *expansionFixture, *mock.IndexerPublisher) {
+	t.Helper()
 	f := newExpansionFixture(t, twoItemSections(), projects)
-	return NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), time.Minute), f
+	publisher := mock.NewIndexerPublisher()
+	projector := NewProjector(f.formations, f.items, projects, publisher)
+	// A real checker rather than nil, for the same reason as the publisher: the
+	// pass resolves nothing while the registry is empty, and wiring it here is
+	// what keeps that a fact the sweep tests observe instead of an assumption.
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations),
+		projector, NewPlatformChecker(f.uow), time.Minute)
+	return r, f, publisher
+}
+
+// The platform pass runs on every project the sweep finishes, and resolves
+// nothing.
+//
+// Both halves matter and neither is obvious from the checker's own tests, which
+// inject a lookup to exercise the machinery. This asserts the deployed shape: the
+// registry is empty, so a platform row is reported unanswerable and left exactly
+// as it was, and the number the sweep reports is the size of that gap rather than
+// silence. When the first real lookup lands, the resolved count here moves and
+// this test says so.
+func TestTheSweepRunsThePlatformPassAndItResolvesNothing(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+	}}
+	r, f := newReconciler(t, projects)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.PlatformResolved != 0 {
+		t.Errorf("platform_resolved = %d, want 0 — no owning service answers a lookup yet",
+			report.PlatformResolved)
+	}
+	if report.PlatformCheckFailed != 0 {
+		t.Errorf("platform_check_failed = %d, want 0", report.PlatformCheckFailed)
+	}
+	// The fixture's template carries one mailing_list row, which is the row
+	// nobody can answer for.
+	if report.PlatformUnanswerable != 1 {
+		t.Errorf("platform_unanswerable = %d, want 1 — the pass ran and found the row it cannot answer",
+			report.PlatformUnanswerable)
+	}
+
+	formation, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("no checklist: %v", err)
+	}
+	item, err := f.items.GetByKey(ctx, formation.UID, "mailing_lists")
+	if err != nil {
+		t.Fatalf("no mailing_lists item: %v", err)
+	}
+	if item.Status != model.StatusNotStarted {
+		t.Errorf("status = %q, want %q — the pass must leave an unanswerable row alone",
+			item.Status, model.StatusNotStarted)
+	}
+	if item.ResolvedRef != nil {
+		t.Errorf("resolved_ref = %+v, want none", item.ResolvedRef)
+	}
 }
 
 // The stage gate: only the four forming stages get a checklist, and the ones
@@ -440,7 +516,7 @@ func TestReconcilerUsesTheConfiguredInterval(t *testing.T) {
 	projects := &listProjects{}
 	f := newExpansionFixture(t, twoItemSections(), projects)
 
-	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), 90*time.Second)
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), nil, nil, 90*time.Second)
 	if r.interval != 90*time.Second {
 		t.Errorf("interval = %v, want 90s", r.interval)
 	}
@@ -448,7 +524,7 @@ func TestReconcilerUsesTheConfiguredInterval(t *testing.T) {
 	// A zero or negative duration would panic time.NewTicker, so an unparseable
 	// or absent setting falls back rather than taking the loop down.
 	for _, bad := range []time.Duration{0, -time.Minute} {
-		r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), bad)
+		r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations), nil, nil, bad)
 		if r.interval != constants.DefaultReconcileInterval {
 			t.Errorf("interval for %v = %v, want the default %v", bad, r.interval, constants.DefaultReconcileInterval)
 		}
@@ -480,7 +556,7 @@ func TestReconcileStillCreatesWhenTheExistingListCannotBeRead(t *testing.T) {
 	f := newExpansionFixture(t, twoItemSections(), projects)
 	broken := &failingListFormations{FormationRepository: f.formations, err: errors.New("connection reset")}
 
-	r := NewReconciler(projects, broken, f.expander, NewLifecycler(f.formations), time.Minute)
+	r := NewReconciler(projects, broken, f.expander, NewLifecycler(f.formations), nil, nil, time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
@@ -529,6 +605,8 @@ func TestReconcileSyncsLifecyclesWhenTemplatesCannotBeRead(t *testing.T) {
 		f.formations,
 		NewExpander(NewTemplateSelector(broken), f.uow, projects),
 		NewLifecycler(f.formations),
+		nil,
+		nil,
 		time.Minute,
 	)
 
@@ -596,6 +674,8 @@ func TestReconcileReadsTheTemplateOncePerSweep(t *testing.T) {
 		f.formations,
 		NewExpander(NewTemplateSelector(counting), f.uow, projects),
 		NewLifecycler(f.formations),
+		nil,
+		nil,
 		time.Minute,
 	)
 
@@ -628,6 +708,8 @@ func TestReconcileSkipsProjectsThatAlreadyHaveChecklists(t *testing.T) {
 		f.formations,
 		NewExpander(NewTemplateSelector(counting), f.uow, projects),
 		NewLifecycler(f.formations),
+		nil,
+		nil,
 		time.Minute,
 	)
 
@@ -684,6 +766,8 @@ func TestReconcileSyncsLifecyclesWhenNoTemplateIsPublished(t *testing.T) {
 		formations,
 		NewExpander(NewTemplateSelector(templates), uow, projects),
 		NewLifecycler(formations),
+		nil,
+		nil,
 		time.Minute,
 	)
 
@@ -740,6 +824,8 @@ func TestAMissingTemplateDoesNotBlockProjectsThatAlreadyHaveChecklists(t *testin
 		formations,
 		NewExpander(NewTemplateSelector(templates), uow, projects),
 		NewLifecycler(formations),
+		nil,
+		nil,
 		time.Minute,
 	)
 
@@ -816,7 +902,7 @@ func TestReconcileReportsAListingFailure(t *testing.T) {
 func TestReconcileWithNoProjectReader(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
-	r := NewReconciler(nil, f.formations, f.expander, NewLifecycler(f.formations), time.Minute)
+	r := NewReconciler(nil, f.formations, f.expander, NewLifecycler(f.formations), nil, nil, time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
@@ -901,7 +987,7 @@ func TestALifecycleThatCannotBeMovedIsCounted(t *testing.T) {
 	}
 
 	broken := &failingUpdateLifecycle{FormationRepository: f.formations, err: errors.New("connection reset")}
-	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(broken), time.Minute)
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(broken), nil, nil, time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
@@ -944,7 +1030,7 @@ func TestBothSweepReadsFailingIsDegradedRatherThanBlocked(t *testing.T) {
 	brokenExpander := NewExpander(
 		NewTemplateSelector(&failingTemplates{TemplateRepository: f.templates, err: boom}), f.uow, projects)
 
-	r := NewReconciler(projects, brokenFormations, brokenExpander, NewLifecycler(f.formations), time.Minute)
+	r := NewReconciler(projects, brokenFormations, brokenExpander, NewLifecycler(f.formations), nil, nil, time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {
@@ -978,7 +1064,7 @@ func TestOnlyTheTemplateFailingStillReportsBlocked(t *testing.T) {
 	brokenExpander := NewExpander(
 		NewTemplateSelector(&failingTemplates{TemplateRepository: f.templates, err: errors.New("connection reset")}),
 		f.uow, projects)
-	r := NewReconciler(projects, f.formations, brokenExpander, NewLifecycler(f.formations), time.Minute)
+	r := NewReconciler(projects, f.formations, brokenExpander, NewLifecycler(f.formations), nil, nil, time.Minute)
 
 	report, err := r.ReconcileOnce(ctx)
 	if err != nil {

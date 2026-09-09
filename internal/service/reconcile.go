@@ -37,16 +37,23 @@ type Reconciler struct {
 	formations port.FormationRepository
 	expander   *Expander
 	lifecycler *Lifecycler
+	projector  *Projector
+	platform   *PlatformChecker
 	interval   time.Duration
 }
 
 // NewReconciler wires a reconciler. A non-positive interval falls back to the
 // configured default rather than to a ticker that panics.
+// A nil projector disables publishing, so a deployment without NATS still
+// creates checklists and moves lifecycles. A nil platform checker likewise skips
+// the platform pass.
 func NewReconciler(
 	projects port.ProjectReader,
 	formations port.FormationRepository,
 	expander *Expander,
 	lifecycler *Lifecycler,
+	projector *Projector,
+	platform *PlatformChecker,
 	interval time.Duration,
 ) *Reconciler {
 	if interval <= 0 {
@@ -57,6 +64,8 @@ func NewReconciler(
 		formations: formations,
 		expander:   expander,
 		lifecycler: lifecycler,
+		projector:  projector,
+		platform:   platform,
 		interval:   interval,
 	}
 }
@@ -77,6 +86,27 @@ type ReconcileReport struct {
 	// with no hundred error logs behind them. Blocked says "one condition, this
 	// many projects waiting on it", and the condition is logged once.
 	Blocked int
+
+	// Projected counts the queue rows republished this sweep, and
+	// ProjectionFailed the ones that could not be.
+	//
+	// A projection failure is counted separately from Failed rather than folded
+	// into it, because it means something different to whoever reads the log: a
+	// checklist exists and is correct in Postgres, and only the queue's view of
+	// it is stale. Nothing is lost and the next sweep republishes it.
+	Projected        int
+	ProjectionFailed int
+
+	// PlatformResolved counts items a platform check advanced to done this
+	// sweep, PlatformUnanswerable the platform rows nobody can answer for, and
+	// PlatformCheckFailed the passes that errored.
+	//
+	// PlatformUnanswerable is the one worth watching while the lookup registry
+	// is empty: it is the size of the gap, per sweep, rather than an assertion
+	// that a gap exists. Every platform row falls into it today.
+	PlatformResolved     int
+	PlatformUnanswerable int
+	PlatformCheckFailed  int
 
 	// Degraded counts projects the sweep could not reach a conclusion about,
 	// because it could not read which checklists already exist and could not
@@ -113,6 +143,11 @@ func (r *Reconciler) Run(ctx context.Context) {
 				"failed", report.Failed,
 				"blocked", report.Blocked,
 				"degraded", report.Degraded,
+				"projected", report.Projected,
+				"projection_failed", report.ProjectionFailed,
+				"platform_resolved", report.PlatformResolved,
+				"platform_unanswerable", report.PlatformUnanswerable,
+				"platform_check_failed", report.PlatformCheckFailed,
 			)
 		}
 
@@ -178,7 +213,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// case the gate must not skip past.
 		if !model.FormingStage(project.SubStage) {
 			report.Skipped++
-			r.syncLifecycle(ctx, project, report)
+			r.finishProject(ctx, project, report)
 			continue
 		}
 
@@ -194,7 +229,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// Lifecycle still runs: an existing checklist is exactly the thing that
 		// may need moving.
 		if sweep.existing[project.UID] {
-			r.syncLifecycle(ctx, project, report)
+			r.finishProject(ctx, project, report)
 			continue
 		}
 
@@ -215,7 +250,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 			} else {
 				report.Degraded++
 			}
-			r.syncLifecycle(ctx, project, report)
+			r.finishProject(ctx, project, report)
 			continue
 		}
 
@@ -237,7 +272,7 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		// A project can re-enter formation, so a checklist that was frozen or
 		// completed has to come back to live. Run after creation because the
 		// checklist has to exist before its lifecycle can be moved.
-		r.syncLifecycle(ctx, project, report)
+		r.finishProject(ctx, project, report)
 	}
 
 	return report, nil
@@ -345,6 +380,76 @@ func (r *Reconciler) prepare(
 	state.template = tpl
 
 	return state
+}
+
+// finishProject runs the three things every project in the sweep needs whatever
+// branch it arrived through: the platform rows resolved as far as the platform
+// can answer them, its lifecycle brought into step with its stage, and its queue
+// row republished.
+//
+// In that order, and the order is the whole reason these are one function. A
+// platform check can move a gating item to done, which changes whether the
+// checklist is ready — so running it after the lifecycle sync would hold that
+// readiness back a full interval. The projection then goes last because it
+// carries both: publishing first would ship the previous values and leave the
+// queue a tick behind on exactly the transition someone is watching for.
+//
+// The projection runs even for a project that created nothing and moved nothing.
+// That is what makes an unpublished or lost row repairable by the ordinary loop
+// rather than by a tool somebody has to remember exists: the sweep does not know
+// which rows are missing from the index, and asking would cost more than
+// republishing.
+func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
+	r.resolvePlatformItems(ctx, project, report)
+	r.syncLifecycle(ctx, project, report)
+
+	if r.projector == nil {
+		return
+	}
+	if err := r.projector.Refresh(ctx, project); err != nil {
+		// Logged and counted, never propagated. The checklist in Postgres is
+		// correct; only the queue's view of it is stale, and the next sweep
+		// republishes. Failing the sweep over this would stop lifecycles moving
+		// for every project after this one.
+		slog.WarnContext(ctx, "could not publish the queue row; the next sweep will retry",
+			"project_uid", project.UID, "error", err)
+		report.ProjectionFailed++
+		return
+	}
+	report.Projected++
+}
+
+// resolvePlatformItems runs one platform pass over a project's checklist,
+// logging rather than propagating a failure so the sweep continues.
+//
+// This resolves nothing today, and that is a statement about the platform rather
+// than about this call: no owning service answers a project-scoped existence
+// lookup, so the registry the checker consults is empty and every platform row
+// lands in PlatformUnanswerable. The pass runs anyway, because the sweep is where
+// this service establishes correctness — an item whose truth lives in another
+// service is only ever going to be caught by something that looks again, and a
+// check reachable from nowhere would go on being correct and unused. It also
+// makes the gap countable: the sweep reports how many rows are waiting on a
+// lookup that does not exist, which is the number to put in front of the teams
+// who own those subjects.
+func (r *Reconciler) resolvePlatformItems(
+	ctx context.Context, project port.ProjectRef, report *ReconcileReport,
+) {
+	if r.platform == nil {
+		return
+	}
+
+	pass, err := r.platform.ResolveFor(ctx, project.UID)
+	if err != nil {
+		slog.WarnContext(ctx, "could not run the platform checks; the next sweep will retry",
+			"project_uid", project.UID, "error", err)
+		report.PlatformCheckFailed++
+		return
+	}
+
+	report.PlatformResolved += pass.Advanced
+	report.PlatformUnanswerable += pass.Unsupported
+	report.PlatformCheckFailed += pass.Failed
 }
 
 // syncLifecycle moves one project's lifecycle and records the outcome on the

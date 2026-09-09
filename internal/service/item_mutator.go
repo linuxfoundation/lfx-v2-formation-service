@@ -372,14 +372,29 @@ func activitySummary(item *model.Item) map[string]any {
 // falls through as a 500 — every expected refusal from this method is a
 // ReasonError, so anything else is unexpected.
 func mapItemMutationError(err error) error {
+	return mapReasonError(err, reasonMessages)
+}
+
+// mapReasonError is the single translation from a domain refusal to a declared
+// FormationError, shared by every route that returns one.
+//
+// The status switch lives here once because it is the same switch everywhere:
+// the design declares one error per domain sentinel, and a route that mapped a
+// conflict to a different status than its neighbour would be a bug rather than a
+// variation. Vocabulary is what differs between routes, so each passes its own
+// message maps, consulted in order.
+func mapReasonError(err error, messages ...map[string]string) error {
 	var re *domain.ReasonError
 	if !errors.As(err, &re) {
 		return err
 	}
 
 	message := re.Message
-	if message == "" {
-		message = reasonMessages[re.Reason]
+	for _, m := range messages {
+		if message != "" {
+			break
+		}
+		message = m[re.Reason]
 	}
 	if message == "" {
 		message = re.Err.Error()

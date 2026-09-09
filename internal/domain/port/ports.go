@@ -145,6 +145,97 @@ type ProjectReader interface {
 	// in a deployed pod. The caller passes the projects it holds a checklist
 	// for, and gets their current stage back whatever it is.
 	ListFormingProjects(ctx context.Context, alsoUIDs []string) ([]ProjectRef, error)
+
+	// Name resolves the project's display name, one project per call.
+	//
+	// TODO: fold this into the list reply. The queue needs a name for every row
+	// it renders, and the list reply carries uid, slug, is_foundation,
+	// parent_uid and stage — everything but the one field the page displays. So
+	// a queue of N rows costs N of these lookups on top of the one list request,
+	// which is the per-row round trip that unioning the list filters existed to
+	// avoid in the first place. Adding name to the list reply is a
+	// project-service change, so it is a separate PR there; this is here to
+	// unblock the projection without waiting on it, and the caller is expected
+	// to bound the fan-out rather than issue one call per row serially.
+	Name(ctx context.Context, projectUID string) (string, error)
+}
+
+// IndexerPublisher publishes a checklist's search projection.
+//
+// The queue screen is one access-filtered search against this projection and
+// nothing else — no per-row request, no fan-out — so what is not published here
+// cannot be shown there. That is the whole reason the interface exists at this
+// layer: the projection is a product decision about what staff may see, and it
+// should be reviewable without reading a NATS client.
+//
+// Publishing is best-effort by design. Postgres is the source of truth, the
+// projection is derived, and the reconcile republishes on every sweep, so a
+// failed publish self-heals within one tick. A caller must therefore never fail
+// a user's write because this failed.
+type IndexerPublisher interface {
+	// PublishFormation upserts one checklist's projection.
+	PublishFormation(ctx context.Context, doc *FormationProjection) error
+}
+
+// FormationProjection is one row of the Formations queue.
+//
+// Everything here is either owned by this service or read fresh from the
+// project service on the sweep that publishes it. None of the project-owned
+// fields are stored in this service's database: a copy that outlives its source
+// is a second truth that drifts, and the sweep that refreshes this is the same
+// one that would have had to invalidate a cache.
+type FormationProjection struct {
+	// FormationUID identifies the document. The project UID would have done
+	// equally well, since the relationship is one-to-one, but keying on the
+	// checklist keeps the document's identity owned by this service.
+	FormationUID string
+	ProjectUID   string
+
+	// Project facts, read fresh on each sweep and never stored here.
+	ProjectName      string
+	ProjectSlug      string
+	IsFoundation     bool
+	ParentUID        string
+	SubStage         string
+	AnnouncementDate string
+
+	// Lifecycle is carried so the queue can tell a live checklist from one that
+	// completed or froze, rather than inferring it from the stage.
+	Lifecycle string
+
+	// GatesCleared is the gates-only half of readiness: every gating item done,
+	// and at least one gating item exists. It deliberately excludes the
+	// announcement date, which travels beside it — see the projection builder
+	// for why the two halves are published separately.
+	GatesCleared bool
+
+	// IsActivating is full readiness: GatesCleared and an announcement date set.
+	IsActivating bool
+
+	// The six progress counts, sent as fields so the search can sort on them.
+	NotStarted         int
+	InProgress         int
+	Blocked            int
+	AwaitingAcceptance int
+	Done               int
+	Skipped            int
+
+	// BlockedItemTitles is the Blocking column. Titles only — naming the person
+	// on a blocked item would put an assignment in a document read by everyone
+	// holding the project's audit relation.
+	BlockedItemTitles []string
+
+	// Assignees is what the "Mine" filter matches on.
+	Assignees []string
+
+	// AccessRelation is the relation a caller must hold on the project to read
+	// this row.
+	//
+	// Carried on the document rather than chosen by the publisher, so the
+	// decision sits in the domain layer beside the fields it protects and is
+	// reviewable without reading a NATS client. The publisher refuses a document
+	// that does not set it: a missing relation is not a default to fill in.
+	AccessRelation string
 }
 
 // ProjectSettings is the subset of a project's settings this service reads.

@@ -35,6 +35,20 @@ type Service interface {
 	// those is narrower than this route's writer guard and a Heimdall rule cannot
 	// express that on a shared route.
 	UpdateItem(context.Context, *UpdateItemPayload) (res *FormationItem, err error)
+	// Accept an item's completion claim, moving awaiting_acceptance to done.
+	// Restricted to the formation team at the gateway, and refused by the service
+	// when the caller is the item's own assignee. If-Match is required.
+	AcceptItem(context.Context, *AcceptItemPayload) (res *FormationItem, err error)
+	// Reject an item's completion claim, returning it to in_progress with a note
+	// the assignee can read. The note is required: a rejection with no reason
+	// leaves the assignee nothing to act on. Restricted to the formation team at
+	// the gateway.
+	RejectItem(context.Context, *RejectItemPayload) (res *FormationItem, err error)
+	// Reopen a done item, returning it to in_progress. Behind the same guard as
+	// acceptance rather than the ordinary write guard: reopening is the reversal
+	// of an acceptance, and a weaker check here would make the acceptance control
+	// bypassable from the other side. Reopening a gating item withdraws readiness.
+	ReopenItem(context.Context, *ReopenItemPayload) (res *FormationItem, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -61,7 +75,24 @@ const ServiceName = "lfx_v2_formation_service"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [5]string{"get_formation", "get_formation_activity", "update_item", "livez", "readyz"}
+var MethodNames = [8]string{"get_formation", "get_formation_activity", "update_item", "accept_item", "reject_item", "reopen_item", "livez", "readyz"}
+
+// AcceptItemPayload is the payload type of the lfx_v2_formation_service
+// service accept_item method.
+type AcceptItemPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The project's UID.
+	ProjectUID string
+	// The item's stable key.
+	ItemKey string
+	// Must equal the item's current version.
+	IfMatch int64
+	// Optional context for the activity entry.
+	Note *string
+}
 
 type FormationActivityEntry struct {
 	// Time-ordered; doubles as the paging cursor.
@@ -219,6 +250,40 @@ type NotFoundError struct {
 	Code string
 	// Error message
 	Message string
+}
+
+// RejectItemPayload is the payload type of the lfx_v2_formation_service
+// service reject_item method.
+type RejectItemPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The project's UID.
+	ProjectUID string
+	// The item's stable key.
+	ItemKey string
+	// Must equal the item's current version.
+	IfMatch int64
+	// Why it was rejected. Readable by the assignee.
+	Note string
+}
+
+// ReopenItemPayload is the payload type of the lfx_v2_formation_service
+// service reopen_item method.
+type ReopenItemPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The project's UID.
+	ProjectUID string
+	// The item's stable key.
+	ItemKey string
+	// Must equal the item's current version.
+	IfMatch int64
+	// Why it was reopened.
+	Note *string
 }
 
 type ServiceUnavailableError struct {

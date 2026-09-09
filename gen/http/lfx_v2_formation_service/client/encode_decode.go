@@ -450,6 +450,537 @@ func DecodeUpdateItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 	}
 }
 
+// BuildAcceptItemRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "accept_item"
+// endpoint
+func (c *Client) BuildAcceptItemRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		projectUID string
+		itemKey    string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.AcceptItemPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "accept_item", "*lfxv2formationservice.AcceptItemPayload", v)
+		}
+		projectUID = p.ProjectUID
+		itemKey = p.ItemKey
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: AcceptItemLfxV2FormationServicePath(projectUID, itemKey)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "accept_item", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeAcceptItemRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service accept_item server.
+func EncodeAcceptItemRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.AcceptItemPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "accept_item", "*lfxv2formationservice.AcceptItemPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewAcceptItemRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "accept_item", err)
+		}
+		return nil
+	}
+}
+
+// DecodeAcceptItemResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service accept_item endpoint. restoreBody controls whether
+// the response body should be restored after having been read.
+// DecodeAcceptItemResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.FormationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.FormationError): http.StatusPreconditionFailed
+//   - "Conflict" (type *lfxv2formationservice.FormationError): http.StatusConflict
+//   - "BadRequest" (type *lfxv2formationservice.FormationError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeAcceptItemResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body AcceptItemResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			res := NewAcceptItemFormationItemOK(&body)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body AcceptItemNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			return nil, NewAcceptItemNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body AcceptItemVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			return nil, NewAcceptItemVersionMismatch(&body)
+		case http.StatusConflict:
+			var (
+				body AcceptItemConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			return nil, NewAcceptItemConflict(&body)
+		case http.StatusBadRequest:
+			var (
+				body AcceptItemBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			return nil, NewAcceptItemBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body AcceptItemUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_item", err)
+			}
+			err = ValidateAcceptItemUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
+			}
+			return nil, NewAcceptItemUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "accept_item", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildRejectItemRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "reject_item"
+// endpoint
+func (c *Client) BuildRejectItemRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		projectUID string
+		itemKey    string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.RejectItemPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "reject_item", "*lfxv2formationservice.RejectItemPayload", v)
+		}
+		projectUID = p.ProjectUID
+		itemKey = p.ItemKey
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: RejectItemLfxV2FormationServicePath(projectUID, itemKey)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "reject_item", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeRejectItemRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service reject_item server.
+func EncodeRejectItemRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.RejectItemPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "reject_item", "*lfxv2formationservice.RejectItemPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewRejectItemRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "reject_item", err)
+		}
+		return nil
+	}
+}
+
+// DecodeRejectItemResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service reject_item endpoint. restoreBody controls whether
+// the response body should be restored after having been read.
+// DecodeRejectItemResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.FormationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.FormationError): http.StatusPreconditionFailed
+//   - "Conflict" (type *lfxv2formationservice.FormationError): http.StatusConflict
+//   - "BadRequest" (type *lfxv2formationservice.FormationError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeRejectItemResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body RejectItemResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			res := NewRejectItemFormationItemOK(&body)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body RejectItemNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			return nil, NewRejectItemNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body RejectItemVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			return nil, NewRejectItemVersionMismatch(&body)
+		case http.StatusConflict:
+			var (
+				body RejectItemConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			return nil, NewRejectItemConflict(&body)
+		case http.StatusBadRequest:
+			var (
+				body RejectItemBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			return nil, NewRejectItemBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body RejectItemUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reject_item", err)
+			}
+			err = ValidateRejectItemUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
+			}
+			return nil, NewRejectItemUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "reject_item", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildReopenItemRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "reopen_item"
+// endpoint
+func (c *Client) BuildReopenItemRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		projectUID string
+		itemKey    string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.ReopenItemPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "reopen_item", "*lfxv2formationservice.ReopenItemPayload", v)
+		}
+		projectUID = p.ProjectUID
+		itemKey = p.ItemKey
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: ReopenItemLfxV2FormationServicePath(projectUID, itemKey)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "reopen_item", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeReopenItemRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service reopen_item server.
+func EncodeReopenItemRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.ReopenItemPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "reopen_item", "*lfxv2formationservice.ReopenItemPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewReopenItemRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "reopen_item", err)
+		}
+		return nil
+	}
+}
+
+// DecodeReopenItemResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service reopen_item endpoint. restoreBody controls whether
+// the response body should be restored after having been read.
+// DecodeReopenItemResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.FormationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.FormationError): http.StatusPreconditionFailed
+//   - "Conflict" (type *lfxv2formationservice.FormationError): http.StatusConflict
+//   - "BadRequest" (type *lfxv2formationservice.FormationError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeReopenItemResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body ReopenItemResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			res := NewReopenItemFormationItemOK(&body)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body ReopenItemNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			return nil, NewReopenItemNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body ReopenItemVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			return nil, NewReopenItemVersionMismatch(&body)
+		case http.StatusConflict:
+			var (
+				body ReopenItemConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			return nil, NewReopenItemConflict(&body)
+		case http.StatusBadRequest:
+			var (
+				body ReopenItemBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			return nil, NewReopenItemBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body ReopenItemUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			err = ValidateReopenItemUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
+			}
+			return nil, NewReopenItemUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "reopen_item", resp.StatusCode, string(body))
+		}
+	}
+}
+
 // BuildLivezRequest instantiates a HTTP request object with method and path
 // set to call the "lfx_v2_formation_service" service "livez" endpoint
 func (c *Client) BuildLivezRequest(ctx context.Context, v any) (*http.Request, error) {

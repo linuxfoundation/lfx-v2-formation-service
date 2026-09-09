@@ -9,6 +9,8 @@
 package server
 
 import (
+	"unicode/utf8"
+
 	lfxv2formationservice "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	lfxv2formationserviceviews "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service/views"
 	goa "goa.design/goa/v3/pkg"
@@ -29,6 +31,27 @@ type UpdateItemRequestBody struct {
 	// Writer-set; feeds Quick Links. http/https only.
 	EvidenceLink *string                              `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
 	SubItems     []*FormationSubItemUpdateRequestBody `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+}
+
+// AcceptItemRequestBody is the type of the "lfx_v2_formation_service" service
+// "accept_item" endpoint HTTP request body.
+type AcceptItemRequestBody struct {
+	// Optional context for the activity entry.
+	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+}
+
+// RejectItemRequestBody is the type of the "lfx_v2_formation_service" service
+// "reject_item" endpoint HTTP request body.
+type RejectItemRequestBody struct {
+	// Why it was rejected. Readable by the assignee.
+	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+}
+
+// ReopenItemRequestBody is the type of the "lfx_v2_formation_service" service
+// "reopen_item" endpoint HTTP request body.
+type ReopenItemRequestBody struct {
+	// Why it was reopened.
+	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
 }
 
 // GetFormationResponseBody is the type of the "lfx_v2_formation_service"
@@ -58,6 +81,123 @@ type GetFormationActivityResponseBody struct {
 // UpdateItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "update_item" endpoint HTTP response body.
 type UpdateItemResponseBody struct {
+	UID string `form:"uid" json:"uid" xml:"uid"`
+	// Stable identifier, e.g. charter_agreed. Never changes.
+	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
+	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
+	Position   int     `form:"position" json:"position" xml:"position"`
+	Title      string  `form:"title" json:"title" xml:"title"`
+	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
+	// Whether this item blocks going live.
+	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
+	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
+	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
+	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
+	// Placeholders substituted once at expansion.
+	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
+	// Writer-set; feeds Quick Links.
+	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
+	// Six values.
+	Status string `form:"status" json:"status" xml:"status"`
+	// Username. Nothing is granted.
+	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
+	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
+	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+	// Required when status is skipped.
+	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
+	// Set by the service.
+	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
+	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+	// Echo as If-Match on every mutation. Per item, not per formation.
+	Version int64 `form:"version" json:"version" xml:"version"`
+}
+
+// AcceptItemResponseBody is the type of the "lfx_v2_formation_service" service
+// "accept_item" endpoint HTTP response body.
+type AcceptItemResponseBody struct {
+	UID string `form:"uid" json:"uid" xml:"uid"`
+	// Stable identifier, e.g. charter_agreed. Never changes.
+	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
+	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
+	Position   int     `form:"position" json:"position" xml:"position"`
+	Title      string  `form:"title" json:"title" xml:"title"`
+	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
+	// Whether this item blocks going live.
+	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
+	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
+	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
+	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
+	// Placeholders substituted once at expansion.
+	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
+	// Writer-set; feeds Quick Links.
+	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
+	// Six values.
+	Status string `form:"status" json:"status" xml:"status"`
+	// Username. Nothing is granted.
+	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
+	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
+	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+	// Required when status is skipped.
+	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
+	// Set by the service.
+	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
+	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+	// Echo as If-Match on every mutation. Per item, not per formation.
+	Version int64 `form:"version" json:"version" xml:"version"`
+}
+
+// RejectItemResponseBody is the type of the "lfx_v2_formation_service" service
+// "reject_item" endpoint HTTP response body.
+type RejectItemResponseBody struct {
+	UID string `form:"uid" json:"uid" xml:"uid"`
+	// Stable identifier, e.g. charter_agreed. Never changes.
+	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
+	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
+	Position   int     `form:"position" json:"position" xml:"position"`
+	Title      string  `form:"title" json:"title" xml:"title"`
+	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
+	// Whether this item blocks going live.
+	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
+	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
+	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
+	// Whether this item must be filled in. Display metadata, not a gate.
+	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
+	// Which audience this item is for. Display metadata only; the response is
+	// never filtered by it.
+	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
+	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
+	// Placeholders substituted once at expansion.
+	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
+	// Writer-set; feeds Quick Links.
+	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
+	// Six values.
+	Status string `form:"status" json:"status" xml:"status"`
+	// Username. Nothing is granted.
+	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
+	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
+	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+	// Required when status is skipped.
+	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
+	// Set by the service.
+	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
+	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+	// Echo as If-Match on every mutation. Per item, not per formation.
+	Version int64 `form:"version" json:"version" xml:"version"`
+}
+
+// ReopenItemResponseBody is the type of the "lfx_v2_formation_service" service
+// "reopen_item" endpoint HTTP response body.
+type ReopenItemResponseBody struct {
 	UID string `form:"uid" json:"uid" xml:"uid"`
 	// Stable identifier, e.g. charter_agreed. Never changes.
 	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
@@ -196,6 +336,210 @@ type UpdateItemBadRequestResponseBody struct {
 // "lfx_v2_formation_service" service "update_item" endpoint HTTP response body
 // for the "Unauthorized" error.
 type UpdateItemUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Error message
+	Message string `form:"message" json:"message" xml:"message"`
+}
+
+// AcceptItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
+// service "accept_item" endpoint HTTP response body for the "NotFound" error.
+type AcceptItemNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// AcceptItemVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
+// for the "VersionMismatch" error.
+type AcceptItemVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// AcceptItemConflictResponseBody is the type of the "lfx_v2_formation_service"
+// service "accept_item" endpoint HTTP response body for the "Conflict" error.
+type AcceptItemConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// AcceptItemBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
+// for the "BadRequest" error.
+type AcceptItemBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// AcceptItemUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
+// for the "Unauthorized" error.
+type AcceptItemUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Error message
+	Message string `form:"message" json:"message" xml:"message"`
+}
+
+// RejectItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
+// service "reject_item" endpoint HTTP response body for the "NotFound" error.
+type RejectItemNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// RejectItemVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
+// for the "VersionMismatch" error.
+type RejectItemVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// RejectItemConflictResponseBody is the type of the "lfx_v2_formation_service"
+// service "reject_item" endpoint HTTP response body for the "Conflict" error.
+type RejectItemConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// RejectItemBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
+// for the "BadRequest" error.
+type RejectItemBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// RejectItemUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
+// for the "Unauthorized" error.
+type RejectItemUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Error message
+	Message string `form:"message" json:"message" xml:"message"`
+}
+
+// ReopenItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
+// service "reopen_item" endpoint HTTP response body for the "NotFound" error.
+type ReopenItemNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// ReopenItemVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
+// for the "VersionMismatch" error.
+type ReopenItemVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// ReopenItemConflictResponseBody is the type of the "lfx_v2_formation_service"
+// service "reopen_item" endpoint HTTP response body for the "Conflict" error.
+type ReopenItemConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// ReopenItemBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
+// for the "BadRequest" error.
+type ReopenItemBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// ReopenItemUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
+// for the "Unauthorized" error.
+type ReopenItemUnauthorizedResponseBody struct {
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
 	// Error message
@@ -417,6 +761,135 @@ func NewUpdateItemResponseBody(res *lfxv2formationservice.FormationItem) *Update
 	return body
 }
 
+// NewAcceptItemResponseBody builds the HTTP response body from the result of
+// the "accept_item" endpoint of the "lfx_v2_formation_service" service.
+func NewAcceptItemResponseBody(res *lfxv2formationservice.FormationItem) *AcceptItemResponseBody {
+	body := &AcceptItemResponseBody{
+		UID:            res.UID,
+		ItemKey:        res.ItemKey,
+		SectionKey:     res.SectionKey,
+		Position:       res.Position,
+		Title:          res.Title,
+		OwnerTeam:      res.OwnerTeam,
+		Gate:           res.Gate,
+		RequiresWriter: res.RequiresWriter,
+		StatusSource:   res.StatusSource,
+		IsRequired:     res.IsRequired,
+		ChecklistType:  res.ChecklistType,
+		ActionLink:     res.ActionLink,
+		EvidenceLink:   res.EvidenceLink,
+		Status:         res.Status,
+		Assignee:       res.Assignee,
+		DueDate:        res.DueDate,
+		Note:           res.Note,
+		SkipReason:     res.SkipReason,
+		Version:        res.Version,
+	}
+	if res.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	}
+	if res.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	}
+	if res.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
+		for i, val := range res.SubItems {
+			if val == nil {
+				body.SubItems[i] = nil
+				continue
+			}
+			body.SubItems[i] = marshalLfxv2formationserviceFormationSubItemToFormationSubItemResponseBody(val)
+		}
+	}
+	return body
+}
+
+// NewRejectItemResponseBody builds the HTTP response body from the result of
+// the "reject_item" endpoint of the "lfx_v2_formation_service" service.
+func NewRejectItemResponseBody(res *lfxv2formationservice.FormationItem) *RejectItemResponseBody {
+	body := &RejectItemResponseBody{
+		UID:            res.UID,
+		ItemKey:        res.ItemKey,
+		SectionKey:     res.SectionKey,
+		Position:       res.Position,
+		Title:          res.Title,
+		OwnerTeam:      res.OwnerTeam,
+		Gate:           res.Gate,
+		RequiresWriter: res.RequiresWriter,
+		StatusSource:   res.StatusSource,
+		IsRequired:     res.IsRequired,
+		ChecklistType:  res.ChecklistType,
+		ActionLink:     res.ActionLink,
+		EvidenceLink:   res.EvidenceLink,
+		Status:         res.Status,
+		Assignee:       res.Assignee,
+		DueDate:        res.DueDate,
+		Note:           res.Note,
+		SkipReason:     res.SkipReason,
+		Version:        res.Version,
+	}
+	if res.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	}
+	if res.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	}
+	if res.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
+		for i, val := range res.SubItems {
+			if val == nil {
+				body.SubItems[i] = nil
+				continue
+			}
+			body.SubItems[i] = marshalLfxv2formationserviceFormationSubItemToFormationSubItemResponseBody(val)
+		}
+	}
+	return body
+}
+
+// NewReopenItemResponseBody builds the HTTP response body from the result of
+// the "reopen_item" endpoint of the "lfx_v2_formation_service" service.
+func NewReopenItemResponseBody(res *lfxv2formationservice.FormationItem) *ReopenItemResponseBody {
+	body := &ReopenItemResponseBody{
+		UID:            res.UID,
+		ItemKey:        res.ItemKey,
+		SectionKey:     res.SectionKey,
+		Position:       res.Position,
+		Title:          res.Title,
+		OwnerTeam:      res.OwnerTeam,
+		Gate:           res.Gate,
+		RequiresWriter: res.RequiresWriter,
+		StatusSource:   res.StatusSource,
+		IsRequired:     res.IsRequired,
+		ChecklistType:  res.ChecklistType,
+		ActionLink:     res.ActionLink,
+		EvidenceLink:   res.EvidenceLink,
+		Status:         res.Status,
+		Assignee:       res.Assignee,
+		DueDate:        res.DueDate,
+		Note:           res.Note,
+		SkipReason:     res.SkipReason,
+		Version:        res.Version,
+	}
+	if res.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	}
+	if res.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	}
+	if res.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
+		for i, val := range res.SubItems {
+			if val == nil {
+				body.SubItems[i] = nil
+				continue
+			}
+			body.SubItems[i] = marshalLfxv2formationserviceFormationSubItemToFormationSubItemResponseBody(val)
+		}
+	}
+	return body
+}
+
 // NewGetFormationNotFoundResponseBody builds the HTTP response body from the
 // result of the "get_formation" endpoint of the "lfx_v2_formation_service"
 // service.
@@ -524,6 +997,195 @@ func NewUpdateItemUnauthorizedResponseBody(res *lfxv2formationservice.Unauthoriz
 	return body
 }
 
+// NewAcceptItemNotFoundResponseBody builds the HTTP response body from the
+// result of the "accept_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewAcceptItemNotFoundResponseBody(res *lfxv2formationservice.FormationError) *AcceptItemNotFoundResponseBody {
+	body := &AcceptItemNotFoundResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewAcceptItemVersionMismatchResponseBody builds the HTTP response body from
+// the result of the "accept_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewAcceptItemVersionMismatchResponseBody(res *lfxv2formationservice.FormationError) *AcceptItemVersionMismatchResponseBody {
+	body := &AcceptItemVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewAcceptItemConflictResponseBody builds the HTTP response body from the
+// result of the "accept_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewAcceptItemConflictResponseBody(res *lfxv2formationservice.FormationError) *AcceptItemConflictResponseBody {
+	body := &AcceptItemConflictResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewAcceptItemBadRequestResponseBody builds the HTTP response body from the
+// result of the "accept_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewAcceptItemBadRequestResponseBody(res *lfxv2formationservice.FormationError) *AcceptItemBadRequestResponseBody {
+	body := &AcceptItemBadRequestResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewAcceptItemUnauthorizedResponseBody builds the HTTP response body from the
+// result of the "accept_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewAcceptItemUnauthorizedResponseBody(res *lfxv2formationservice.UnauthorizedError) *AcceptItemUnauthorizedResponseBody {
+	body := &AcceptItemUnauthorizedResponseBody{
+		Code:    res.Code,
+		Message: res.Message,
+	}
+	return body
+}
+
+// NewRejectItemNotFoundResponseBody builds the HTTP response body from the
+// result of the "reject_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewRejectItemNotFoundResponseBody(res *lfxv2formationservice.FormationError) *RejectItemNotFoundResponseBody {
+	body := &RejectItemNotFoundResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewRejectItemVersionMismatchResponseBody builds the HTTP response body from
+// the result of the "reject_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewRejectItemVersionMismatchResponseBody(res *lfxv2formationservice.FormationError) *RejectItemVersionMismatchResponseBody {
+	body := &RejectItemVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewRejectItemConflictResponseBody builds the HTTP response body from the
+// result of the "reject_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewRejectItemConflictResponseBody(res *lfxv2formationservice.FormationError) *RejectItemConflictResponseBody {
+	body := &RejectItemConflictResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewRejectItemBadRequestResponseBody builds the HTTP response body from the
+// result of the "reject_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewRejectItemBadRequestResponseBody(res *lfxv2formationservice.FormationError) *RejectItemBadRequestResponseBody {
+	body := &RejectItemBadRequestResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewRejectItemUnauthorizedResponseBody builds the HTTP response body from the
+// result of the "reject_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewRejectItemUnauthorizedResponseBody(res *lfxv2formationservice.UnauthorizedError) *RejectItemUnauthorizedResponseBody {
+	body := &RejectItemUnauthorizedResponseBody{
+		Code:    res.Code,
+		Message: res.Message,
+	}
+	return body
+}
+
+// NewReopenItemNotFoundResponseBody builds the HTTP response body from the
+// result of the "reopen_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewReopenItemNotFoundResponseBody(res *lfxv2formationservice.FormationError) *ReopenItemNotFoundResponseBody {
+	body := &ReopenItemNotFoundResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewReopenItemVersionMismatchResponseBody builds the HTTP response body from
+// the result of the "reopen_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewReopenItemVersionMismatchResponseBody(res *lfxv2formationservice.FormationError) *ReopenItemVersionMismatchResponseBody {
+	body := &ReopenItemVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewReopenItemConflictResponseBody builds the HTTP response body from the
+// result of the "reopen_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewReopenItemConflictResponseBody(res *lfxv2formationservice.FormationError) *ReopenItemConflictResponseBody {
+	body := &ReopenItemConflictResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewReopenItemBadRequestResponseBody builds the HTTP response body from the
+// result of the "reopen_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewReopenItemBadRequestResponseBody(res *lfxv2formationservice.FormationError) *ReopenItemBadRequestResponseBody {
+	body := &ReopenItemBadRequestResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewReopenItemUnauthorizedResponseBody builds the HTTP response body from the
+// result of the "reopen_item" endpoint of the "lfx_v2_formation_service"
+// service.
+func NewReopenItemUnauthorizedResponseBody(res *lfxv2formationservice.UnauthorizedError) *ReopenItemUnauthorizedResponseBody {
+	body := &ReopenItemUnauthorizedResponseBody{
+		Code:    res.Code,
+		Message: res.Message,
+	}
+	return body
+}
+
 // NewReadyzServiceUnavailableResponseBody builds the HTTP response body from
 // the result of the "readyz" endpoint of the "lfx_v2_formation_service"
 // service.
@@ -589,6 +1251,51 @@ func NewUpdateItemPayload(body *UpdateItemRequestBody, projectUID string, itemKe
 	return v
 }
 
+// NewAcceptItemPayload builds a lfx_v2_formation_service service accept_item
+// endpoint payload.
+func NewAcceptItemPayload(body *AcceptItemRequestBody, projectUID string, itemKey string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.AcceptItemPayload {
+	v := &lfxv2formationservice.AcceptItemPayload{
+		Note: body.Note,
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
+
+	return v
+}
+
+// NewRejectItemPayload builds a lfx_v2_formation_service service reject_item
+// endpoint payload.
+func NewRejectItemPayload(body *RejectItemRequestBody, projectUID string, itemKey string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.RejectItemPayload {
+	v := &lfxv2formationservice.RejectItemPayload{
+		Note: *body.Note,
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
+
+	return v
+}
+
+// NewReopenItemPayload builds a lfx_v2_formation_service service reopen_item
+// endpoint payload.
+func NewReopenItemPayload(body *ReopenItemRequestBody, projectUID string, itemKey string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.ReopenItemPayload {
+	v := &lfxv2formationservice.ReopenItemPayload{
+		Note: body.Note,
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
+
+	return v
+}
+
 // ValidateUpdateItemRequestBody runs the validations defined on
 // update_item_request_body
 func ValidateUpdateItemRequestBody(body *UpdateItemRequestBody) (err error) {
@@ -602,6 +1309,20 @@ func ValidateUpdateItemRequestBody(body *UpdateItemRequestBody) (err error) {
 			if err2 := ValidateFormationSubItemUpdateRequestBody(e); err2 != nil {
 				err = goa.MergeErrors(err, err2)
 			}
+		}
+	}
+	return
+}
+
+// ValidateRejectItemRequestBody runs the validations defined on
+// reject_item_request_body
+func ValidateRejectItemRequestBody(body *RejectItemRequestBody) (err error) {
+	if body.Note == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("note", "body"))
+	}
+	if body.Note != nil {
+		if utf8.RuneCountInString(*body.Note) < 1 {
+			err = goa.MergeErrors(err, goa.InvalidLengthError("body.note", *body.Note, utf8.RuneCountInString(*body.Note), 1, true))
 		}
 	}
 	return

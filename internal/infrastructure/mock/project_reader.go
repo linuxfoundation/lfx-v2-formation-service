@@ -17,20 +17,54 @@ import (
 type ProjectReader struct {
 	mu       sync.Mutex
 	settings map[string]*port.ProjectSettings
+	names    map[string]string
 	forming  []port.ProjectRef
 	// byUID answers the uids half of the list, whatever stage the project is
 	// at. Seeded separately from forming precisely so a test can put a project
 	// at Active or Archived — a stage the forming list must not contain — and
 	// still have it come back when the sweep names it.
 	byUID map[string]port.ProjectRef
+
+	nameCalls int
 }
 
 // NewProjectReader constructs an empty double.
 func NewProjectReader() *ProjectReader {
 	return &ProjectReader{
 		settings: make(map[string]*port.ProjectSettings),
+		names:    make(map[string]string),
 		byUID:    make(map[string]port.ProjectRef),
 	}
+}
+
+// SetName seeds the display name returned for a project.
+func (r *ProjectReader) SetName(projectUID, name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.names[projectUID] = name
+}
+
+// Name returns the seeded display name, or domain.ErrNotFound.
+//
+// Counts its calls, so a test can assert the projection does not issue one
+// lookup per row once the name arrives on the list reply.
+func (r *ProjectReader) Name(_ context.Context, projectUID string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.nameCalls++
+	name, ok := r.names[projectUID]
+	if !ok {
+		return "", domain.ErrNotFound
+	}
+	return name, nil
+}
+
+// NameCalls reports how many times Name was asked.
+func (r *ProjectReader) NameCalls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.nameCalls
 }
 
 // SetSettings seeds the settings returned for a project.

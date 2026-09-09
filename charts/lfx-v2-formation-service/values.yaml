@@ -185,6 +185,21 @@ app:
   logAddSource: true
   # use_oidc_contextualizer is a boolean to determine if the OIDC contextualizer should be used
   use_oidc_contextualizer: true
+  # formationTeamName is the OpenFGA team whose members may accept, reject and
+  # reopen a checklist item. The gateway checks `member` on `team:<this>`, with no
+  # resource in the object — the question is whether the caller is on the formation
+  # team, not what they hold on the project.
+  #
+  # The same value in every environment, so it is a real default here rather than a
+  # per-environment identifier. `team:formation` already exists in production with
+  # members, so no team has to be created and no name agreed. `type team` already
+  # defines `member: [user]` in the platform model, so no model change is needed
+  # either.
+  #
+  # Dev has the object with no members, which means the three routes answer 403
+  # there until somebody is added. That is a write to live permissions and is done
+  # deliberately rather than by this chart.
+  formationTeamName: "formation"
   # jwt is the configuration for JWT authentication
   # audience is the intended audience for the JWT token
   audience: lfx-v2-formation-service

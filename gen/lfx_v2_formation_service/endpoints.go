@@ -20,6 +20,9 @@ type Endpoints struct {
 	GetFormation         goa.Endpoint
 	GetFormationActivity goa.Endpoint
 	UpdateItem           goa.Endpoint
+	AcceptItem           goa.Endpoint
+	RejectItem           goa.Endpoint
+	ReopenItem           goa.Endpoint
 	Livez                goa.Endpoint
 	Readyz               goa.Endpoint
 }
@@ -33,6 +36,9 @@ func NewEndpoints(s Service) *Endpoints {
 		GetFormation:         NewGetFormationEndpoint(s, a.JWTAuth),
 		GetFormationActivity: NewGetFormationActivityEndpoint(s, a.JWTAuth),
 		UpdateItem:           NewUpdateItemEndpoint(s, a.JWTAuth),
+		AcceptItem:           NewAcceptItemEndpoint(s, a.JWTAuth),
+		RejectItem:           NewRejectItemEndpoint(s, a.JWTAuth),
+		ReopenItem:           NewReopenItemEndpoint(s, a.JWTAuth),
 		Livez:                NewLivezEndpoint(s),
 		Readyz:               NewReadyzEndpoint(s),
 	}
@@ -44,6 +50,9 @@ func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.GetFormation = m(e.GetFormation)
 	e.GetFormationActivity = m(e.GetFormationActivity)
 	e.UpdateItem = m(e.UpdateItem)
+	e.AcceptItem = m(e.AcceptItem)
+	e.RejectItem = m(e.RejectItem)
+	e.ReopenItem = m(e.ReopenItem)
 	e.Livez = m(e.Livez)
 	e.Readyz = m(e.Readyz)
 }
@@ -124,6 +133,75 @@ func NewUpdateItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoi
 			return nil, err
 		}
 		return s.UpdateItem(ctx, p)
+	}
+}
+
+// NewAcceptItemEndpoint returns an endpoint function that calls the method
+// "accept_item" of service "lfx_v2_formation_service".
+func NewAcceptItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*AcceptItemPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return s.AcceptItem(ctx, p)
+	}
+}
+
+// NewRejectItemEndpoint returns an endpoint function that calls the method
+// "reject_item" of service "lfx_v2_formation_service".
+func NewRejectItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*RejectItemPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return s.RejectItem(ctx, p)
+	}
+}
+
+// NewReopenItemEndpoint returns an endpoint function that calls the method
+// "reopen_item" of service "lfx_v2_formation_service".
+func NewReopenItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*ReopenItemPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return s.ReopenItem(ctx, p)
 	}
 }
 
