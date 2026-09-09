@@ -258,6 +258,58 @@ func TestOnePersonCannotClaimAndAcceptAnUnassignedItem(t *testing.T) {
 	assert.Equal(t, string(model.StatusDone), accepted.Status)
 }
 
+// A later edit by somebody else is not the claim, and must not be mistaken for
+// one.
+//
+// Every PATCH appends an entry, including one that changes only the note, and an
+// item left sitting in awaiting_acceptance collects entries whose after-status is
+// awaiting_acceptance without any of them being a claim. Matching on that status
+// alone made the newest such entry the claimant, so a second person editing the
+// note was enough to hand the real claimant of an unassigned item their own
+// acceptance.
+func TestANoteEditByAnotherPersonIsNotMistakenForTheClaim(t *testing.T) {
+	s, _, itemOne, _ := newItemMutatorTestService(t)
+
+	// Unassigned, so the claimant comparison is the only thing standing between
+	// one person and their own acceptance.
+	inProgress := string(model.StatusInProgress)
+	moved, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: itemOne.Revision, Status: &inProgress,
+	})
+	require.NoError(t, err)
+
+	awaiting := string(model.StatusAwaitingAcceptance)
+	claimed, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: moved.Version, Status: &awaiting,
+	})
+	require.NoError(t, err)
+
+	// Somebody else adds a note while the item waits. The status does not move.
+	note := "the appendix is with legal"
+	edited, err := s.UpdateItem(asPrincipal("someone-else"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: claimed.Version, Note: &note,
+	})
+	require.NoError(t, err)
+	require.Equal(t, string(model.StatusAwaitingAcceptance), edited.Status)
+
+	_, err = s.AcceptItem(asPrincipal("one-person"), &svc.AcceptItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: edited.Version,
+	})
+	fe := formationError(t, err)
+	assert.Equal(t, reasonSelfAcceptanceForbidden, fe.Reason,
+		"a note edit displaced the claim, so the claimant accepted their own item")
+
+	// The person who wrote the note did not make the claim, so they may accept.
+	accepted, err := s.AcceptItem(asPrincipal("someone-else"), &svc.AcceptItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: edited.Version,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, string(model.StatusDone), accepted.Status)
+}
+
 // The claim and the acceptance are two entries naming two actors. That pair is
 // the audit evidence the whole flow exists to produce.
 func TestTheClaimAndTheAcceptanceAreSeparateEntriesNamingDifferentActors(t *testing.T) {

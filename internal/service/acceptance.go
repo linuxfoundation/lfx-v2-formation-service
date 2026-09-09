@@ -360,14 +360,30 @@ func (s *Service) isSelfAcceptance(
 }
 
 // isClaimEntry reports whether an activity entry is the completion claim: a
-// status change whose result was awaiting_acceptance.
+// status change that moved the item into awaiting_acceptance.
 //
-// Reads the recorded after-summary rather than trusting the action name, because
-// the claim travels as an ordinary status_changed on the shared PATCH route and
-// has no action of its own.
+// Reads the recorded summaries rather than trusting the action name, because the
+// claim travels as an ordinary status_changed on the shared PATCH route and has
+// no action of its own.
+//
+// The transition is what identifies it, not the resulting status alone. Every
+// PATCH appends an entry, including one that only edits a note, so an item left
+// sitting in awaiting_acceptance collects entries whose after-status is
+// awaiting_acceptance without any of them being the claim. Matching on the
+// after-status alone made the most recent of those the claimant, which handed the
+// real claimant of an unassigned item their own acceptance as soon as anybody
+// else touched the row.
+//
+// An entry with no before-summary counts as a claim: it cannot be an edit made
+// while the item already sat there, and treating it as one would reopen the same
+// hole from the other end.
 func isClaimEntry(entry *model.ActivityEntry) bool {
-	status, ok := entry.After["status"].(string)
-	return ok && model.ItemStatus(status) == model.StatusAwaitingAcceptance
+	after, ok := entry.After["status"].(string)
+	if !ok || model.ItemStatus(after) != model.StatusAwaitingAcceptance {
+		return false
+	}
+	before, ok := entry.Before["status"].(string)
+	return !ok || model.ItemStatus(before) != model.StatusAwaitingAcceptance
 }
 
 // mapAcceptanceError turns a domain.ReasonError into the declared FormationError,

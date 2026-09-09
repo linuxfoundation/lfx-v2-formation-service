@@ -28,6 +28,15 @@ func platformFixture(
 	t *testing.T, status model.ItemStatus, lookup platformLookup,
 ) (*PlatformChecker, *platformRepos, *model.Formation) {
 	t.Helper()
+	return platformFixtureRequiring(t, status, lookup, 1)
+}
+
+// platformFixtureRequiring is platformFixture with the row's min_count chosen,
+// for the one case that needs a row asking for more than a single resource.
+func platformFixtureRequiring(
+	t *testing.T, status model.ItemStatus, lookup platformLookup, minCount int,
+) (*PlatformChecker, *platformRepos, *model.Formation) {
+	t.Helper()
 
 	formations := mock.NewFormationRepository()
 	items := mock.NewItemRepository()
@@ -47,7 +56,7 @@ func platformFixture(
 		Title:         "Charter the TSC",
 		Status:        status,
 		StatusSource:  model.SourcePlatform,
-		PlatformCheck: &model.PlatformCheck{ResourceType: "committee", MinCount: 1},
+		PlatformCheck: &model.PlatformCheck{ResourceType: "committee", MinCount: minCount},
 		Note:          "a person wrote this",
 	}})
 	require.NoError(t, err)
@@ -70,8 +79,8 @@ type platformRepos struct {
 	activity   *mock.ActivityRepository
 }
 
-func foundCommittee(_ context.Context, _ string) (*model.ResolvedRef, error) {
-	return &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+func foundCommittee(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+	return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
 }
 
 // The invariant this file exists for. A platform check may move an item to done
@@ -169,8 +178,8 @@ func TestAnAdvancedItemIsAttributedToTheSystem(t *testing.T) {
 // state of a row still to be done, and it must not be confused with the platform
 // being unable to answer.
 func TestAMissingResourceIsPendingRatherThanUnsupported(t *testing.T) {
-	notYet := func(_ context.Context, _ string) (*model.ResolvedRef, error) {
-		return nil, domain.ErrNotFound
+	notYet := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 0, nil, domain.ErrNotFound
 	}
 	checker, repos, formation := platformFixture(t, model.StatusNotStarted, notYet)
 
@@ -184,6 +193,35 @@ func TestAMissingResourceIsPendingRatherThanUnsupported(t *testing.T) {
 	after, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusNotStarted, after.Status)
+}
+
+// A row asking for two resources is not satisfied by one. Template validation
+// allows any min_count of one or more, so a check that advanced on the first hit
+// would mark such a row done with half of what it asks for — and forward-only
+// means nothing walks that back.
+func TestARowRequiringTwoResourcesIsNotAdvancedByOne(t *testing.T) {
+	oneOfTwo := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+	checker, repos, formation := platformFixtureRequiring(t, model.StatusNotStarted, oneOfTwo, 2)
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 0, report.Advanced, "a row asking for two was advanced by one")
+	assert.Equal(t, 1, report.Pending)
+
+	after, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusNotStarted, after.Status)
+
+	enough := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 2, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+	checker.lookups["committee"] = enough
+
+	report, err = checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Advanced, "a row asking for two was not advanced by two")
 }
 
 // The state the platform is actually in today: no owning service answers a
@@ -223,8 +261,8 @@ func TestTheLookupRegistryIsDeliberatelyEmpty(t *testing.T) {
 // A lookup that fails leaves the item alone and does not fail the pass: one
 // resource type being unreachable must not stop the others being resolved.
 func TestAFailingLookupLeavesTheItemAloneAndDoesNotFailThePass(t *testing.T) {
-	broken := func(_ context.Context, _ string) (*model.ResolvedRef, error) {
-		return nil, errors.New("committee service unreachable")
+	broken := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 0, nil, errors.New("committee service unreachable")
 	}
 	checker, repos, formation := platformFixture(t, model.StatusInProgress, broken)
 

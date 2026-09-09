@@ -403,8 +403,16 @@ func (r *Reconciler) prepare(
 // which rows are missing from the index, and asking would cost more than
 // republishing.
 func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
-	r.syncLifecycle(ctx, project, report)
-	r.resolvePlatformItems(ctx, project, report)
+	// The platform pass declines a checklist whose lifecycle has been completed
+	// or frozen, which is the whole protection the ordering above buys — and it
+	// only holds if the lifecycle actually moved. A failed sync leaves a closing
+	// checklist still reading as live, so running the pass anyway would advance
+	// rows on it in exactly the sweep this ordering exists to protect. Skipped
+	// for this project only; the next sweep retries the sync and the pass with
+	// it.
+	if r.syncLifecycle(ctx, project, report) {
+		r.resolvePlatformItems(ctx, project, report)
+	}
 
 	if r.projector == nil {
 		return
@@ -467,14 +475,21 @@ func (r *Reconciler) resolvePlatformItems(
 // what makes that possible: returning a bare "did it move" collapsed a failure
 // into the same false as a checklist that needed no move, so a sweep that could
 // not move a single lifecycle still summarised itself as failed=0.
-func (r *Reconciler) syncLifecycle(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
+//
+// It reports whether the lifecycle is in step, so a caller can tell a project
+// whose closing state is unknown from one that is simply where it was.
+func (r *Reconciler) syncLifecycle(
+	ctx context.Context, project port.ProjectRef, report *ReconcileReport,
+) bool {
 	moved, err := r.lifecycler.SyncTo(ctx, project.UID, project.SubStage)
 	switch {
 	case err != nil:
 		slog.ErrorContext(ctx, "could not sync lifecycle; continuing the sweep",
 			"project_uid", project.UID, "stage", project.SubStage, "error", err)
 		report.Failed++
+		return false
 	case moved:
 		report.LifecyclesMoved++
 	}
+	return true
 }

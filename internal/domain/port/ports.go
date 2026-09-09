@@ -155,8 +155,14 @@ type ProjectReader interface {
 	// which is the per-row round trip that unioning the list filters existed to
 	// avoid in the first place. Adding name to the list reply is a
 	// project-service change, so it is a separate PR there; this is here to
-	// unblock the projection without waiting on it, and the caller is expected
-	// to bound the fan-out rather than issue one call per row serially.
+	// unblock the projection without waiting on it.
+	//
+	// The fan-out is deliberately left serial in the meantime. This is resolved
+	// at publish time on the reconcile ticker, never on a read path — the queue
+	// screen is one search against the index and never reaches this service — so
+	// the cost is sweep duration over the projects being formed, not latency on
+	// anybody's page. Folding the name into the list reply removes the fan-out
+	// outright, which is why it is that rather than concurrency here.
 	Name(ctx context.Context, projectUID string) (string, error)
 }
 

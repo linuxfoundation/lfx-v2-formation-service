@@ -1039,6 +1039,55 @@ func TestALifecycleThatCannotBeMovedIsCounted(t *testing.T) {
 	}
 }
 
+// A lifecycle that could not be moved also holds back the platform pass for that
+// project.
+//
+// The pass declines a completed or frozen checklist, which is the only thing
+// stopping it advancing rows on a checklist that is closing — and that protection
+// is gone when the close itself failed, because the checklist still reads as
+// live. The project is Active here, so the sweep it is being closed in is exactly
+// the sweep the ordering exists to protect.
+func TestAFailedLifecycleSyncSkipsThePlatformPass(t *testing.T) {
+	ctx := context.Background()
+
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageActive},
+	}}
+	f := newExpansionFixture(t, twoItemSections(), projects)
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+
+	// A lookup that answers, so a pass that ran would be visible in the report.
+	// The registry is empty in the deployed shape, which would make this test
+	// pass for the wrong reason.
+	asked := 0
+	checker := &PlatformChecker{uow: f.uow, lookups: map[string]platformLookup{
+		"mailing_list": func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+			asked++
+			return 1, &model.ResolvedRef{Type: "mailing_list", UID: "list-1"}, nil
+		},
+	}}
+
+	broken := &failingUpdateLifecycle{FormationRepository: f.formations, err: errors.New("connection reset")}
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(broken), nil, checker, time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if asked != 0 {
+		t.Errorf("the platform lookup was called %d times after the lifecycle sync failed, want 0", asked)
+	}
+	if report.PlatformResolved != 0 {
+		t.Errorf("platform_resolved = %d, want 0 — a closing checklist was advanced anyway",
+			report.PlatformResolved)
+	}
+	if report.Failed != 1 {
+		t.Errorf("failed = %d, want 1 — the lifecycle failure is still what gets reported", report.Failed)
+	}
+}
+
 // With both sweep-wide reads gone — the existing checklists and the template —
 // every forming project is absent from an empty set, so counting them as blocked
 // would assert they need a checklist and cannot have one. The sweep does not know

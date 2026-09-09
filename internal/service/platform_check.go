@@ -59,13 +59,14 @@ var platformLookups = map[string]platformLookup{
 	// Deliberately empty. See above.
 }
 
-// platformLookup asks an owning service whether a resource exists for a project.
+// platformLookup asks an owning service how many of a resource a project has.
 //
-// It returns the reference to the thing it found, so a "Create committee" row can
-// become "Open committee" pointing at the real one. A lookup that can only say
-// yes or no is not enough for that, which is why this returns a ref rather than a
-// bool.
-type platformLookup func(ctx context.Context, projectUID string) (*model.ResolvedRef, error)
+// Shaped as port.ResourceChecker.Count, and it returns both halves for a reason.
+// The count is what the row's min_count is compared against, so a row requiring
+// two committees is not satisfied by the first one found. The reference is what
+// turns a "Create committee" row into "Open committee" pointing at the real one,
+// which a lookup answering only yes or no could not do.
+type platformLookup func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error)
 
 // PlatformChecker resolves the checklist rows the platform can answer for itself.
 type PlatformChecker struct {
@@ -178,7 +179,7 @@ func (c *PlatformChecker) resolveItem(
 		return
 	}
 
-	ref, err := lookup(ctx, projectUID)
+	count, ref, err := lookup(ctx, projectUID)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		// Asked, and the thing does not exist yet. The ordinary state of a row
@@ -191,7 +192,11 @@ func (c *PlatformChecker) resolveItem(
 			"project_uid", projectUID, "item_key", item.ItemKey,
 			"resource_type", item.PlatformCheck.ResourceType, "error", err)
 		return
-	case ref == nil:
+	case ref == nil || count < item.PlatformCheck.MinCount:
+		// Found something, but not enough of it. Every row in the seeded template
+		// asks for one, so this is the same "not yet" as finding nothing — the
+		// distinction only starts to matter for a row asking for two, which the
+		// template validation already allows.
 		report.Pending++
 		return
 	}
