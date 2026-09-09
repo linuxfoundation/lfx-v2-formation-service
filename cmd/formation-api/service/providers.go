@@ -205,6 +205,27 @@ func ProjectReaderImpl(ctx context.Context, cfg *config.Config) port.ProjectRead
 	return nats.NewProjectClient(client)
 }
 
+// IndexerPublisherImpl returns the publisher that feeds the Formations queue.
+//
+// Nil when NATS could not be reached, and the sweep treats that as "do not
+// publish" rather than as an error to retry. The consequence is worth being
+// explicit about, because it is silent from inside this service: checklists are
+// still created and lifecycles still move, but the queue stops being refreshed
+// and staff see whatever the index last held. Nothing is lost — the projection is
+// derived from Postgres and republished on the first sweep after NATS returns.
+//
+// Shares the one NATS connection with the project reader, so a deployment that
+// can read projects can always publish, and neither can be configured without
+// the other.
+func IndexerPublisherImpl(ctx context.Context, cfg *config.Config) port.IndexerPublisher {
+	client := natsImpl(ctx, cfg)
+	if client == nil {
+		return nil
+	}
+	slog.InfoContext(ctx, "initializing NATS indexer publisher")
+	return nats.NewIndexerPublisher(client)
+}
+
 // AuthServiceImpl initializes the authentication service implementation based
 // on AUTH_SOURCE. An unset value means "jwt", and any failure to build the
 // real validator is fatal rather than a silent downgrade to the mock.
@@ -267,6 +288,7 @@ type Deps struct {
 	Templates  port.TemplateRepository
 	UnitOfWork port.UnitOfWork
 	Projects   port.ProjectReader
+	Indexer    port.IndexerPublisher
 }
 
 // New builds the wired service. Returns the dependencies so callers that need
@@ -325,6 +347,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		Templates:  templates,
 		UnitOfWork: uow,
 		Projects:   projects,
+		Indexer:    IndexerPublisherImpl(ctx, cfg),
 	}
 
 	slog.InfoContext(ctx, "service dependencies wired")
@@ -356,6 +379,17 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) bool {
 		deps.Formations,
 		usecaseSvc.NewExpander(usecaseSvc.NewTemplateSelector(deps.Templates), deps.UnitOfWork, deps.Projects),
 		usecaseSvc.NewLifecycler(deps.Formations),
+		// The projector may hold a nil publisher, and the sweep still runs: the
+		// queue goes stale while checklists are still created and lifecycles
+		// still move. Publishing is the one part of the sweep whose failure costs
+		// only freshness, so it is the one part allowed to be absent.
+		usecaseSvc.NewProjector(deps.Formations, deps.Items, deps.Projects, deps.Indexer),
+		// The platform checker resolves nothing yet — no owning service answers a
+		// project-scoped existence lookup, so its registry is empty and every
+		// platform row is reported unanswerable. Wired regardless, so the count is
+		// real and the first lookup is a registry entry rather than a search for
+		// where the check was supposed to run.
+		usecaseSvc.NewPlatformChecker(deps.UnitOfWork),
 		// Configured, not hardcoded. The interval is the worst-case delay before
 		// a project that entered formation gets its checklist, so it is the one
 		// knob worth turning during an incident — and it previously parsed from

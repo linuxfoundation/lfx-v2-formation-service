@@ -45,3 +45,34 @@ const (
 	// have left those stages and still need their lifecycle moved.
 	ProjectListProjectsSubject = "lfx.projects-api.list_projects"
 )
+
+// The subject this service publishes to, consumed by lfx-v2-indexer-service.
+const (
+	// IndexFormationSubject carries one checklist's search projection.
+	//
+	// The indexer subscribes to lfx.index.> and takes the object type from
+	// whatever follows that prefix, so this constant alone decides that these
+	// documents are searchable as type "formation". There is no registration
+	// step and no allowlist on the indexer side to add this type to.
+	//
+	// Publish only. Nothing subscribes to this subject in this service, and
+	// nothing here reads back what it published: the projection is derived from
+	// Postgres, which stays the source of truth.
+	IndexFormationSubject = "lfx.index.formation"
+)
+
+// serviceAccountBearer is the Authorization header value used when a publish
+// has no user behind it, which for this service is every publish: projections
+// are built by the reconcile sweep, on a ticker, with no request context.
+//
+// Deliberately not a real token. The indexer refuses a V2 message whose
+// authorization header is absent or empty, but its principal parser treats a
+// non-JWT value as simply carrying no principal — it logs at debug and moves
+// on. So this satisfies the envelope requirement while stating plainly that no
+// person is behind the write, which is the truth: the alternative is minting an
+// M2M token to attribute a sweep to a machine account nobody will look up.
+//
+// The value follows member-service's constant, itself following
+// meeting-service's convention, so an operator grepping the indexer's logs for
+// one of these finds all of them.
+const serviceAccountBearer = "Bearer lfx-v2-formation-service"

@@ -40,11 +40,32 @@ func (r *ActivityRepository) Append(_ context.Context, e *model.ActivityEntry) e
 	return nil
 }
 
+// defaultActivityLimit and maxActivityLimit mirror the Postgres repository's
+// page bounds.
+//
+// Duplicated rather than shared because the two live in different packages and
+// neither should import the other, but they have to agree: this double applied
+// the caller's limit raw, so a caller asking for more rows than Postgres will
+// ever return got them here and passed a test that could not pass in production.
+// A guard that reads a bounded window is exactly the kind of caller that hides
+// behind the difference.
+const (
+	defaultActivityLimit = 20
+	maxActivityLimit     = 100
+)
+
 // List returns entries newest-first for a formation, honoring cursor and
 // limit. cursor is the ULID of the last entry from the previous page.
 func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cursor string, limit int) ([]*model.ActivityEntry, string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if limit <= 0 {
+		limit = defaultActivityLimit
+	}
+	if limit > maxActivityLimit {
+		limit = maxActivityLimit
+	}
 
 	// ULID descending, paged with ulid < cursor, mirroring the Postgres
 	// repository. Reversing insertion order instead only agrees with it while
@@ -71,7 +92,7 @@ func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cur
 	}
 
 	end := start + limit
-	if limit <= 0 || end > len(matching) {
+	if end > len(matching) {
 		end = len(matching)
 	}
 	if start > len(matching) {

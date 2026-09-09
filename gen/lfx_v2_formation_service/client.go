@@ -19,17 +19,23 @@ type Client struct {
 	GetFormationEndpoint         goa.Endpoint
 	GetFormationActivityEndpoint goa.Endpoint
 	UpdateItemEndpoint           goa.Endpoint
+	AcceptItemEndpoint           goa.Endpoint
+	RejectItemEndpoint           goa.Endpoint
+	ReopenItemEndpoint           goa.Endpoint
 	LivezEndpoint                goa.Endpoint
 	ReadyzEndpoint               goa.Endpoint
 }
 
 // NewClient initializes a "lfx_v2_formation_service" service client given the
 // endpoints.
-func NewClient(getFormation, getFormationActivity, updateItem, livez, readyz goa.Endpoint) *Client {
+func NewClient(getFormation, getFormationActivity, updateItem, acceptItem, rejectItem, reopenItem, livez, readyz goa.Endpoint) *Client {
 	return &Client{
 		GetFormationEndpoint:         getFormation,
 		GetFormationActivityEndpoint: getFormationActivity,
 		UpdateItemEndpoint:           updateItem,
+		AcceptItemEndpoint:           acceptItem,
+		RejectItemEndpoint:           rejectItem,
+		ReopenItemEndpoint:           reopenItem,
 		LivezEndpoint:                livez,
 		ReadyzEndpoint:               readyz,
 	}
@@ -77,6 +83,60 @@ func (c *Client) GetFormationActivity(ctx context.Context, p *GetFormationActivi
 func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *FormationItem, err error) {
 	var ires any
 	ires, err = c.UpdateItemEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*FormationItem), nil
+}
+
+// AcceptItem calls the "accept_item" endpoint of the
+// "lfx_v2_formation_service" service.
+// AcceptItem may return the following errors:
+//   - "NotFound" (type *FormationError): No formation, or no item with that key, exists
+//   - "VersionMismatch" (type *FormationError): If-Match did not match the item's current version
+//   - "Conflict" (type *FormationError): The item is not awaiting acceptance, or the checklist is read-only
+//   - "BadRequest" (type *FormationError): The payload itself is invalid
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) AcceptItem(ctx context.Context, p *AcceptItemPayload) (res *FormationItem, err error) {
+	var ires any
+	ires, err = c.AcceptItemEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*FormationItem), nil
+}
+
+// RejectItem calls the "reject_item" endpoint of the
+// "lfx_v2_formation_service" service.
+// RejectItem may return the following errors:
+//   - "NotFound" (type *FormationError): No formation, or no item with that key, exists
+//   - "VersionMismatch" (type *FormationError): If-Match did not match the item's current version
+//   - "Conflict" (type *FormationError): The item is not awaiting acceptance, or the checklist is read-only
+//   - "BadRequest" (type *FormationError): The payload itself is invalid
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) RejectItem(ctx context.Context, p *RejectItemPayload) (res *FormationItem, err error) {
+	var ires any
+	ires, err = c.RejectItemEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*FormationItem), nil
+}
+
+// ReopenItem calls the "reopen_item" endpoint of the
+// "lfx_v2_formation_service" service.
+// ReopenItem may return the following errors:
+//   - "NotFound" (type *FormationError): No formation, or no item with that key, exists
+//   - "VersionMismatch" (type *FormationError): If-Match did not match the item's current version
+//   - "Conflict" (type *FormationError): The item is not done, or the checklist is read-only
+//   - "BadRequest" (type *FormationError): The payload itself is invalid
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) ReopenItem(ctx context.Context, p *ReopenItemPayload) (res *FormationItem, err error) {
+	var ires any
+	ires, err = c.ReopenItemEndpoint(ctx, p)
 	if err != nil {
 		return
 	}

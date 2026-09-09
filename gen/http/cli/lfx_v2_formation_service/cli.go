@@ -24,13 +24,13 @@ import (
 //	command (subcommand1|subcommand2|...)
 func UsageCommands() []string {
 	return []string{
-		"lfx-v2-formation-service (get-formation|get-formation-activity|update-item|livez|readyz)",
+		"lfx-v2-formation-service (get-formation|get-formation-activity|update-item|accept-item|reject-item|reopen-item|livez|readyz)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"In tempora est.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Aperiam maxime quia dolorem et quia.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -66,6 +66,30 @@ func ParseEndpoint(
 		lfxV2FormationServiceUpdateItemBearerTokenFlag = lfxV2FormationServiceUpdateItemFlags.String("bearer-token", "", "")
 		lfxV2FormationServiceUpdateItemIfMatchFlag     = lfxV2FormationServiceUpdateItemFlags.String("if-match", "REQUIRED", "")
 
+		lfxV2FormationServiceAcceptItemFlags           = flag.NewFlagSet("accept-item", flag.ExitOnError)
+		lfxV2FormationServiceAcceptItemBodyFlag        = lfxV2FormationServiceAcceptItemFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceAcceptItemProjectUIDFlag  = lfxV2FormationServiceAcceptItemFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceAcceptItemItemKeyFlag     = lfxV2FormationServiceAcceptItemFlags.String("item-key", "REQUIRED", "The item's stable key.")
+		lfxV2FormationServiceAcceptItemVersionFlag     = lfxV2FormationServiceAcceptItemFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceAcceptItemBearerTokenFlag = lfxV2FormationServiceAcceptItemFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceAcceptItemIfMatchFlag     = lfxV2FormationServiceAcceptItemFlags.String("if-match", "REQUIRED", "")
+
+		lfxV2FormationServiceRejectItemFlags           = flag.NewFlagSet("reject-item", flag.ExitOnError)
+		lfxV2FormationServiceRejectItemBodyFlag        = lfxV2FormationServiceRejectItemFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceRejectItemProjectUIDFlag  = lfxV2FormationServiceRejectItemFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceRejectItemItemKeyFlag     = lfxV2FormationServiceRejectItemFlags.String("item-key", "REQUIRED", "The item's stable key.")
+		lfxV2FormationServiceRejectItemVersionFlag     = lfxV2FormationServiceRejectItemFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceRejectItemBearerTokenFlag = lfxV2FormationServiceRejectItemFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceRejectItemIfMatchFlag     = lfxV2FormationServiceRejectItemFlags.String("if-match", "REQUIRED", "")
+
+		lfxV2FormationServiceReopenItemFlags           = flag.NewFlagSet("reopen-item", flag.ExitOnError)
+		lfxV2FormationServiceReopenItemBodyFlag        = lfxV2FormationServiceReopenItemFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceReopenItemProjectUIDFlag  = lfxV2FormationServiceReopenItemFlags.String("project-uid", "REQUIRED", "The project's UID.")
+		lfxV2FormationServiceReopenItemItemKeyFlag     = lfxV2FormationServiceReopenItemFlags.String("item-key", "REQUIRED", "The item's stable key.")
+		lfxV2FormationServiceReopenItemVersionFlag     = lfxV2FormationServiceReopenItemFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceReopenItemBearerTokenFlag = lfxV2FormationServiceReopenItemFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceReopenItemIfMatchFlag     = lfxV2FormationServiceReopenItemFlags.String("if-match", "REQUIRED", "")
+
 		lfxV2FormationServiceLivezFlags = flag.NewFlagSet("livez", flag.ExitOnError)
 
 		lfxV2FormationServiceReadyzFlags = flag.NewFlagSet("readyz", flag.ExitOnError)
@@ -74,6 +98,9 @@ func ParseEndpoint(
 	lfxV2FormationServiceGetFormationFlags.Usage = lfxV2FormationServiceGetFormationUsage
 	lfxV2FormationServiceGetFormationActivityFlags.Usage = lfxV2FormationServiceGetFormationActivityUsage
 	lfxV2FormationServiceUpdateItemFlags.Usage = lfxV2FormationServiceUpdateItemUsage
+	lfxV2FormationServiceAcceptItemFlags.Usage = lfxV2FormationServiceAcceptItemUsage
+	lfxV2FormationServiceRejectItemFlags.Usage = lfxV2FormationServiceRejectItemUsage
+	lfxV2FormationServiceReopenItemFlags.Usage = lfxV2FormationServiceReopenItemUsage
 	lfxV2FormationServiceLivezFlags.Usage = lfxV2FormationServiceLivezUsage
 	lfxV2FormationServiceReadyzFlags.Usage = lfxV2FormationServiceReadyzUsage
 
@@ -120,6 +147,15 @@ func ParseEndpoint(
 			case "update-item":
 				epf = lfxV2FormationServiceUpdateItemFlags
 
+			case "accept-item":
+				epf = lfxV2FormationServiceAcceptItemFlags
+
+			case "reject-item":
+				epf = lfxV2FormationServiceRejectItemFlags
+
+			case "reopen-item":
+				epf = lfxV2FormationServiceReopenItemFlags
+
 			case "livez":
 				epf = lfxV2FormationServiceLivezFlags
 
@@ -160,6 +196,15 @@ func ParseEndpoint(
 			case "update-item":
 				endpoint = c.UpdateItem()
 				data, err = lfxv2formationservicec.BuildUpdateItemPayload(*lfxV2FormationServiceUpdateItemBodyFlag, *lfxV2FormationServiceUpdateItemProjectUIDFlag, *lfxV2FormationServiceUpdateItemItemKeyFlag, *lfxV2FormationServiceUpdateItemVersionFlag, *lfxV2FormationServiceUpdateItemBearerTokenFlag, *lfxV2FormationServiceUpdateItemIfMatchFlag)
+			case "accept-item":
+				endpoint = c.AcceptItem()
+				data, err = lfxv2formationservicec.BuildAcceptItemPayload(*lfxV2FormationServiceAcceptItemBodyFlag, *lfxV2FormationServiceAcceptItemProjectUIDFlag, *lfxV2FormationServiceAcceptItemItemKeyFlag, *lfxV2FormationServiceAcceptItemVersionFlag, *lfxV2FormationServiceAcceptItemBearerTokenFlag, *lfxV2FormationServiceAcceptItemIfMatchFlag)
+			case "reject-item":
+				endpoint = c.RejectItem()
+				data, err = lfxv2formationservicec.BuildRejectItemPayload(*lfxV2FormationServiceRejectItemBodyFlag, *lfxV2FormationServiceRejectItemProjectUIDFlag, *lfxV2FormationServiceRejectItemItemKeyFlag, *lfxV2FormationServiceRejectItemVersionFlag, *lfxV2FormationServiceRejectItemBearerTokenFlag, *lfxV2FormationServiceRejectItemIfMatchFlag)
+			case "reopen-item":
+				endpoint = c.ReopenItem()
+				data, err = lfxv2formationservicec.BuildReopenItemPayload(*lfxV2FormationServiceReopenItemBodyFlag, *lfxV2FormationServiceReopenItemProjectUIDFlag, *lfxV2FormationServiceReopenItemItemKeyFlag, *lfxV2FormationServiceReopenItemVersionFlag, *lfxV2FormationServiceReopenItemBearerTokenFlag, *lfxV2FormationServiceReopenItemIfMatchFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -183,6 +228,9 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
 	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
 	fmt.Fprintln(os.Stderr, `    update-item: Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
+	fmt.Fprintln(os.Stderr, `    accept-item: Accept an item's completion claim, moving awaiting_acceptance to done. Restricted to the formation team at the gateway, and refused by the service when the caller is the item's own assignee. If-Match is required.`)
+	fmt.Fprintln(os.Stderr, `    reject-item: Reject an item's completion claim, returning it to in_progress with a note the assignee can read. The note is required: a rejection with no reason leaves the assignee nothing to act on. Restricted to the formation team at the gateway.`)
+	fmt.Fprintln(os.Stderr, `    reopen-item: Reopen a done item, returning it to in_progress. Behind the same guard as acceptance rather than the ordinary write guard: reopening is the reversal of an acceptance, and a weaker check here would make the acceptance control bypassable from the other side. Reopening a gating item withdraws readiness.`)
 	fmt.Fprintln(os.Stderr, `    livez: Liveness probe.`)
 	fmt.Fprintln(os.Stderr, `    readyz: Readiness probe.`)
 	fmt.Fprintln(os.Stderr)
@@ -208,7 +256,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"In tempora est.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Aperiam maxime quia dolorem et quia.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -234,7 +282,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Consequatur iusto vel debitis.\" --version \"1\" --cursor \"Ut fugiat voluptate qui.\" --limit 63 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Tempora cumque quisquam et iure quo.\" --version \"1\" --cursor \"Enim et aut est nihil id sit.\" --limit 52 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -262,7 +310,91 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Id quaerat est.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Consequatur ut.\",\n      \"skip_reason\": \"Non laborum quam numquam necessitatibus.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Laborum sit aut iure cum sit.\",\n            \"status\": \"skipped\"\n         },\n         {\n            \"key\": \"Laborum sit aut iure cum sit.\",\n            \"status\": \"skipped\"\n         }\n      ]\n   }' --project-uid \"Sit odit aperiam.\" --item-key \"Atque commodi dolor dolores vitae delectus.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1080537589362083652")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Consequatur et earum et nam.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusantium minima dolorum asperiores.\",\n      \"skip_reason\": \"Cum tempore quia autem vel labore magnam.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }' --project-uid \"Quisquam aliquid optio.\" --item-key \"Quaerat architecto nihil assumenda praesentium ea eum.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2359207140783546021")
+}
+
+func lfxV2FormationServiceAcceptItemUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service accept-item", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -item-key STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Accept an item's completion claim, moving awaiting_acceptance to done. Restricted to the formation team at the gateway, and refused by the service when the caller is the item's own assignee. If-Match is required.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -item-key STRING: The item's stable key.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-item --body '{\n      \"note\": \"Temporibus laborum.\"\n   }' --project-uid \"Aliquid dolore ipsam.\" --item-key \"Possimus molestiae sed rem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5812827903502170570")
+}
+
+func lfxV2FormationServiceRejectItemUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service reject-item", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -item-key STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Reject an item's completion claim, returning it to in_progress with a note the assignee can read. The note is required: a rejection with no reason leaves the assignee nothing to act on. Restricted to the formation team at the gateway.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -item-key STRING: The item's stable key.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reject-item --body '{\n      \"note\": \"4\"\n   }' --project-uid \"Tenetur et repellat sequi vel incidunt perferendis.\" --item-key \"Magni commodi.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 859709540658951365")
+}
+
+func lfxV2FormationServiceReopenItemUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service reopen-item", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -project-uid STRING")
+	fmt.Fprint(os.Stderr, " -item-key STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Reopen a done item, returning it to in_progress. Behind the same guard as acceptance rather than the ordinary write guard: reopening is the reversal of an acceptance, and a weaker check here would make the acceptance control bypassable from the other side. Reopening a gating item withdraws readiness.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
+	fmt.Fprintln(os.Stderr, `    -item-key STRING: The item's stable key.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reopen-item --body '{\n      \"note\": \"Hic quaerat labore qui.\"\n   }' --project-uid \"Quia officiis perspiciatis.\" --item-key \"Ex iusto ut at tempore.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8404755036982492659")
 }
 
 func lfxV2FormationServiceLivezUsage() {

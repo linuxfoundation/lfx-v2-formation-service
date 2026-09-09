@@ -167,6 +167,136 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
+	// Accept, reject and reopen are three routes rather than three status values
+	// on the shared PATCH.
+	//
+	// Not a stylistic choice. A Heimdall rule selects on method and path, so the
+	// formation-team check these need cannot be expressed on a route whose guard
+	// is the project's writer relation — the alternative is moving an
+	// authorization decision into service code, which the platform forbids. Three
+	// paths give the gateway three things to select on.
+	//
+	// Each takes If-Match on the item's version, like the PATCH: an acceptance
+	// decided against a status somebody has since changed is exactly the write
+	// that must be refused.
+	//
+	// None of them declares a 403. The self-acceptance refusal answers 409 with
+	// reason self_acceptance_forbidden, because 403 is what the gateway returns
+	// when the caller holds nothing on the project — and a service-issued 403
+	// would be indistinguishable from that, telling a client to re-authenticate
+	// when what they actually need is a different person to accept.
+
+	dsl.Method("accept_item", func() {
+		dsl.Description("Accept an item's completion claim, moving awaiting_acceptance to done. " +
+			"Restricted to the formation team at the gateway, and refused by the service when the " +
+			"caller is the item's own assignee. If-Match is required.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
+			dsl.Attribute("note", dsl.String, "Replaces the item's note. Omit to clear it.")
+			dsl.Required("version", "project_uid", "item_key", "if_match")
+		})
+		dsl.Result(FormationItem)
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/formations/{project_uid}/items/{item_key}/accept")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("reject_item", func() {
+		dsl.Description("Reject an item's completion claim, returning it to in_progress with a note " +
+			"the assignee can read. The note is required: a rejection with no reason leaves the " +
+			"assignee nothing to act on. Restricted to the formation team at the gateway.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
+			dsl.Attribute("note", dsl.String, "Why it was rejected. Readable by the assignee.", func() {
+				dsl.MinLength(1)
+			})
+			dsl.Required("version", "project_uid", "item_key", "if_match", "note")
+		})
+		dsl.Result(FormationItem)
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/formations/{project_uid}/items/{item_key}/reject")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("reopen_item", func() {
+		dsl.Description("Reopen a done item, returning it to in_progress. Behind the same guard as " +
+			"acceptance rather than the ordinary write guard: reopening is the reversal of an " +
+			"acceptance, and a weaker check here would make the acceptance control bypassable from " +
+			"the other side. Reopening a gating item withdraws readiness.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
+			dsl.Attribute("note", dsl.String, "Why it was reopened.")
+			dsl.Required("version", "project_uid", "item_key", "if_match")
+		})
+		dsl.Result(FormationItem)
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The item is not done, or the checklist is read-only")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/formations/{project_uid}/items/{item_key}/reopen")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
 	dsl.Method("livez", func() {
 		dsl.Description("Liveness probe.")
 		dsl.Meta("swagger:generate", "false")

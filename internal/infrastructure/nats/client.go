@@ -122,3 +122,47 @@ func (c *Client) Request(ctx context.Context, subject string, data []byte) ([]by
 	}
 	return reply.Data, nil
 }
+
+// Publish sends a message and does not wait for a reply.
+//
+// A nil error means the message reached this connection's write buffer, not that
+// anything consumed it — core NATS has no acknowledgement and there is nobody to
+// send one. Every caller here is publishing a projection that the reconcile
+// republishes each sweep, so at-most-once delivery is the right trade: a lost
+// message costs one tick of staleness, where JetStream would cost a stream to
+// provision and monitor for data that is derived and rebuildable.
+//
+// Flushed before returning, so a publish immediately before shutdown is not
+// silently dropped when the connection closes. Without it the buffer is
+// discarded and the error surfaces nowhere.
+func (c *Client) Publish(ctx context.Context, subject string, data []byte) error {
+	pubCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	pubCtx, span := tracer.Start(pubCtx, "nats.publish",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination.name", subject),
+			attribute.Int("messaging.message.body.size", len(data)),
+		),
+	)
+	defer span.End()
+
+	msg := nats.NewMsg(subject)
+	msg.Header = make(nats.Header)
+	msg.Data = data
+	otel.GetTextMapPropagator().Inject(pubCtx, natsHeaderCarrier(msg.Header))
+
+	if err := c.conn.PublishMsg(msg); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return fmt.Errorf("NATS publish to %s failed: %w", subject, err)
+	}
+	if err := c.conn.FlushWithContext(pubCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return fmt.Errorf("NATS flush after publishing to %s failed: %w", subject, err)
+	}
+	return nil
+}

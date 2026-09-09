@@ -103,10 +103,17 @@ type projectUser struct {
 	Username string `json:"username"`
 }
 
-// projectSettingsReply is the get_settings reply. Declared here rather than
-// imported from the project service: no service in this workspace depends on
-// another's Go module, and taking one on for three fields would tie this
-// service's build to that repository's release cadence.
+// projectSettingsReply is the get_settings reply, declared here rather than
+// imported from the project service.
+//
+// Not a rule against cross-service imports — this service depends on the
+// indexer's pkg/types, as six others do, because the indexer publishes its
+// envelope as a supported contract under pkg/. The project service publishes
+// these lookup shapes under pkg/events too, so importing them would be
+// defensible. Restating three fields is the smaller commitment: it is the
+// reply's *shape* that has to hold, not its Go type, and the alternative ties
+// this service's build to that repository's release cadence for a struct that
+// would not shrink if imported.
 type projectSettingsReply struct {
 	UID              string        `json:"uid"`
 	AnnouncementDate *time.Time    `json:"announcement_date"`
