@@ -62,9 +62,13 @@ func (r *ProjectReader) GetSettings(_ context.Context, projectUID string) (*port
 
 // SetProjectsByUID seeds the projects the uids half of the list can answer with,
 // at whatever stage the test gives them.
+//
+// Replaces the set rather than adding to it, matching SetFormingProjects — the
+// two slice-shaped seeders on this double should not mean different things.
 func (r *ProjectReader) SetProjectsByUID(refs []port.ProjectRef) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.byUID = make(map[string]port.ProjectRef, len(refs))
 	for _, ref := range refs {
 		r.byUID[ref.UID] = ref
 	}
