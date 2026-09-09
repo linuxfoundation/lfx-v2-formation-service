@@ -199,7 +199,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
 			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
 			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
-			dsl.Attribute("note", dsl.String, "Optional context for the activity entry.")
+			dsl.Attribute("note", dsl.String, "Replaces the item's note. Omit to clear it.")
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
 		dsl.Result(FormationItem)

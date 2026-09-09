@@ -1334,7 +1334,7 @@ definitions:
         properties:
             note:
                 type: string
-                description: Optional context for the activity entry.
+                description: Replaces the item's note. Omit to clear it.
                 example: Nulla doloremque deleniti voluptas minus ut totam.
         example:
             note: Qui minima.

@@ -90,7 +90,7 @@ type AcceptItemPayload struct {
 	ItemKey string
 	// Must equal the item's current version.
 	IfMatch int64
-	// Optional context for the activity entry.
+	// Replaces the item's note. Omit to clear it.
 	Note *string
 }
 

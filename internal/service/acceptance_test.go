@@ -91,6 +91,92 @@ func TestAClaimDoesNotReachDoneAndDoesNotSatisfyAGate(t *testing.T) {
 		"a writer reached done without the accept route, bypassing the self-acceptance guard")
 }
 
+// The guard must survive a busy checklist, which is the case that broke it.
+//
+// The claimant lookup reads the checklist's whole feed, not the item's, so other
+// items' entries pile up in front of the claim. It used to ask for one page
+// larger than the repository will ever return; the repository clamped the request
+// silently, the short page read as the end of the feed, and the claim went
+// unfound — so the claimant accepted their own work. A second item generating
+// traffic is all it takes.
+func TestTheClaimantIsFoundBehindAFeedFullOfOtherItems(t *testing.T) {
+	s, _, itemOne, itemTwo := newItemMutatorTestService(t)
+
+	// Unassigned, so the assignee comparison has nothing to short-circuit on and
+	// the claimant lookup is what has to hold. That is also the only case the
+	// truncated read could reach.
+	inProgress := string(model.StatusInProgress)
+	moved, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: itemOne.Revision, Status: &inProgress,
+	})
+	require.NoError(t, err)
+
+	awaiting := string(model.StatusAwaitingAcceptance)
+	claimed, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: moved.Version, Status: &awaiting,
+	})
+	require.NoError(t, err)
+
+	// Push the claim well past a single page by churning the other item, whose
+	// entries share the checklist's feed. The page size is 100.
+	current := itemTwo.Revision
+	for i := range 140 {
+		note := "working" + string(rune('a'+i%26))
+		updated, updateErr := s.UpdateItem(asPrincipal("assignee-two"), &svc.UpdateItemPayload{
+			ProjectUID: "project-1", ItemKey: itemTwo.ItemKey,
+			IfMatch: current, Note: &note,
+		})
+		require.NoError(t, updateErr)
+		current = updated.Version
+	}
+
+	_, err = s.AcceptItem(asPrincipal("one-person"), &svc.AcceptItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
+	})
+	fe := formationError(t, err)
+	assert.Equal(t, reasonSelfAcceptanceForbidden, fe.Reason,
+		"the claimant accepted their own item because their claim had scrolled out of the first page")
+}
+
+// A rejection reason must not outlive the rejection.
+//
+// The note is the row's current note, not a log of the last thing anyone said
+// about it. Leaving it in place through the acceptance that answered it left the
+// checklist rendering "the charter is missing an appendix" under an item marked
+// done, which reads as a contradiction rather than as history — the history is
+// what the activity feed is for.
+func TestAcceptingAfterARejectionClearsTheRejectionReason(t *testing.T) {
+	s, formation, itemOne, _ := newItemMutatorTestService(t)
+	claimed := claim(t, s, itemOne, "assignee-one")
+
+	rejected, err := s.RejectItem(asPrincipal("reviewer-one"), &svc.RejectItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: claimed.Version, Note: "the charter is missing an appendix",
+	})
+	require.NoError(t, err)
+	require.Equal(t, string(model.StatusInProgress), rejected.Status)
+
+	reclaimed := string(model.StatusAwaitingAcceptance)
+	again, err := s.UpdateItem(asPrincipal("assignee-one"), &svc.UpdateItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
+		IfMatch: rejected.Version, Status: &reclaimed,
+	})
+	require.NoError(t, err)
+
+	accepted, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: again.Version,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, string(model.StatusDone), accepted.Status)
+
+	stored, err := s.items.GetByKey(context.Background(), formation.UID, itemOne.ItemKey)
+	require.NoError(t, err)
+	assert.Empty(t, stored.Note,
+		"the rejection reason survived the acceptance and still renders under a done item")
+}
+
 func TestAcceptanceMovesTheItemToDone(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")

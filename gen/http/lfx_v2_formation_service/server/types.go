@@ -36,7 +36,7 @@ type UpdateItemRequestBody struct {
 // AcceptItemRequestBody is the type of the "lfx_v2_formation_service" service
 // "accept_item" endpoint HTTP request body.
 type AcceptItemRequestBody struct {
-	// Optional context for the activity entry.
+	// Replaces the item's note. Omit to clear it.
 	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
 }
 

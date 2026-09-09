@@ -241,10 +241,12 @@ func (s *Service) applyAcceptance(
 			}
 		}
 
-		patch := port.ItemPatch{Status: &outcome.to}
-		if note != "" {
-			patch.Note = &note
-		}
+		// Written whether or not one was supplied, so the column means "the note
+		// on this row now" rather than "the last note anyone left". Guarding on a
+		// non-empty note instead left a rejection reason on the row through the
+		// acceptance that answered it, and the checklist went on rendering "the
+		// charter is missing an appendix" under an item marked done.
+		patch := port.ItemPatch{Status: &outcome.to, Note: &note}
 
 		updated, err := tx.Items().Update(ctx, item.UID, item.Revision, patch)
 		if err != nil {
@@ -282,15 +284,26 @@ func (s *Service) applyAcceptance(
 	return itemToWire(result), nil
 }
 
-// claimSearchDepth bounds how far back the claimant lookup reads.
+// claimSearchPageSize is how many activity rows the claimant lookup reads at a
+// time, and claimSearchMaxPages how many such reads it will make.
 //
-// The claim it is looking for is the entry that moved this item to
-// awaiting_acceptance, which on any real checklist is within the last handful of
-// entries for that item — but the feed is per checklist, not per item, so a busy
-// checklist interleaves other items' entries in front of it. This is generous
-// enough to cross that interleaving and bounded so the guard cannot turn into a
-// full scan of a long-lived checklist's history.
-const claimSearchDepth = 200
+// The page size is not a preference. The repository clamps any larger request
+// down to its own maximum without saying so, so asking for more than it will
+// return produces a short page that looks like the end of the feed — which for
+// this guard means "no claim found", which means "not self-acceptance". Asking
+// for a page it will honour, and following the cursor, is what makes a truncated
+// read distinguishable from an exhausted one.
+//
+// The claim is the entry that moved this item to awaiting_acceptance, which on
+// any real checklist is within the last handful of entries for that item — but
+// the feed is per checklist rather than per item, so a busy checklist interleaves
+// other items' entries in front of it. The page count is generous enough to cross
+// that interleaving and bounded so the guard cannot turn into a full scan of a
+// long-lived checklist's history.
+const (
+	claimSearchPageSize = 100
+	claimSearchMaxPages = 20
+)
 
 // isSelfAcceptance reports whether principal may not accept or reopen this item
 // because they are the person whose work is being confirmed.
@@ -312,28 +325,37 @@ func (s *Service) isSelfAcceptance(
 		return true, nil
 	}
 
-	entries, _, err := tx.Activity().List(ctx, formationUID, "", claimSearchDepth)
-	if err != nil {
-		return false, err
+	cursor := ""
+	for range claimSearchMaxPages {
+		entries, next, err := tx.Activity().List(ctx, formationUID, cursor, claimSearchPageSize)
+		if err != nil {
+			return false, err
+		}
+
+		// Newest first, so the first matching entry is the claim in force.
+		for _, entry := range entries {
+			if entry.ItemUID == nil || *entry.ItemUID != item.UID {
+				continue
+			}
+			if !isClaimEntry(entry) {
+				continue
+			}
+			return entry.Actor == principal, nil
+		}
+
+		// The feed is exhausted, and the claim is genuinely not in it.
+		if next == "" || len(entries) == 0 {
+			break
+		}
+		cursor = next
 	}
 
-	// Newest first, so the first matching entry is the claim in force.
-	for _, entry := range entries {
-		if entry.ItemUID == nil || *entry.ItemUID != item.UID {
-			continue
-		}
-		if !isClaimEntry(entry) {
-			continue
-		}
-		return entry.Actor == principal, nil
-	}
-
-	// No claim found within the window. Not refused: the item's status already
-	// had to be awaiting_acceptance to reach here, and an item can arrive there
-	// through a path this service did not record — a data migration, or a claim
-	// older than the window on a checklist with a long history. Refusing would
-	// make those items permanently unacceptable by anyone, which is worse than
-	// falling back to the assignee comparison already made above.
+	// No claim found. Not refused: the item's status already had to be
+	// awaiting_acceptance to reach here, and an item can arrive there through a
+	// path this service did not record — a data migration, or a claim older than
+	// the pages read on a checklist with a very long history. Refusing would make
+	// those items permanently unacceptable by anyone, which is worse than falling
+	// back to the assignee comparison already made above.
 	return false, nil
 }
 

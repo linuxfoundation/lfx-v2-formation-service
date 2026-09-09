@@ -67,13 +67,6 @@ var platformLookups = map[string]platformLookup{
 // bool.
 type platformLookup func(ctx context.Context, projectUID string) (*model.ResolvedRef, error)
 
-// errNoLookup reports that no owning service can answer for this resource type.
-//
-// Distinct from "asked and found nothing". Found-nothing means the item is
-// genuinely not done yet and should stay as it is; no-lookup means this service
-// cannot tell either way and the row belongs to a person.
-var errNoLookup = errors.New("no owning service answers a project-scoped lookup for this resource type")
-
 // PlatformChecker resolves the checklist rows the platform can answer for itself.
 type PlatformChecker struct {
 	uow     port.UnitOfWork
@@ -187,9 +180,6 @@ func (c *PlatformChecker) resolveItem(
 
 	ref, err := lookup(ctx, projectUID)
 	switch {
-	case errors.Is(err, errNoLookup):
-		report.Unsupported++
-		return
 	case errors.Is(err, domain.ErrNotFound):
 		// Asked, and the thing does not exist yet. The ordinary state of a row
 		// still to be done.

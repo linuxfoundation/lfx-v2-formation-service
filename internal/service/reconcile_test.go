@@ -105,6 +105,39 @@ func newReconcilerWithIndex(
 	return r, f, publisher
 }
 
+// Projected counts rows that went out, not projects that were visited.
+//
+// A project at a stage that gets no checklist is still swept and still reaches
+// the projection step, which finds nothing to publish. Counting it anyway
+// reported three rows republished for a sweep that produced two documents — a
+// number nobody could reconcile against the index, and the kind that erodes
+// trust in the rest of the report. Caught against real dev projects, where the
+// discrepancy was one Disengaged project with no checklist.
+func TestProjectedCountsPublishedRowsRatherThanProjectsVisited(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "engaged", SubStage: model.StageFormationEngaged},
+		{UID: "prospect", SubStage: model.StageProspect},
+	}}
+	r, _, publisher := newReconcilerWithIndex(t, projects)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+	if report.Swept != 2 {
+		t.Errorf("swept = %d, want 2", report.Swept)
+	}
+	if report.Projected != 1 {
+		t.Errorf("projected = %d, want 1 — only the forming project has a checklist to publish",
+			report.Projected)
+	}
+	if got := publisher.Count(); got != report.Projected {
+		t.Errorf("published %d documents but reported %d projected; the report must match the index",
+			got, report.Projected)
+	}
+}
+
 // The platform pass runs on every project the sweep finishes, and resolves
 // nothing.
 //

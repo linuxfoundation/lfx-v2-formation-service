@@ -41,40 +41,45 @@ func NewProjector(
 	return &Projector{formations: formations, items: items, projects: projects, publisher: publisher}
 }
 
-// Refresh republishes one project's queue row.
+// Refresh republishes one project's queue row, reporting whether it published.
 //
-// Returns nil when there is nothing to publish — no publisher wired, or no
-// checklist for the project yet. Neither is a failure: a project at a formation
-// stage whose checklist has not been created is a row the queue is not supposed
-// to have, and the spec says so plainly, since the queue searches checklists
-// rather than projects.
+// The bool is not decoration. There is nothing to publish when no publisher is
+// wired or the project has no checklist yet, and neither is a failure — a
+// project at a formation stage whose checklist has not been created is a row the
+// queue is not supposed to have, since the queue searches checklists rather than
+// projects. But a caller counting successes cannot tell that from a publish, and
+// a sweep of three projects holding two checklists reported three rows
+// republished, which is a number nobody can reconcile against the index.
 //
 // The project facts are read fresh on every call and never stored. That is why
 // this is safe to run on a ticker: there is no cached copy to invalidate, so the
 // only staleness is the age of the last sweep.
-func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) error {
+func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool, error) {
 	if p.publisher == nil {
-		return nil
+		return false, nil
 	}
 
 	formation, err := p.formations.GetByProject(ctx, project.UID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 
 	items, err := p.items.ListByFormation(ctx, formation.UID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	name, announcementDate := p.projectFacts(ctx, project)
 
-	return p.publisher.PublishFormation(ctx, buildProjection(
+	if err := p.publisher.PublishFormation(ctx, buildProjection(
 		formation, items, project, name, announcementDate,
-	))
+	)); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // projectFacts resolves the two facts the list reply does not carry: the display

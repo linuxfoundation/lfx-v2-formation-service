@@ -383,16 +383,19 @@ func (r *Reconciler) prepare(
 }
 
 // finishProject runs the three things every project in the sweep needs whatever
-// branch it arrived through: the platform rows resolved as far as the platform
-// can answer them, its lifecycle brought into step with its stage, and its queue
+// branch it arrived through: its lifecycle brought into step with its stage, the
+// platform rows resolved as far as the platform can answer them, and its queue
 // row republished.
 //
-// In that order, and the order is the whole reason these are one function. A
-// platform check can move a gating item to done, which changes whether the
-// checklist is ready — so running it after the lifecycle sync would hold that
-// readiness back a full interval. The projection then goes last because it
-// carries both: publishing first would ship the previous values and leave the
-// queue a tick behind on exactly the transition someone is watching for.
+// In that order, and the order is the whole reason these are one function. The
+// lifecycle goes first because it is the one step that can take the checklist out
+// of scope for the other two: on the sweep where a project reaches Active or is
+// archived, syncing first means the platform pass finds a completed or frozen
+// checklist and declines it. Running the pass first would advance rows on a
+// checklist about to be closed, which rewrites the record of how it got there.
+// The projection then goes last because it carries the results of both:
+// publishing first would ship the previous values and leave the queue a tick
+// behind on exactly the transition someone is watching for.
 //
 // The projection runs even for a project that created nothing and moved nothing.
 // That is what makes an unpublished or lost row repairable by the ordinary loop
@@ -400,13 +403,14 @@ func (r *Reconciler) prepare(
 // which rows are missing from the index, and asking would cost more than
 // republishing.
 func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
-	r.resolvePlatformItems(ctx, project, report)
 	r.syncLifecycle(ctx, project, report)
+	r.resolvePlatformItems(ctx, project, report)
 
 	if r.projector == nil {
 		return
 	}
-	if err := r.projector.Refresh(ctx, project); err != nil {
+	published, err := r.projector.Refresh(ctx, project)
+	if err != nil {
 		// Logged and counted, never propagated. The checklist in Postgres is
 		// correct; only the queue's view of it is stale, and the next sweep
 		// republishes. Failing the sweep over this would stop lifecycles moving
@@ -416,7 +420,11 @@ func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef,
 		report.ProjectionFailed++
 		return
 	}
-	report.Projected++
+	// Counted only when a row actually went out. A project the sweep visited
+	// that holds no checklist has nothing to publish and is not a queue row.
+	if published {
+		report.Projected++
+	}
 }
 
 // resolvePlatformItems runs one platform pass over a project's checklist,
