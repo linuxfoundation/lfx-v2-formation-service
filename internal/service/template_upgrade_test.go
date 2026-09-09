@@ -403,6 +403,95 @@ func TestAnUpgradeThatLosesTheRaceRecordsNothing(t *testing.T) {
 	}
 }
 
+// countingUpdateSections stands in for a formation repository whose revision the
+// winning upgrade has already moved: the revision the loser read is stale, so a
+// snapshot write from it would be refused. It counts calls as well as refusing
+// them, because "did not write" is the property under test and an assertion on
+// the returned error alone would also pass if the call were made and its failure
+// swallowed somewhere.
+type countingUpdateSections struct {
+	port.FormationRepository
+	calls *int
+}
+
+func (c countingUpdateSections) UpdateSections(
+	context.Context, uuid.UUID, []model.FormationSection, int64,
+) (*model.Formation, error) {
+	*c.calls++
+	return nil, domain.ErrVersionMismatch
+}
+
+type countingSectionsTx struct {
+	port.Tx
+	items      port.ItemRepository
+	formations port.FormationRepository
+}
+
+func (s countingSectionsTx) Items() port.ItemRepository           { return s.items }
+func (s countingSectionsTx) Formations() port.FormationRepository { return s.formations }
+
+type countingSectionsUOW struct {
+	inner port.UnitOfWork
+	calls *int
+}
+
+func (u countingSectionsUOW) Do(ctx context.Context, fn func(port.Tx) error) error {
+	return u.inner.Do(ctx, func(tx port.Tx) error {
+		return fn(countingSectionsTx{
+			Tx:         tx,
+			items:      raceLosingItems{tx.Items()},
+			formations: countingUpdateSections{FormationRepository: tx.Formations(), calls: u.calls},
+		})
+	})
+}
+
+// The losing half of a concurrent upgrade that introduces a new section. Both
+// callers compute the same missing item, the loser's insert is suppressed, and
+// the winner has already recorded the section and moved the revision with it.
+//
+// The loser must therefore write no snapshot at all. Deriving the section from
+// what it *attempted* rather than what it *inserted* made it compute the new
+// section anyway and write it with the revision it read before the winner
+// moved it — so an upgrade whose documented outcome is "nothing to do" failed
+// with a version mismatch instead, and an operator sweeping every checklist saw
+// a failure for a checklist that was already correct.
+func TestAnUpgradeThatLosesTheRaceOnANewSectionWritesNoSnapshot(t *testing.T) {
+	ctx := context.Background()
+	f := newExpansionFixture(t, twoItemSections(), nil)
+
+	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+		t.Fatalf("ExpandFor() = %v, want no error", err)
+	}
+
+	withNewSection := append(twoItemSections(), model.TemplateSection{
+		Key:   "brand_review",
+		Title: "Brand review",
+		Items: []model.TemplateItem{
+			{Key: "logo_approved", Title: "Logo approved", StatusSource: model.SourceManual},
+		},
+	})
+	publishNextVersion(t, f.templates, 2, withNewSection)
+
+	var updateSectionsCalls int
+	u := NewUpgrader(
+		NewTemplateSelector(f.templates),
+		countingSectionsUOW{inner: f.uow, calls: &updateSectionsCalls},
+		nil,
+	)
+
+	report, err := u.UpgradeFor(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("UpgradeFor() = %v, want no error — losing the race is a no-op, not a failure", err)
+	}
+	if updateSectionsCalls != 0 {
+		t.Errorf("UpdateSections calls = %d, want 0 — the section belongs to the transaction that inserted the item",
+			updateSectionsCalls)
+	}
+	if len(report.AddedKeys) != 0 {
+		t.Errorf("added keys = %v, want none — the other upgrade added them", report.AddedKeys)
+	}
+}
+
 // A version that introduces a whole new section, not just a new item in an
 // existing one, is the case the checklist's section snapshot exists for: the
 // upgrade adds an item whose section_key the pinned template never had, and

@@ -21,6 +21,7 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/auth"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/config"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/nats"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/postgres"
 	usecaseSvc "github.com/linuxfoundation/lfx-v2-formation-service/internal/service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
@@ -41,6 +42,10 @@ var (
 	pgDB       *postgres.DB
 	pgDoOnce   sync.Once
 	pgInitFail error
+
+	natsClient   *nats.Client
+	natsDoOnce   sync.Once
+	natsInitFail error
 )
 
 func repositorySource() string {
@@ -160,22 +165,44 @@ func UnitOfWorkImpl(
 	return nil
 }
 
-// ProjectReaderImpl returns the project reader, and returns nil because there
-// is nothing yet that can implement it.
+// natsImpl lazily connects the shared NATS client, once regardless of how many
+// callers ask for it.
 //
-// The NATS transport and a project client now exist
-// (internal/infrastructure/nats), but the project service exposes no subject
-// that returns the settings record — only per-attribute lookups, of which
-// writers is the only role. GetSettings needs the announcement date and the
-// auditors list from that record, so it cannot be answered without an upstream
-// addition.
+// Unlike Postgres, a failure here is not fatal. This service answers both its
+// read and its write routes without NATS: what depends on it is assignment
+// validation, due-date resolution and the reconcile sweep, all of which degrade
+// to a documented behaviour when the reader is absent. Exiting instead would
+// take the API down over an upstream this service can survive without, and the
+// client reconnects on its own once NATS returns.
+func natsImpl(ctx context.Context, cfg *config.Config) *nats.Client {
+	natsDoOnce.Do(func() {
+		slog.InfoContext(ctx, "connecting to NATS", "url", cfg.NATSUrl)
+		natsClient, natsInitFail = nats.New(ctx, nats.Config{URL: cfg.NATSUrl})
+		if natsInitFail != nil {
+			slog.ErrorContext(ctx, "could not connect to NATS; assignment validation stays inert, "+
+				"due dates are left unset and the reconcile loop sweeps nothing",
+				"url", cfg.NATSUrl, "error", natsInitFail)
+		}
+	})
+	return natsClient
+}
+
+// ProjectReaderImpl returns the project reader over NATS request/reply.
 //
-// Wiring a reader that filled writers and left auditors empty would be worse
-// than wiring none: assignment validation refuses anyone outside writers ∪
-// auditors, so it would start rejecting every legitimate auditor. A nil reader
-// keeps that check inert, which is wrong-but-harmless rather than harmful.
-func ProjectReaderImpl(_ context.Context, _ *config.Config) port.ProjectReader {
-	return nil
+// Returns nil when NATS could not be reached, and that nil is load-bearing
+// rather than an oversight: every consumer checks for it and has a defined
+// behaviour without a reader — assignment validation accepts rather than
+// refusing everyone, due dates are left unset rather than guessed, and the
+// reconcile logs that it swept nothing rather than reporting an empty sweep as
+// success. A reader that returned errors for every call would produce the same
+// outcomes with more noise and no more information.
+func ProjectReaderImpl(ctx context.Context, cfg *config.Config) port.ProjectReader {
+	client := natsImpl(ctx, cfg)
+	if client == nil {
+		return nil
+	}
+	slog.InfoContext(ctx, "initializing NATS project reader")
+	return nats.NewProjectClient(client)
 }
 
 // AuthServiceImpl initializes the authentication service implementation based
@@ -278,6 +305,13 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 	)
 
 	closeFn := func() error {
+		// NATS first, and unconditionally: Close drains, so in-flight requests
+		// finish rather than being cut off, and it is not gated on the Postgres
+		// result — returning early on a pool that failed to close would leak
+		// the connection.
+		if natsClient != nil {
+			natsClient.Close()
+		}
 		if pgDB != nil {
 			return pgDB.Close()
 		}

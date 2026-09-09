@@ -184,7 +184,7 @@ func (s stubProjects) GetSettings(_ context.Context, projectUID string) (*port.P
 	return &port.ProjectSettings{ProjectUID: projectUID, AnnouncementDate: &s.announcement}, nil
 }
 
-func (s stubProjects) ListFormingProjects(_ context.Context) ([]port.ProjectRef, error) {
+func (s stubProjects) ListFormingProjects(_ context.Context, _ []string) ([]port.ProjectRef, error) {
 	return nil, nil
 }
 

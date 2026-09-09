@@ -134,9 +134,17 @@ type ProjectReader interface {
 	// the project's settings.
 	GetSettings(ctx context.Context, projectUID string) (*ProjectSettings, error)
 
-	// ListFormingProjects returns the projects in a formation sub-stage,
-	// which is what the reconcile loop sweeps.
-	ListFormingProjects(ctx context.Context) ([]ProjectRef, error)
+	// ListFormingProjects returns the projects in a formation sub-stage, plus
+	// any project named in alsoUIDs whatever stage it is at now.
+	//
+	// The second half is what makes the sweep able to finish what it started.
+	// A checklist is completed when its project goes Active and frozen when it
+	// is archived, and both of those stages are, by definition, not formation
+	// stages — so a forming-only list drops exactly the projects whose
+	// lifecycle still needs moving, and those two transitions could never run
+	// in a deployed pod. The caller passes the projects it holds a checklist
+	// for, and gets their current stage back whatever it is.
+	ListFormingProjects(ctx context.Context, alsoUIDs []string) ([]ProjectRef, error)
 }
 
 // ProjectSettings is the subset of a project's settings this service reads.

@@ -412,6 +412,32 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, "assignee_not_on_project", formationErr.Reason)
 	})
 
+	// The counterpart to the case above, and the distinction the whole check
+	// rests on: a roster that was read and does not list the assignee refuses,
+	// a roster that could not be read does not.
+	//
+	// The project service answers every handler failure with an empty reply, so a
+	// KV error and a genuinely absent settings record are indistinguishable on
+	// the wire. Refusing here would answer a transient upstream fault by telling
+	// someone their colleague is not on the project.
+	t.Run("an unreadable roster accepts the assignee rather than refusing", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		// No SetSettings, so the double reports the project as having no roster —
+		// exactly what an empty reply from the project service decodes to.
+		s.projects = mock.NewProjectReader()
+
+		assignee := "someone-unverifiable"
+		result, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
+			IfMatch: itemOne.Revision, Assignee: &assignee,
+		})
+
+		require.NoError(t, err, "an unreadable roster must not fail the update")
+		require.NotNil(t, result)
+		require.NotNil(t, result.Assignee)
+		assert.Equal(t, assignee, *result.Assignee)
+	})
+
 	// The assignee's membership is checked before the transaction opens, since
 	// it is a call to another service — but it must still be reported after the
 	// precondition, or a stale write would answer 400 where it answers 412 and
