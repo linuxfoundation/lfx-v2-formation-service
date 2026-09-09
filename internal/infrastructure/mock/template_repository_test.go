@@ -123,3 +123,38 @@ func TestUpsertProtectsContentAfterTheStateMovesOn(t *testing.T) {
 		t.Fatalf("error = %v, want domain.ErrConflict", err)
 	}
 }
+
+// The same two-step bypass, from a publisher that supplies no publication time.
+// The guard reads an undated row as never published, so without the model's
+// default this sequence used to succeed at the third step: the seed command
+// happens to set the timestamp, which meant the guarantee rested on the habit of
+// one caller rather than on anything enforced.
+func TestUpsertProtectsContentPublishedWithoutATimestamp(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepository()
+
+	original := []model.TemplateSection{{Key: "legal", Title: "Legal"}}
+	seeded, err := repo.Upsert(ctx, &model.Template{
+		Name: "undated", Version: 1, State: model.TemplatePublished, Sections: original,
+	})
+	if err != nil {
+		t.Fatalf("publishing without a timestamp: %v", err)
+	}
+	if seeded.PublishedAt == nil {
+		t.Fatal("published_at = nil after publishing; the guard would read this version as never published")
+	}
+
+	if _, err := repo.Upsert(ctx, &model.Template{
+		Name: "undated", Version: 1, State: model.TemplateDraft, Sections: original,
+	}); err != nil {
+		t.Fatalf("re-seeding identical content must still be allowed: %v", err)
+	}
+
+	_, err = repo.Upsert(ctx, &model.Template{
+		Name: "undated", Version: 1, State: model.TemplateDraft,
+		Sections: []model.TemplateSection{{Key: "legal", Title: "Rewritten"}},
+	})
+	if !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("error = %v, want domain.ErrConflict — the demotion must not release the content", err)
+	}
+}

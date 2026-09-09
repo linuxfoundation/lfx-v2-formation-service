@@ -45,15 +45,16 @@ type UpgradeReport struct {
 	// were taken from, which is not necessarily the one the checklist pins.
 	TemplateUID     string
 	TemplateVersion int
-	// AddedKeys names the rows this run set out to add, in order. Empty means
-	// the checklist was already complete against this template, which is the
-	// expected outcome of a re-run.
+	// AddedKeys names the rows this run inserted, in order. Empty means the
+	// checklist was already complete against this template, which is the expected
+	// outcome of a re-run.
 	//
-	// It is what was attempted rather than what was inserted: the insert is
-	// ON CONFLICT DO NOTHING and reports no count, so two upgraders racing the
-	// same project would both claim every key while only one wrote it. The rows
-	// stay correct either way — UNIQUE (formation_uid, item_key) holds — so this
-	// is a reporting limit, and it only shows if this is ever run in parallel.
+	// Inserted, not attempted. The insert is ON CONFLICT DO NOTHING and names
+	// what it wrote, so of two upgraders racing the same project each claims only
+	// its own rows and the two lists partition the additions between them. That
+	// distinction is not merely cosmetic: the section snapshot is derived from
+	// this, and deriving it from the attempted set is what made a losing run try
+	// to record a section against a revision the winner had already moved.
 	AddedKeys []string
 }
 
@@ -89,6 +90,15 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 			return fmt.Errorf("listing items for %s: %w", projectUID, listErr)
 		}
 
+		// Holds the rows this transaction actually inserted, as opposed to the
+		// ones it attempted. Only these may contribute a section below, for the
+		// reason the audit entry is built from the same set: under a concurrent
+		// upgrade a suppressed row is a row another transaction owns, and
+		// recording its section here would be this transaction writing a
+		// snapshot for work it did not do — with a stale revision, so the write
+		// fails and takes an otherwise clean no-op down with it.
+		var inserted []*model.Item
+
 		missing := missingItems(formation.UID, tpl, projectUID, existing, announcement)
 		if len(missing) > 0 {
 			// The keys come back from the insert rather than from the set
@@ -102,6 +112,7 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 			if insertErr != nil {
 				return fmt.Errorf("adding %d items to %s: %w", len(missing), projectUID, insertErr)
 			}
+			inserted = itemsWithKeys(missing, addedKeys)
 			// Nothing landed if addedKeys is empty, so another upgrade added
 			// them all first — no entry, for the same reason a fully caught-up
 			// checklist writes none.
@@ -133,7 +144,15 @@ func (u *Upgrader) UpgradeFor(ctx context.Context, projectUID string) (*UpgradeR
 		// run may have left — its own item insert landed but its section write
 		// did not — and re-checking against the actual items is what closes
 		// that gap rather than only ever widening it forward.
-		needed := sectionsToRecord(formation.Sections, tpl, existing, missing)
+		//
+		// Both groups are items the checklist demonstrably has: the ones it
+		// already held, and the ones this transaction just added. Passing the
+		// attempted set instead would make the loser of a concurrent upgrade
+		// compute a section for a row it did not insert and then write it with
+		// the revision it read before the winner moved it — turning a documented
+		// no-op into ErrVersionMismatch, and failing the whole run for having
+		// nothing to do.
+		needed := sectionsToRecord(formation.Sections, tpl, existing, inserted)
 		if len(needed) > 0 {
 			merged := append(append([]model.FormationSection{}, formation.Sections...), needed...)
 			if _, secErr := tx.Formations().UpdateSections(ctx, formation.UID, merged, formation.Revision); secErr != nil {
@@ -211,6 +230,28 @@ func (u *Upgrader) UpgradeAll(ctx context.Context) ([]*UpgradeReport, error) {
 		return reports, fmt.Errorf("%d of %d checklists failed to upgrade", failed, len(projectUIDs))
 	}
 	return reports, nil
+}
+
+// itemsWithKeys narrows items to those whose key the repository reported as
+// inserted. The two differ only under a concurrent upgrade, where the losing
+// transaction attempts rows another has already added and has its inserts
+// suppressed — so an unfiltered set describes intent, and this one describes
+// what happened.
+func itemsWithKeys(items []*model.Item, keys []string) []*model.Item {
+	if len(keys) == 0 {
+		return nil
+	}
+	wanted := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		wanted[key] = true
+	}
+	out := make([]*model.Item, 0, len(keys))
+	for _, item := range items {
+		if wanted[item.ItemKey] {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // sectionsToRecord returns the section entries the checklist has an item for,

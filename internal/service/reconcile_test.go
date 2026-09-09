@@ -20,38 +20,45 @@ import (
 )
 
 // listProjects is a ProjectReader whose forming-project list the test controls,
-// standing in for the transport that will supply it.
+// standing in for the transport that supplies it.
 type listProjects struct {
 	mu           sync.Mutex
 	refs         []port.ProjectRef
 	announcement string
 	listErr      error
 	listCalls    int
+	lastAlsoUIDs []string
 }
 
 func (l *listProjects) GetSettings(_ context.Context, projectUID string) (*port.ProjectSettings, error) {
 	return &port.ProjectSettings{ProjectUID: projectUID, AnnouncementDate: &l.announcement}, nil
 }
 
-// ListFormingProjects returns whatever a test set, including projects in stages
-// the real reader would not return at all.
+// ListFormingProjects returns whatever a test set, including projects at stages
+// no longer in formation, and records the UIDs it was asked to include.
 //
-// That is a deliberate overreach and worth naming, because it is what lets the
-// lifecycle tests below reach the completed and frozen branches: the real
-// contract is forming projects only, so in a deployed pod a project that has
-// just become Active or been archived is not in this list and its checklist is
-// never visited. Those branches are correct and unreachable today, and they stay
-// unreachable until the project reader can also return projects that already
-// have a checklist. Until then these tests prove the mapping, not that the sweep
-// applies it in production.
-func (l *listProjects) ListFormingProjects(_ context.Context) ([]port.ProjectRef, error) {
+// Returning Active and Archived projects is no longer an overreach: the sweep
+// names the projects it holds a checklist for, and the subject answers with
+// their current stage whatever it is. That is what makes the completed and
+// frozen branches reachable in a deployed pod, where a forming-only list left
+// them correct but dead. The recorded UIDs are how a test checks the sweep
+// actually asks — the branches would go quietly dead again if it stopped.
+func (l *listProjects) ListFormingProjects(_ context.Context, alsoUIDs []string) ([]port.ProjectRef, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.listCalls++
+	l.lastAlsoUIDs = append([]string{}, alsoUIDs...)
 	if l.listErr != nil {
 		return nil, l.listErr
 	}
 	return l.refs, nil
+}
+
+// askedFor reports the UIDs the most recent sweep asked to have included.
+func (l *listProjects) askedFor() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string{}, l.lastAlsoUIDs...)
 }
 
 func (l *listProjects) setRefs(refs []port.ProjectRef) {
@@ -308,6 +315,90 @@ func TestReconcileMovesLifecycleAndRestoresOnReEntry(t *testing.T) {
 				t.Errorf("items = %d, want the original 3", len(items))
 			}
 		})
+	}
+}
+
+// The regression the two tests above could not catch on their own: they hand the
+// sweep an Active project directly, so they prove the lifecycle mapping without
+// proving the sweep can ever see such a project.
+//
+// Here the reader applies the real contract. Once project-1 leaves formation it
+// is no longer in the stage-filtered list, and the only way it comes back is the
+// sweep naming it as a project it holds a checklist for. Drop that and this test
+// sees a checklist stuck at live — which is what a deployed pod did.
+func TestReconcileCompletesAChecklistAfterItsProjectLeavesFormation(t *testing.T) {
+	ctx := context.Background()
+	projects := mock.NewProjectReader()
+	projects.SetFormingProjects([]port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+	})
+	r, f := newReconciler(t, projects)
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("create sweep = %v, want no error", err)
+	}
+	created, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v, want no error", err)
+	}
+	if created.Lifecycle != model.LifecycleLive {
+		t.Fatalf("lifecycle = %q, want live", created.Lifecycle)
+	}
+
+	// The project goes Active. It leaves the formation stages entirely, which is
+	// exactly the state a forming-only list cannot represent.
+	projects.SetFormingProjects(nil)
+	projects.SetProjectsByUID([]port.ProjectRef{{UID: "project-1", SubStage: model.StageActive}})
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("sweep after leaving formation = %v, want no error", err)
+	}
+	if report.Swept != 1 {
+		t.Fatalf("swept = %d, want 1 — the project is only in the list because the sweep named it",
+			report.Swept)
+	}
+	if report.LifecyclesMoved != 1 {
+		t.Errorf("lifecycles moved = %d, want 1", report.LifecyclesMoved)
+	}
+
+	after, err := f.formations.GetByProject(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("GetByProject() = %v, want no error", err)
+	}
+	if after.Lifecycle != model.LifecycleCompleted {
+		t.Errorf("lifecycle = %q, want completed", after.Lifecycle)
+	}
+	// The same checklist, moved rather than rebuilt.
+	if after.UID != created.UID {
+		t.Errorf("formation uid = %v, want the original %v", after.UID, created.UID)
+	}
+}
+
+// The sweep must name the projects it holds a checklist for, or the reach above
+// goes quietly dead: every assertion still passes against a fake that ignores
+// the argument, and nothing else would notice.
+func TestReconcileNamesTheProjectsItHoldsChecklistsFor(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+	}}
+	r, _ := newReconciler(t, projects)
+
+	// The first sweep holds nothing yet, so it asks for the stages alone.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("create sweep = %v, want no error", err)
+	}
+	if asked := projects.askedFor(); len(asked) != 0 {
+		t.Errorf("first sweep asked for %v, want nothing — no checklist existed to name", asked)
+	}
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	asked := projects.askedFor()
+	if len(asked) != 1 || asked[0] != "project-1" {
+		t.Errorf("second sweep asked for %v, want [project-1] — the checklist it now holds", asked)
 	}
 }
 

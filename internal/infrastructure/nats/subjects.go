@@ -21,9 +21,27 @@ const (
 	// ProjectGetWritersSubject returns the project's writers as a JSON array,
 	// empty when none are configured.
 	//
-	// This is the only role the project service exposes. There is no auditors
-	// equivalent and no subject that returns the settings record whole, which
-	// is why this package cannot yet answer the writers-union-auditors question
-	// assignment validation asks. See project_client.go.
+	// Superseded for assignment validation by ProjectGetSettingsSubject, which
+	// answers with the auditors as well. Kept because it is the narrower read:
+	// a caller that only needs writers should not receive the auditors and the
+	// announcement date alongside them.
 	ProjectGetWritersSubject = "lfx.projects-api.get_writers"
+
+	// ProjectGetSettingsSubject returns the project's grant roster and its
+	// announcement date from the one settings record that holds all three.
+	//
+	// Takes the project UID as the raw body and replies with JSON. This is the
+	// read assignment validation needs: writers alone would refuse every
+	// legitimate auditor, so a partial answer here is worse than none.
+	ProjectGetSettingsSubject = "lfx.projects-api.get_settings"
+
+	// ProjectListProjectsSubject returns projects by stage, by UID, or the
+	// union of both.
+	//
+	// The only subject here whose request body is JSON rather than a bare UID,
+	// and the only one that answers a caller holding no UID at all. The union
+	// is what the reconcile sweep needs in a single round trip: the stages it
+	// watches, plus the projects it already holds a checklist for, which may
+	// have left those stages and still need their lifecycle moved.
+	ProjectListProjectsSubject = "lfx.projects-api.list_projects"
 )

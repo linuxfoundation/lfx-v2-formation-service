@@ -21,6 +21,30 @@ const (
 	StageProspect              = "Prospect"
 )
 
+// FormationStages lists the stages worth asking the project service for, which
+// is what the reconcile sweep filters on.
+//
+// Wider than FormingStage on purpose. Disengaged creates no checklist, but a
+// project that has just become Disengaged has one to freeze, and asking only for
+// the stages that create would leave it out of the answer entirely — the sweep
+// would then never see the project whose checklist it needs to freeze. Being in
+// this list means "visible to the sweep", not "gets a checklist"; the gate
+// decides the second, and it refuses Disengaged.
+//
+// Active and Archived are deliberately absent. They also freeze or complete a
+// checklist, but there are far more of them than there are formation projects,
+// and the sweep reaches them the other way: by naming the projects it already
+// holds a checklist for.
+func FormationStages() []string {
+	return []string{
+		StageFormationExploratory,
+		StageFormationEngaged,
+		StageFormationOnHold,
+		StageFormationDisengaged,
+		StageFormationConfidential,
+	}
+}
+
 // FormingStage reports whether a project at this stage should have a checklist.
 //
 // Four of the five formation stages qualify. Disengaged does not: it carries the

@@ -214,6 +214,23 @@ func (t *Template) ApplyUpsertDefaults() {
 	if t.Sections == nil {
 		t.Sections = []TemplateSection{}
 	}
+	// Published implies a publication time, enforced here rather than trusted
+	// from the caller, because the immutability guard is built on it: that guard
+	// releases a version whose state is not published *and* whose published_at
+	// is nil, so a row that is published with no timestamp reads as never
+	// published. Demoting it to draft with identical content then passes the
+	// content comparison, and the version's content is open to rewriting from
+	// there — the two-step bypass the timestamp exists to close.
+	//
+	// The seed command does set it, so nothing shipping today produces such a
+	// row. That is precisely why it belongs here: the invariant currently holds
+	// by the habit of the only caller, and the next writer to publish a template
+	// has no reason to know the guard depends on it. Both repositories call this
+	// before writing, so this is the one place that covers them.
+	if t.State == TemplatePublished && t.PublishedAt == nil {
+		now := time.Now().UTC()
+		t.PublishedAt = &now
+	}
 }
 
 // TemplateSection groups template items under one heading. The shape is

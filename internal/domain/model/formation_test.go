@@ -3,7 +3,10 @@
 
 package model
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestApplyInsertDefaults(t *testing.T) {
 	t.Run("an item left unset gets the documented defaults", func(t *testing.T) {
@@ -100,6 +103,46 @@ func TestTemplateApplyUpsertDefaults(t *testing.T) {
 
 		if tpl.State != TemplatePublished {
 			t.Errorf("state = %q, want %q", tpl.State, TemplatePublished)
+		}
+	})
+
+	// The immutability guard releases a version that is neither published nor
+	// dated. Published-with-no-date satisfies both halves of that, so it reads
+	// as never published and its content becomes editable in place — which is
+	// what this default exists to prevent, not a cosmetic completeness fix.
+	t.Run("publishing without a timestamp is dated rather than left open", func(t *testing.T) {
+		tpl := &Template{State: TemplatePublished}
+
+		before := time.Now().UTC()
+		tpl.ApplyUpsertDefaults()
+
+		if tpl.PublishedAt == nil {
+			t.Fatal("published_at = nil on a published template, which reads to the immutability guard as never published")
+		}
+		if tpl.PublishedAt.Before(before.Add(-time.Minute)) {
+			t.Errorf("published_at = %v, want a time at or after %v", tpl.PublishedAt, before)
+		}
+	})
+
+	t.Run("an authored publication time is not overwritten", func(t *testing.T) {
+		authored := time.Date(2025, 6, 17, 9, 0, 0, 0, time.UTC)
+		tpl := &Template{State: TemplatePublished, PublishedAt: &authored}
+
+		tpl.ApplyUpsertDefaults()
+
+		if tpl.PublishedAt == nil || !tpl.PublishedAt.Equal(authored) {
+			t.Errorf("published_at = %v, want the authored %v", tpl.PublishedAt, authored)
+		}
+	})
+
+	t.Run("a draft stays undated, so its content stays editable", func(t *testing.T) {
+		tpl := &Template{State: TemplateDraft}
+
+		tpl.ApplyUpsertDefaults()
+
+		if tpl.PublishedAt != nil {
+			t.Errorf("published_at = %v on a draft, want nil — dating it would freeze content that is still meant to change",
+				tpl.PublishedAt)
 		}
 	})
 }

@@ -138,17 +138,33 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 		return report, nil
 	}
 
-	projects, err := r.projects.ListFormingProjects(ctx)
+	// Read before the project list, because it is an input to that request and
+	// not only a filter applied to its answer. The list is asked for the
+	// formation stages *plus* these projects by name, which is what keeps a
+	// checklist visible after its project has gone Active or been archived —
+	// the two stages that complete and freeze it, and by definition not
+	// formation stages. Without naming them, the projects whose lifecycle still
+	// needs moving are precisely the ones missing from the answer.
+	//
+	// This read is unconditional, where it used to be skipped on any sweep with
+	// nothing at a creating stage — the steady state. That is a real cost: one
+	// query per tick per replica that a settled deployment previously did not
+	// make. It is not avoidable by the same short-circuit, because the answer is
+	// what decides which projects the sweep is about, so there is nothing to
+	// short-circuit on until it has been read. The template read below is still
+	// gated, and that is the more expensive of the two.
+	existing, existingKnown := r.knownChecklists(ctx)
+
+	projects, err := r.projects.ListFormingProjects(ctx, keysOf(existing))
 	if err != nil {
 		return report, err
 	}
 
-	// Both of these are properties of the sweep, not of a project, so they are
-	// resolved once. Resolving them per project meant a template read and a
-	// speculative insert for every project on every tick — including the ones
-	// that already had everything they needed, which in a steady state is all
-	// of them.
-	sweep := r.prepare(ctx, projects)
+	// Resolved once for the whole sweep rather than per project. Per project
+	// meant a template read and a speculative insert for every project on every
+	// tick — including the ones that already had everything they needed, which
+	// in a steady state is all of them.
+	sweep := r.prepare(ctx, projects, existing, existingKnown)
 
 	for _, project := range projects {
 		report.Swept++
@@ -242,21 +258,64 @@ type sweepState struct {
 	existingKnown bool
 }
 
-// prepare resolves the template and the set of projects that already have a
-// checklist, both once for the whole sweep.
+// knownChecklists reads the projects that already hold a checklist, and reports
+// whether the read succeeded.
 //
-// It does no work at all when nothing in the sweep is at a creating stage, which
-// is the steady state: no template read, no formation listing. A missing
-// template is reported here rather than per project, because that is the state a
-// freshly deployed environment is in until the template is seeded and it would
-// otherwise be logged once for every forming project on every tick.
+// The two answers are separate because an empty set means two different things.
+// Read successfully, it says no checklist exists, and a project's absence from
+// it is evidence the project needs one. Unread, it says nothing at all, and
+// treating absence as evidence would have the sweep describe every project as
+// waiting on something.
 //
-// It cannot fail the sweep. Neither of these lookups is needed to move a
-// lifecycle, and one of them is only an optimisation, so a failure here degrades
-// what the sweep can do rather than ending it — a transient error reading
-// templates must not also stop a project that went Active from being completed.
-func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *sweepState {
-	state := &sweepState{existing: map[string]bool{}}
+// It cannot fail the sweep. An unread set costs efficiency rather than
+// correctness on the creating side — every forming project is attempted and the
+// uniqueness constraint absorbs the ones that already exist, which is what this
+// sweep did before the set was read at all. It does cost reach: a project that
+// has left formation is only in the list because it is named here, so a failed
+// read also means no lifecycle is completed or frozen this tick. That is why the
+// warning says so rather than only mentioning duplicates.
+func (r *Reconciler) knownChecklists(ctx context.Context) (map[string]bool, bool) {
+	existing := map[string]bool{}
+
+	uids, err := r.formations.ListProjectUIDs(ctx)
+	if err != nil {
+		slog.WarnContext(ctx, "could not list existing checklists; attempting every forming project, "+
+			"letting the uniqueness constraint absorb the duplicates, and reaching no project that has "+
+			"already left formation this sweep", "error", err)
+		return existing, false
+	}
+	for _, uid := range uids {
+		existing[uid] = true
+	}
+	return existing, true
+}
+
+// keysOf returns the map's keys, which is the form the project list request
+// takes them in.
+func keysOf(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for key := range set {
+		out = append(out, key)
+	}
+	return out
+}
+
+// prepare resolves the template for the sweep, carrying through the checklist
+// set already read.
+//
+// It does no template read at all when nothing in the sweep is at a creating
+// stage, which is the steady state. A missing template is reported here rather
+// than per project, because that is the state a freshly deployed environment is
+// in until the template is seeded and it would otherwise be logged once for
+// every forming project on every tick.
+//
+// It cannot fail the sweep. A template is not needed to move a lifecycle, so a
+// transient error reading templates must not also stop a project that went
+// Active from being completed.
+func (r *Reconciler) prepare(
+	ctx context.Context, projects []port.ProjectRef, existing map[string]bool, existingKnown bool,
+) *sweepState {
+	state := &sweepState{existing: existing, existingKnown: existingKnown}
 
 	anyCreating := false
 	for _, project := range projects {
@@ -267,31 +326,6 @@ func (r *Reconciler) prepare(ctx context.Context, projects []port.ProjectRef) *s
 	}
 	if !anyCreating {
 		return state
-	}
-
-	// Read before the template, and kept even when the template cannot be
-	// resolved. The two lookups are independent, and a project that already has
-	// a checklist is unaffected by there being no template — counting it as
-	// blocked would report a sweep-wide problem against projects that need
-	// nothing.
-	//
-	// The repository exposes this for exactly this diff. Without it the sweep
-	// asked the database to refuse an insert once per project per tick and
-	// treated the refusal as success.
-	uids, err := r.formations.ListProjectUIDs(ctx)
-	if err != nil {
-		// An empty set is the safe fallback, not a reason to stop: every
-		// forming project is then attempted, and the uniqueness constraint
-		// absorbs the ones that already exist. That is what this sweep did
-		// before the diff existed, so failing to read it costs efficiency
-		// rather than correctness.
-		slog.WarnContext(ctx, "could not list existing checklists; attempting every forming project "+
-			"and letting the uniqueness constraint absorb the duplicates", "error", err)
-	} else {
-		state.existingKnown = true
-	}
-	for _, uid := range uids {
-		state.existing[uid] = true
 	}
 
 	tpl, err := r.expander.SelectTemplate(ctx)
