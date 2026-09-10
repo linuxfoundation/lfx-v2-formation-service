@@ -192,7 +192,13 @@ type Subscriber interface {
 	// Waiting is the point: a handler is inside a database transaction, and
 	// tearing it down mid-flight during shutdown would abort work that had
 	// already been decided on.
-	Subscribe(ctx context.Context, subject, queue string, handler func(data []byte)) (stop func(), err error)
+	// The handler receives the message's own context, which continues the
+	// publisher's trace rather than starting a new one, and derives from the
+	// context given here — so a caller wanting handlers to outlive its own
+	// cancellation passes one that does.
+	Subscribe(
+		ctx context.Context, subject, queue string, handler func(ctx context.Context, data []byte),
+	) (stop func(), err error)
 }
 
 // IndexerPublisher publishes a checklist's search projection.

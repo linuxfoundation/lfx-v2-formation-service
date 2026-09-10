@@ -71,7 +71,9 @@ func NewProjectListener(
 // already cancelled and abandon its database transaction — draining would wait
 // politely for work that had just been told to give up, which is the opposite of
 // what draining is for. Handlers get a context that survives that cancellation
-// and is cancelled here instead, once nothing is left in flight.
+// and is cancelled here instead, once nothing is left in flight. That context is
+// what Subscribe is given, so each message's own context — which also carries
+// the publisher's trace — descends from it.
 func (l *ProjectListener) Start(
 	ctx context.Context, subscriber port.Subscriber, queue string, subjects ...string,
 ) (func(), error) {
@@ -97,8 +99,8 @@ func (l *ProjectListener) Start(
 	}
 
 	for _, subject := range subjects {
-		stop, err := subscriber.Subscribe(ctx, subject, queue, func(data []byte) {
-			l.Handle(handlerCtx, data)
+		stop, err := subscriber.Subscribe(handlerCtx, subject, queue, func(msgCtx context.Context, data []byte) {
+			l.Handle(msgCtx, data)
 		})
 		if err != nil {
 			// Undo the ones already made. A half-attached listener is worse

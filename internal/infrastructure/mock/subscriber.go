@@ -20,8 +20,9 @@ import (
 // port and a timing window to a question that has none of those in it.
 type Subscriber struct {
 	mu       sync.Mutex
-	handlers map[string]func(data []byte)
+	handlers map[string]func(ctx context.Context, data []byte)
 	queues   map[string]string
+	ctxs     map[string]context.Context
 	stopped  map[string]bool
 	err      error
 }
@@ -35,8 +36,9 @@ var _ port.Subscriber = (*Subscriber)(nil)
 // NewSubscriber constructs a subscriber with nothing subscribed.
 func NewSubscriber() *Subscriber {
 	return &Subscriber{
-		handlers: map[string]func(data []byte){},
+		handlers: map[string]func(ctx context.Context, data []byte){},
 		queues:   map[string]string{},
+		ctxs:     map[string]context.Context{},
 		stopped:  map[string]bool{},
 	}
 }
@@ -51,7 +53,7 @@ func (s *Subscriber) SetError(err error) {
 
 // Subscribe records the handler and the queue it was registered under.
 func (s *Subscriber) Subscribe(
-	_ context.Context, subject, queue string, handler func(data []byte),
+	ctx context.Context, subject, queue string, handler func(ctx context.Context, data []byte),
 ) (func(), error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -61,6 +63,7 @@ func (s *Subscriber) Subscribe(
 	}
 	s.handlers[subject] = handler
 	s.queues[subject] = queue
+	s.ctxs[subject] = ctx
 
 	return func() {
 		s.mu.Lock()
@@ -81,12 +84,16 @@ func (s *Subscriber) Subscribe(
 func (s *Subscriber) Deliver(subject string, data []byte) bool {
 	s.mu.Lock()
 	handler := s.handlers[subject]
+	ctx := s.ctxs[subject]
 	s.mu.Unlock()
 
 	if handler == nil {
 		return false
 	}
-	handler(data)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	handler(ctx, data)
 	return true
 }
 

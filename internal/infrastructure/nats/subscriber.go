@@ -30,7 +30,7 @@ func NewSubscriber(client *Client) *Subscriber {
 // Subscribe delivers messages on subject to handler, one member of queue
 // handling each.
 func (s *Subscriber) Subscribe(
-	ctx context.Context, subject, queue string, handler func(data []byte),
+	ctx context.Context, subject, queue string, handler func(ctx context.Context, data []byte),
 ) (func(), error) {
 	return s.client.QueueSubscribe(ctx, subject, queue, handler)
 }

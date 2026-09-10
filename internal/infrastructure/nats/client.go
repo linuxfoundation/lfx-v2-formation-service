@@ -219,16 +219,36 @@ const (
 // escape is that one malformed publish takes down a replica that is otherwise
 // serving reads perfectly well.
 func (c *Client) QueueSubscribe(
-	ctx context.Context, subject, queue string, handler func(data []byte),
+	ctx context.Context, subject, queue string, handler func(ctx context.Context, data []byte),
 ) (func(), error) {
 	sub, err := c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
+		// Continue the publisher's trace rather than starting a fresh one. This
+		// service already injects trace context on everything it sends, and
+		// every other v2 service that consumes extracts it here; without the
+		// extract, work caused by an event would be an orphan trace and the one
+		// question worth asking of it — what change led to this checklist —
+		// could not be answered.
+		msgCtx := otel.GetTextMapPropagator().Extract(ctx, natsHeaderCarrier(msg.Header))
+		msgCtx, span := tracer.Start(msgCtx, "nats.process",
+			trace.WithSpanKind(trace.SpanKindConsumer),
+			trace.WithAttributes(
+				attribute.String("messaging.system", "nats"),
+				attribute.String("messaging.destination.name", subject),
+				attribute.String("messaging.operation.type", "process"),
+				attribute.Int("messaging.message.body.size", len(msg.Data)),
+			),
+		)
+		defer span.End()
+
 		defer func() {
 			if r := recover(); r != nil {
-				slog.ErrorContext(ctx, "recovered from a panic while handling a message",
+				slog.ErrorContext(msgCtx, "recovered from a panic while handling a message",
 					"subject", msg.Subject, "queue", queue, "panic", r)
+				span.RecordError(fmt.Errorf("panic while handling a message: %v", r))
+				span.SetStatus(codes.Error, "panic while handling a message")
 			}
 		}()
-		handler(msg.Data)
+		handler(msgCtx, msg.Data)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("NATS subscribe to %s failed: %w", subject, err)

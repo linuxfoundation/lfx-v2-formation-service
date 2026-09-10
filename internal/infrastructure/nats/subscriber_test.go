@@ -37,7 +37,7 @@ func TestSubscribeDeliversToTheHandler(t *testing.T) {
 
 	received := make(chan []byte, 1)
 	stop, err := subscriber.Subscribe(context.Background(),
-		ProjectUpdatedSubject, ProjectEventsQueue, func(data []byte) {
+		ProjectUpdatedSubject, ProjectEventsQueue, func(_ context.Context, data []byte) {
 			received <- data
 		})
 	if err != nil {
@@ -71,7 +71,7 @@ func TestOneQueueMemberHandlesEachMessage(t *testing.T) {
 	for range 2 {
 		subscriber := NewSubscriber(newTestClient(t, url, 2*time.Second))
 		stop, err := subscriber.Subscribe(context.Background(),
-			ProjectUpdatedSubject, ProjectEventsQueue, func(_ []byte) {
+			ProjectUpdatedSubject, ProjectEventsQueue, func(_ context.Context, _ []byte) {
 				mu.Lock()
 				handled++
 				mu.Unlock()
@@ -112,7 +112,7 @@ func TestAPanickingHandlerDoesNotKillTheSubscription(t *testing.T) {
 	survived := make(chan struct{}, 1)
 	first := true
 	stop, err := subscriber.Subscribe(context.Background(),
-		ProjectUpdatedSubject, ProjectEventsQueue, func(_ []byte) {
+		ProjectUpdatedSubject, ProjectEventsQueue, func(_ context.Context, _ []byte) {
 			if first {
 				first = false
 				panic("malformed payload")
@@ -143,7 +143,7 @@ func TestStopEndsDelivery(t *testing.T) {
 	var mu sync.Mutex
 	handled := 0
 	stop, err := subscriber.Subscribe(context.Background(),
-		ProjectUpdatedSubject, ProjectEventsQueue, func(_ []byte) {
+		ProjectUpdatedSubject, ProjectEventsQueue, func(_ context.Context, _ []byte) {
 			mu.Lock()
 			handled++
 			mu.Unlock()
