@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -722,6 +723,15 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 		if to == "" {
 			continue
 		}
+		// LFX usernames are not always email addresses. Skip any recipient
+		// that lacks an '@' rather than delivering to an unroutable address.
+		// When LFX uses email-as-username the send proceeds normally; when it
+		// does not, the notification is dropped and logged rather than bounced.
+		if !strings.Contains(to, "@") {
+			slog.WarnContext(ctx, "active email: skipping recipient — not an email address",
+				"project_uid", project.UID, "recipient", to)
+			continue
+		}
 		subj, html, text, renderErr := email.RenderActive(email.ActiveData{
 			ProjectName: project.Slug, // name not on ProjectRef; slug used as fallback
 			ProjectURL:  projectURL,
@@ -858,11 +868,17 @@ func (r *Reconciler) sendOneShot(
 	render func() (subject, html, text string, err error),
 	to, groupID string,
 ) {
-	// Mark first (at-most-once).
-	if markErr := r.formations.MarkNotified(ctx, formation.UID, column); markErr != nil {
+	// Mark first (at-most-once). Only the replica whose UPDATE touches a row
+	// (acquired=true) proceeds to Send; the loser exits here so a concurrent
+	// sweep does not dispatch a duplicate.
+	acquired, markErr := r.formations.MarkNotified(ctx, formation.UID, column)
+	if markErr != nil {
 		slog.WarnContext(ctx, "notification: could not mark; not sending",
 			"formation_uid", formation.UID, "column", column, "error", markErr)
 		return
+	}
+	if !acquired {
+		return // another replica already sent this notification
 	}
 
 	subject, html, text, renderErr := render()

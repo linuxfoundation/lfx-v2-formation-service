@@ -1,3 +1,4 @@
+{{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
 Hi formation team,
 
 {{.ProjectName}} has cleared all gating checklist items and has an announcement

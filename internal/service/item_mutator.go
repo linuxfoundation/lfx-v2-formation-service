@@ -206,6 +206,15 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		return
 	}
 
+	// LFX stores grantees by username, which may not be an email address.
+	// Skip rather than delivering to an unroutable address; when LFX uses
+	// email-as-username the send proceeds normally.
+	if !strings.Contains(item.Assignee, "@") {
+		slog.WarnContext(ctx, "item-assigned email: assignee has no @ — not an email address; not sent",
+			"item_key", item.ItemKey, "assignee", item.Assignee)
+		return
+	}
+
 	projectName, slug := s.projectNameAndSlug(ctx, projectUID)
 	checklistURL := fmt.Sprintf("%s/manage/projects/%s/checklist", s.emailCfg.AdminBaseURL, slug)
 	if slug == "" {

@@ -149,33 +149,38 @@ func (r *FormationRepository) ListProjectUIDs(_ context.Context) ([]string, erro
 }
 
 // MarkNotified sets one notification timestamp where it is still nil, matching
-// the at-most-once semantics of the Postgres implementation.
-func (r *FormationRepository) MarkNotified(_ context.Context, uid uuid.UUID, column string) error {
+// the at-most-once semantics of the Postgres implementation. It returns
+// acquired=true when this call set the timestamp (equivalent to RowsAffected>0
+// in the real DB) and acquired=false when the column was already set.
+func (r *FormationRepository) MarkNotified(_ context.Context, uid uuid.UUID, column string) (bool, error) {
 	r.record("formations.MarkNotified")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	f, ok := r.byUID[uid]
 	if !ok {
-		return domain.ErrNotFound
+		return false, domain.ErrNotFound
 	}
 
 	now := time.Now().UTC()
 	switch column {
 	case "notified_activating_at":
-		if f.NotifiedActivatingAt == nil {
-			f.NotifiedActivatingAt = &now
+		if f.NotifiedActivatingAt != nil {
+			return false, nil
 		}
+		f.NotifiedActivatingAt = &now
 	case "notified_reminder_3d_at":
-		if f.NotifiedReminderThreeDayAt == nil {
-			f.NotifiedReminderThreeDayAt = &now
+		if f.NotifiedReminderThreeDayAt != nil {
+			return false, nil
 		}
+		f.NotifiedReminderThreeDayAt = &now
 	case "notified_reminder_overdue_at":
-		if f.NotifiedReminderOverdueAt == nil {
-			f.NotifiedReminderOverdueAt = &now
+		if f.NotifiedReminderOverdueAt != nil {
+			return false, nil
 		}
+		f.NotifiedReminderOverdueAt = &now
 	default:
-		return fmt.Errorf("MarkNotified: unknown column %q", column)
+		return false, fmt.Errorf("MarkNotified: unknown column %q", column)
 	}
-	return nil
+	return true, nil
 }

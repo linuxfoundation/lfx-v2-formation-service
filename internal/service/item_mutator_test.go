@@ -716,3 +716,104 @@ func TestUpdateItemRefusesYearZeroDueDate(t *testing.T) {
 	assert.Equal(t, "BadRequest", formationErr.Name)
 	assert.Equal(t, "due_date_invalid", formationErr.Reason)
 }
+
+// --- item-assigned email dispatch tests ---
+
+// newEmaildTestService extends newItemMutatorTestService with a wired mock
+// emailer and a project reader that allows the assignee.
+func newEmailTestService(t *testing.T, assigneeEmail string) (*Service, *model.Formation, *model.Item, *mock.EmailDispatcher) {
+	t.Helper()
+	s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+	mailer := mock.NewEmailDispatcher()
+	s.emailer = mailer
+	s.emailCfg = EmailConfig{Enabled: true, AdminBaseURL: "https://lfx.linuxfoundation.org"}
+
+	projects := mock.NewProjectReader()
+	projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
+		ProjectUID: formation.ProjectUID,
+		Writers:    []string{assigneeEmail},
+	})
+	s.projects = projects
+
+	return s, formation, itemOne, mailer
+}
+
+func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
+	email := "alice@example.com"
+	s, formation, itemOne, mailer := newEmailTestService(t, email)
+
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &email,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, mailer.SentCount(), "expected one item-assigned email")
+	sent := mailer.Sent()[0]
+	assert.Equal(t, email, sent.To)
+}
+
+func TestItemAssignedEmailNotDispatchedWhenAssigneeIsUsername(t *testing.T) {
+	// Usernames without @ must not be used as To addresses.
+	username := "alice"
+	s, formation, itemOne, mailer := newEmailTestService(t, username)
+
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &username,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, mailer.SentCount(), "no email expected for a bare username")
+}
+
+func TestItemAssignedEmailNotDispatchedWhenAssigneeClearedOrEmpty(t *testing.T) {
+	s, formation, itemOne, mailer := newEmailTestService(t, "alice@example.com")
+
+	empty := ""
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &empty,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, mailer.SentCount(), "clearing the assignee must not send an email")
+}
+
+func TestItemAssignedEmailNotDispatchedWhenEmailerNil(t *testing.T) {
+	email := "alice@example.com"
+	s, formation, itemOne, _ := newEmailTestService(t, email)
+	s.emailer = nil // not wired
+
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &email,
+	})
+
+	require.NoError(t, err, "nil emailer must not block the write")
+}
+
+func TestItemAssignedEmailNotDispatchedWhenEmailDisabled(t *testing.T) {
+	email := "alice@example.com"
+	s, formation, itemOne, mailer := newEmailTestService(t, email)
+	s.emailCfg.Enabled = false
+
+	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &email,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, mailer.SentCount(), "disabled email config must suppress dispatch")
+}

@@ -1,3 +1,4 @@
+{{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
 {{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}
 
 You have been assigned a checklist item for the {{.ProjectName}} formation on LFX.

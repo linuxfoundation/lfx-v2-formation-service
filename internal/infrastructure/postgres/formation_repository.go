@@ -216,24 +216,30 @@ var allowedNotifyColumns = map[string]struct{}{
 }
 
 // MarkNotified sets one notification timestamp to now() where it is still
-// NULL. The write is a no-op when the column is already set, which is what
-// makes concurrent reconcile replicas safe: both check NULL, one wins, and
-// the loser's SET is silently swallowed by the WHERE clause.
-func (r *FormationRepo) MarkNotified(ctx context.Context, uid uuid.UUID, column string) error {
+// NULL. It returns acquired=true when this call was the one that set the
+// column (RowsAffected > 0) and acquired=false when the column was already
+// set by another caller. Only the winner should dispatch the email: checking
+// RowsAffected here rather than in sendOneShot is what prevents both replicas
+// from sending when they run the conditional UPDATE concurrently.
+func (r *FormationRepo) MarkNotified(ctx context.Context, uid uuid.UUID, column string) (bool, error) {
 	if _, ok := allowedNotifyColumns[column]; !ok {
-		return fmt.Errorf("MarkNotified: unknown column %q", column)
+		return false, fmt.Errorf("MarkNotified: unknown column %q", column)
 	}
 	// Column name is safe: validated against an allowlist above.
 	//nolint:gosec // column is validated against allowedNotifyColumns above.
-	_, err := r.db.NewUpdate().
+	res, err := r.db.NewUpdate().
 		TableExpr("formations").
 		Set(column+" = now()").
 		Where("uid = ? AND "+column+" IS NULL", uid).
 		Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("mark notified %s: %w", column, err)
+		return false, fmt.Errorf("mark notified %s: %w", column, err)
 	}
-	return nil
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("mark notified %s: rows affected: %w", column, err)
+	}
+	return n > 0, nil
 }
 
 // isUniqueViolation reports whether err is a Postgres unique constraint

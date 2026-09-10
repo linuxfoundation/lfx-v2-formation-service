@@ -47,8 +47,12 @@ type FormationRepository interface {
 	//   "notified_activating_at"
 	//   "notified_reminder_3d_at"
 	//   "notified_reminder_overdue_at"
-	// The write is a no-op when the column is already non-NULL.
-	MarkNotified(ctx context.Context, uid uuid.UUID, column string) error
+	//
+	// It returns acquired=true when this call set the timestamp (the caller
+	// won the race) and acquired=false when the column was already non-NULL
+	// (another replica got there first). Callers must only dispatch the
+	// email when acquired is true.
+	MarkNotified(ctx context.Context, uid uuid.UUID, column string) (acquired bool, err error)
 }
 
 // ItemRepository stores checklist items. Every mutation carries the caller's

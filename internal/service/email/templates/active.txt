@@ -1,3 +1,4 @@
+{{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
 {{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}
 
 We are excited to announce that {{.ProjectName}} is now Active on LFX!
