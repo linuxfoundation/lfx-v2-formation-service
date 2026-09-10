@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -490,4 +491,93 @@ func TestAFailedSubscribeLeavesNothingAttached(t *testing.T) {
 	if subscriber.Subscribed(infranats.ProjectCreatedSubject) {
 		t.Error("a handler was left attached after Start failed")
 	}
+}
+
+// blockingSubscriber holds the first subscription's stop open until released.
+//
+// Local to this test rather than added to mock.Subscriber, whose stop is
+// deliberately immediate: every other listener test wants a drain that returns,
+// and one that can be wedged is only useful to the test below.
+type blockingSubscriber struct {
+	release chan struct{}
+	mu      sync.Mutex
+	stopped []string
+	first   bool
+}
+
+func (s *blockingSubscriber) Subscribe(
+	_ context.Context, subject, _ string, _ func(ctx context.Context, data []byte),
+) (func(), error) {
+	block := !s.first
+	s.first = true
+
+	return func() {
+		if block {
+			<-s.release
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.stopped = append(s.stopped, subject)
+	}, nil
+}
+
+func (s *blockingSubscriber) stoppedCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.stopped)
+}
+
+// A wedged subscription must not stop the others from draining.
+//
+// The drain budget is meant to bound the slowest handler, not the sum of them.
+// Stopped in turn, the first wedged subscription spends the whole budget and
+// every subscription behind it is cancelled having never been asked to drain —
+// which is precisely the abandoned-mid-transaction outcome that draining exists
+// to avoid.
+func TestAWedgedSubscriptionDoesNotBlockTheOthersFromDraining(t *testing.T) {
+	subscriber := &blockingSubscriber{release: make(chan struct{})}
+	listener, _ := newListener(t, &listProjects{})
+
+	stop, err := listener.Start(context.Background(), subscriber, infranats.ProjectEventsQueue,
+		infranats.ProjectCreatedSubject, infranats.ProjectUpdatedSubject)
+	if err != nil {
+		t.Fatalf("Start() = %v, want no error", err)
+	}
+
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		stop()
+	}()
+
+	// The second subscription drains while the first is still wedged.
+	for subscriber.stoppedCount() == 0 {
+		runtime.Gosched()
+	}
+
+	close(subscriber.release)
+	<-returned
+
+	if got := subscriber.stoppedCount(); got != 2 {
+		t.Errorf("%d subscriptions drained, want both", got)
+	}
+}
+
+// ReportEvery must survive an interval the config layer let through.
+//
+// RECONCILE_INTERVAL=0s parses cleanly, so it reaches here unchanged while the
+// reconciler normalizes its own copy. NewTicker panics on it, and this runs in a
+// goroutine with no recover — the whole process goes down at startup.
+func TestAZeroReportingIntervalDoesNotBringDownTheProcess(t *testing.T) {
+	listener, _ := newListener(t, &listProjects{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		listener.ReportEvery(ctx, 0)
+	}()
+
+	cancel()
+	<-done
 }

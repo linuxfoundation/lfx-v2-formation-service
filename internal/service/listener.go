@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -88,12 +89,24 @@ func (l *ProjectListener) Start(
 		// spends the pod's whole grace period and the kill lands during the
 		// HTTP drain instead — trading a lost event, which costs nothing here,
 		// for an aborted request, which does.
+		//
+		// Started together rather than in turn so the budget bounds the slowest
+		// drain instead of their sum: sequentially, one wedged handler spends
+		// the whole ten seconds and the subscriptions behind it are cancelled
+		// without ever being asked to drain.
+		var wg sync.WaitGroup
+		for _, stop := range stops {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				stop()
+			}()
+		}
+
 		drained := make(chan struct{})
 		go func() {
 			defer close(drained)
-			for _, stop := range stops {
-				stop()
-			}
+			wg.Wait()
 		}()
 
 		timeout := time.NewTimer(constants.DefaultListenerDrainTimeout)
@@ -205,6 +218,13 @@ type ListenerCounts struct {
 // that a dead listener and a quiet day have in common. Emitted unconditionally
 // for that reason, rather than only when a count moved.
 func (l *ProjectListener) ReportEvery(ctx context.Context, interval time.Duration) {
+	// NewTicker panics on a non-positive interval, and this runs in a goroutine
+	// where that takes the process with it. RECONCILE_INTERVAL=0s parses
+	// cleanly, so the config layer hands it over unchanged.
+	if interval <= 0 {
+		interval = constants.DefaultReconcileInterval
+	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 

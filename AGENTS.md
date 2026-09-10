@@ -19,8 +19,11 @@ conventions below.
 - Every commit needs DCO signoff (`git commit -s`).
 - `internal/service` must not import `internal/infrastructure`. Wire adapters in
   `cmd/formation-api/service/providers.go` and pass them as ports.
-- A listener, a daily sweep, and the CLI all reconcile through one code path.
-  Do not add a second place that decides whether a project gets a checklist.
+- Exactly one place decides whether a project gets a checklist. The listener and
+  the daily sweep both reconcile through it, and anything added that reconciles
+  — CLI commands included — drives it rather than reimplementing it.
+  `formation-cli expand` is not that: it forces one expansion for an operator,
+  deliberately skipping the stage gate.
 - Inbound events are best-effort with no redelivery. The sweep is what makes any
   outcome correct; nothing may depend on an event arriving.
 - An absent or unrecognised project stage means "leave it alone", never "left

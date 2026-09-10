@@ -262,6 +262,24 @@ func (c *Client) QueueSubscribe(
 			"subject", subject, "error", limitErr)
 	}
 
+	// QueueSubscribe only buffers the SUB, so without this the server may not
+	// have registered the interest by the time this returns and a message
+	// published in that window reaches nobody. Unlike a lost publish that costs
+	// one tick of staleness, this loses every event until the buffer happens to
+	// flush, which is a silent start rather than a failed one.
+	flushCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	if flushErr := c.conn.FlushWithContext(flushCtx); flushErr != nil {
+		// Unwound rather than left attached: a subscription this service cannot
+		// confirm is one it cannot report on, and the caller treats the error as
+		// "not listening" either way.
+		if unsubErr := sub.Unsubscribe(); unsubErr != nil {
+			slog.WarnContext(ctx, "could not unsubscribe after a failed flush",
+				"subject", subject, "error", unsubErr)
+		}
+		return nil, fmt.Errorf("NATS flush after subscribing to %s failed: %w", subject, flushErr)
+	}
+
 	slog.InfoContext(ctx, "NATS subscribed", "subject", subject, "queue", queue)
 
 	return func() {
