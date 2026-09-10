@@ -206,6 +206,15 @@ const (
 	subPendingBytes = 8 * 1024 * 1024
 )
 
+// subscribeFlushTimeout bounds the wait for the server to acknowledge a
+// subscription.
+//
+// Short deliberately, and separate from the request timeout: against a healthy
+// broker the round trip is sub-millisecond, so the only thing this budget sizes
+// is how long a broker that is down delays startup. Every subject pays it in
+// turn, and the startup smoke check allows ten seconds in total.
+const subscribeFlushTimeout = 2 * time.Second
+
 // QueueSubscribe delivers messages on subject to handler, sharing the work
 // across the members of queue so exactly one replica handles each message.
 //
@@ -264,20 +273,23 @@ func (c *Client) QueueSubscribe(
 
 	// QueueSubscribe only buffers the SUB, so without this the server may not
 	// have registered the interest by the time this returns and a message
-	// published in that window reaches nobody. Unlike a lost publish that costs
-	// one tick of staleness, this loses every event until the buffer happens to
-	// flush, which is a silent start rather than a failed one.
-	flushCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	// published in that window reaches nobody — a silent start rather than a
+	// failed one.
+	//
+	// Not fatal, and on its own short budget rather than the request timeout.
+	// RetryOnFailedConnect means an unreachable broker still yields a client, so
+	// this runs on the startup path against a connection that may be down: the
+	// full timeout would hold the service back from serving reads over a
+	// subscription it does not need to serve them, and refusing to start would
+	// turn the accelerator into an availability dependency. The subscription
+	// stays attached because nats.go replays it on reconnect, which is what
+	// recovers the case this warns about.
+	flushCtx, cancel := context.WithTimeout(ctx, subscribeFlushTimeout)
 	defer cancel()
 	if flushErr := c.conn.FlushWithContext(flushCtx); flushErr != nil {
-		// Unwound rather than left attached: a subscription this service cannot
-		// confirm is one it cannot report on, and the caller treats the error as
-		// "not listening" either way.
-		if unsubErr := sub.Unsubscribe(); unsubErr != nil {
-			slog.WarnContext(ctx, "could not unsubscribe after a failed flush",
-				"subject", subject, "error", unsubErr)
-		}
-		return nil, fmt.Errorf("NATS flush after subscribing to %s failed: %w", subject, flushErr)
+		slog.WarnContext(ctx, "could not confirm the subscription reached the server; "+
+			"events published before it registers are lost and repaired by the next sweep",
+			"subject", subject, "error", flushErr)
 	}
 
 	slog.InfoContext(ctx, "NATS subscribed", "subject", subject, "queue", queue)
