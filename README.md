@@ -67,6 +67,12 @@ Checklist templates have no API routes, so template management is a separate
 binary. It reads the same `PG*` environment as the service and applies the
 embedded schema on connect, so it needs no migration step of its own.
 
+`seed` is a required one-time step when deploying to a new environment, and
+nothing runs it automatically — no service chart here ships a `Job`. Until it
+has run, the reconcile loop creates nothing, because no template is published;
+it reports that once per sweep and names the command rather than failing per
+project.
+
 ```bash
 make build-cli
 
@@ -78,9 +84,8 @@ make build-cli
 ./bin/formation-cli validate
 
 # Create one project's checklist from the published template. Idempotent.
-# This is the only trigger for creation today. The reconcile loop that will do
-# it automatically exists but does not start: nothing can list forming projects
-# yet, which it reports at startup.
+# The reconcile loop does this on its own for every forming project, so reach
+# for this only to create one project's checklist out of band.
 ./bin/formation-cli expand <project-uid>
 
 # Add items an existing checklist is missing, matched on key. Adds only —
