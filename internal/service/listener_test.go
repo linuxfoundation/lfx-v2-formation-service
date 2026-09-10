@@ -563,6 +563,30 @@ func TestAWedgedSubscriptionDoesNotBlockTheOthersFromDraining(t *testing.T) {
 	}
 }
 
+// The periodic summary must be able to report a quiet interval as quiet.
+//
+// This is the whole reason the summary exists: a sweep that creates checklists
+// next to a listener that received nothing is how a dead listener is caught.
+// Reported cumulatively, the first event ever handled makes every later line
+// nonzero, and the day the listener dies reads exactly like the day before it.
+func TestAQuietIntervalReportsZeroAfterABusyOne(t *testing.T) {
+	listener, _ := newListener(t, &listProjects{})
+
+	busy := ListenerCounts{Received: 7, Handled: 5, DroppedStage: 1, DroppedOther: 1, Failed: 2}
+	if got := busy.since(ListenerCounts{}); got != busy {
+		t.Errorf("first interval = %+v, want the full counts %+v", got, busy)
+	}
+	if got := busy.since(busy); got != (ListenerCounts{}) {
+		t.Errorf("interval with no activity = %+v, want zeros", got)
+	}
+
+	// The closing summary stays cumulative, so the totals remain readable.
+	listener.received.Add(7)
+	if got := listener.Counts().Received; got != 7 {
+		t.Errorf("Counts().Received = %d, want the process total 7", got)
+	}
+}
+
 // ReportEvery must survive an interval the config layer let through.
 //
 // RECONCILE_INTERVAL=0s parses cleanly, so it reaches here unchanged while the

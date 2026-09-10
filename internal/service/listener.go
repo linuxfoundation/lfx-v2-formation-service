@@ -64,11 +64,14 @@ func NewProjectListener(
 // start because the accelerator could not attach would turn a latency feature
 // into an availability dependency.
 //
-// The returned stop function is safe to call once. It stops every subscription
-// that was established, in the order they were made, and only then cancels the
-// context the handlers run under.
+// The returned stop function is safe to call once. It drains every subscription
+// that was established, all of them at once and none in any guaranteed order,
+// and cancels the context the handlers run under once they have all finished —
+// or once the drain budget runs out, whichever comes first. A caller that needs
+// every handler to have completed cannot get that from here: past the budget,
+// cancellation is what stops them.
 //
-// That ordering is the reason handlers do not run under ctx directly. Shutdown
+// That sequence is the reason handlers do not run under ctx directly. Shutdown
 // cancels ctx before it drains anything, so a handler holding ctx would find it
 // already cancelled and abandon its database transaction — draining would wait
 // politely for work that had just been told to give up, which is the opposite of
@@ -124,7 +127,7 @@ func (l *ProjectListener) Start(
 		// because only here are the totals final: at cancellation there may
 		// still be a handler mid-transaction, and a summary printed then would
 		// undercount the very work the drain exists to let finish.
-		l.logCounts(ctx, "project event listener stopped")
+		l.logCounts(ctx, "project event listener stopped", "process", l.Counts())
 	}
 
 	for _, subject := range subjects {
@@ -206,17 +209,33 @@ type ListenerCounts struct {
 	Failed       int64
 }
 
-// ReportEvery logs the listener's totals on a ticker until ctx is cancelled.
+// since returns what happened between an earlier reading and this one.
+func (c ListenerCounts) since(earlier ListenerCounts) ListenerCounts {
+	return ListenerCounts{
+		Received:     c.Received - earlier.Received,
+		Handled:      c.Handled - earlier.Handled,
+		DroppedStage: c.DroppedStage - earlier.DroppedStage,
+		DroppedOther: c.DroppedOther - earlier.DroppedOther,
+		Failed:       c.Failed - earlier.Failed,
+	}
+}
+
+// ReportEvery logs what the listener did in each interval, until ctx is
+// cancelled.
 //
 // Started on the sweep's interval, so each daily sweep summary is accompanied by
-// what the listener did in the same period and the two can be read against each
-// other: a sweep that created checklists next to a listener that received
-// nothing is the signature of a listener that has stopped working.
+// the listener's own activity over the same period and the two can be read
+// against each other: a sweep that created checklists next to a listener that
+// received nothing is the signature of a listener that has stopped working.
 //
-// The zero line is the point of this. Per-event logs say what happened; they
-// cannot say that nothing happened, and "nothing happened" is exactly the state
-// that a dead listener and a quiet day have in common. Emitted unconditionally
-// for that reason, rather than only when a count moved.
+// The zero line is the point of this, which is why each tick reports the
+// interval rather than the totals since startup. Per-event logs say what
+// happened; they cannot say that nothing happened, and "nothing happened" is
+// exactly the state that a dead listener and a quiet day have in common — but
+// only if it can still be said on day thirty. Cumulative totals stop being able
+// to say it after the first event ever handled, leaving a dead listener looking
+// like yesterday's line to anyone not diffing two days of logs. Emitted
+// unconditionally for the same reason, rather than only when a count moved.
 func (l *ProjectListener) ReportEvery(ctx context.Context, interval time.Duration) {
 	// NewTicker panics on a non-positive interval, and this runs in a goroutine
 	// where that takes the process with it. RECONCILE_INTERVAL=0s parses
@@ -228,6 +247,11 @@ func (l *ProjectListener) ReportEvery(ctx context.Context, interval time.Duratio
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// Held here rather than on the listener: nothing outside this loop has any
+	// use for the previous reading, and a field would have to be guarded
+	// against the handlers that update the counters it is derived from.
+	previous := l.Counts()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -235,19 +259,26 @@ func (l *ProjectListener) ReportEvery(ctx context.Context, interval time.Duratio
 			// when the last handler actually finished.
 			return
 		case <-ticker.C:
-			l.logCounts(ctx, "project event listener summary")
+			current := l.Counts()
+			l.logCounts(ctx, "project event listener summary",
+				interval.String(), current.since(previous))
+			previous = current
 		}
 	}
 }
 
-// logCounts emits the listener's totals under msg.
+// logCounts emits counts under msg, naming the window they cover.
 //
 // One function for both the periodic summary and the closing one, because the
 // only reason to emit both is that they are comparable. Two copies of the same
-// five keys stay comparable exactly as long as nobody edits one of them.
-func (l *ProjectListener) logCounts(ctx context.Context, msg string) {
-	counts := l.Counts()
+// five keys stay comparable exactly as long as nobody edits one of them. The
+// window is what says which is which, since the periodic line counts an
+// interval and the closing line counts the whole process.
+func (l *ProjectListener) logCounts(
+	ctx context.Context, msg, window string, counts ListenerCounts,
+) {
 	slog.InfoContext(ctx, msg,
+		"window", window,
 		"received", counts.Received, "handled", counts.Handled,
 		"dropped_no_stage", counts.DroppedStage,
 		"dropped_unreadable", counts.DroppedOther,
