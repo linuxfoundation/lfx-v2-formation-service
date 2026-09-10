@@ -206,6 +206,36 @@ func (r *FormationRepo) ListProjectUIDs(ctx context.Context) ([]string, error) {
 	return uids, nil
 }
 
+// allowedNotifyColumns is the set of column names MarkNotified may update.
+// A closed set prevents an injection vector on the column name, which
+// cannot be parameterised in SQL.
+var allowedNotifyColumns = map[string]struct{}{
+	"notified_activating_at":       {},
+	"notified_reminder_3d_at":      {},
+	"notified_reminder_overdue_at": {},
+}
+
+// MarkNotified sets one notification timestamp to now() where it is still
+// NULL. The write is a no-op when the column is already set, which is what
+// makes concurrent reconcile replicas safe: both check NULL, one wins, and
+// the loser's SET is silently swallowed by the WHERE clause.
+func (r *FormationRepo) MarkNotified(ctx context.Context, uid uuid.UUID, column string) error {
+	if _, ok := allowedNotifyColumns[column]; !ok {
+		return fmt.Errorf("MarkNotified: unknown column %q", column)
+	}
+	// Column name is safe: validated against an allowlist above.
+	//nolint:gosec // column is validated against allowedNotifyColumns above.
+	_, err := r.db.NewUpdate().
+		TableExpr("formations").
+		Set(column+" = now()").
+		Where("uid = ? AND "+column+" IS NULL", uid).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("mark notified %s: %w", column, err)
+	}
+	return nil
+}
+
 // isUniqueViolation reports whether err is a Postgres unique constraint
 // breach, which callers treat as "someone else got there first".
 func isUniqueViolation(err error) bool {

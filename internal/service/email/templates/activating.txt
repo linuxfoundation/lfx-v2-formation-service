@@ -1,0 +1,10 @@
+Hi formation team,
+
+{{.ProjectName}} has cleared all gating checklist items and has an announcement
+date set ({{.AnnouncementDate}}). It is ready to be set Active in the admin tool.
+
+Open in admin tool:
+{{.AdminToolURL}}
+
+---
+This is an automated notification from the LFX formation service.

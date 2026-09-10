@@ -9,6 +9,7 @@ package mock
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -145,4 +146,36 @@ func (r *FormationRepository) ListProjectUIDs(_ context.Context) ([]string, erro
 		out = append(out, projectUID)
 	}
 	return out, nil
+}
+
+// MarkNotified sets one notification timestamp where it is still nil, matching
+// the at-most-once semantics of the Postgres implementation.
+func (r *FormationRepository) MarkNotified(_ context.Context, uid uuid.UUID, column string) error {
+	r.record("formations.MarkNotified")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	f, ok := r.byUID[uid]
+	if !ok {
+		return domain.ErrNotFound
+	}
+
+	now := time.Now().UTC()
+	switch column {
+	case "notified_activating_at":
+		if f.NotifiedActivatingAt == nil {
+			f.NotifiedActivatingAt = &now
+		}
+	case "notified_reminder_3d_at":
+		if f.NotifiedReminderThreeDayAt == nil {
+			f.NotifiedReminderThreeDayAt = &now
+		}
+	case "notified_reminder_overdue_at":
+		if f.NotifiedReminderOverdueAt == nil {
+			f.NotifiedReminderOverdueAt = &now
+		}
+	default:
+		return fmt.Errorf("MarkNotified: unknown column %q", column)
+	}
+	return nil
 }

@@ -1,0 +1,15 @@
+{{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}
+
+You have been assigned a checklist item for the {{.ProjectName}} formation on LFX.
+
+Item:  {{.ItemTitle}}{{if .IsGating}}
+       ⚠ This item gates the project going Active.{{end}}{{if .DueDate}}
+Due:   {{.DueDate}}{{end}}
+
+Open the checklist item:
+{{.ChecklistURL}}
+
+---
+You are receiving this email because you were assigned this item on the LFX
+Self Serve formation checklist. If this was unexpected, please contact the
+formation team.

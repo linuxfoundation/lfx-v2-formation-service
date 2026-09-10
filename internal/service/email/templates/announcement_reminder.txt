@@ -1,0 +1,14 @@
+Hi formation team,
+
+{{if eq (print .Kind) "overdue"}}The announcement date for {{.ProjectName}} was {{.AnnouncementDate}} but the
+project has not yet been set Active. Please review the checklist and set it
+Active in the admin tool as soon as possible.
+{{else}}The announcement date for {{.ProjectName}} is in 3 days ({{.AnnouncementDate}})
+and the project has not yet been set Active. Please review the checklist and
+set it Active in the admin tool before the announcement date.
+{{end}}
+Open in admin tool:
+{{.AdminToolURL}}
+
+---
+This is an automated notification from the LFX formation service.

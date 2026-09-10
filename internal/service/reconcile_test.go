@@ -67,6 +67,10 @@ func (l *listProjects) Name(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
+func (l *listProjects) Slug(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 // nameCalls reports how many display-name requests were made.
 func (l *listProjects) nameCalls() int {
 	l.mu.Lock()

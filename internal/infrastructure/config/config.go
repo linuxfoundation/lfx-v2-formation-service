@@ -32,6 +32,23 @@ type Config struct {
 	// ReconcileInterval is how often the reconcile loop sweeps for missing
 	// checklists and stale projections.
 	ReconcileInterval time.Duration
+
+	// Email carries the formation notification email settings.
+	Email EmailConfig
+}
+
+// EmailConfig holds outbound email settings for formation notifications.
+type EmailConfig struct {
+	// Enabled gates all outbound dispatches. False in local dev and tests.
+	Enabled bool
+
+	// FormationInbox is the address that receives formation-team notifications
+	// (Activating, announcement reminders). Typically formation@linuxfoundation.org.
+	FormationInbox string
+
+	// AdminBaseURL is the root for checklist deep links in outbound emails.
+	// The full link is AdminBaseURL + "/manage/projects/{slug}/checklist".
+	AdminBaseURL string
 }
 
 // DatabaseConfig holds the five credential values the provisioned secret
@@ -120,6 +137,11 @@ func LoadConfig() *Config {
 			SSLMode:  envOrDefault(constants.EnvDBSSLMode, constants.DefaultDBSSLMode),
 		},
 		ReconcileInterval: durationOrDefault(constants.EnvReconcileInterval, constants.DefaultReconcileInterval),
+		Email: EmailConfig{
+			Enabled:        emailEnabled(),
+			FormationInbox: envOrDefault(constants.EnvFormationInboxEmail, constants.DefaultFormationInboxEmail),
+			AdminBaseURL:   envOrDefault(constants.EnvFormationAdminBaseURL, constants.DefaultFormationAdminBaseURL),
+		},
 	}
 
 	if os.Getenv(constants.EnvDebug) == "true" {
@@ -135,6 +157,12 @@ func (c *Config) ServerAddress() string {
 		return ":" + c.Port
 	}
 	return c.Host + ":" + c.Port
+}
+
+// emailEnabled reads EMAIL_ENABLED the same way the email service itself does.
+func emailEnabled() bool {
+	v := os.Getenv(constants.EnvEmailEnabled)
+	return v == "true" || v == "t" || v == "1"
 }
 
 func envOrDefault(key, def string) string {

@@ -1,0 +1,11 @@
+{{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}
+
+We are excited to announce that {{.ProjectName}} is now Active on LFX!
+
+You are receiving this email because you hold a grant on this project's formation.
+
+View project on LFX:
+{{.ProjectURL}}
+
+---
+This is an automated notification from the LFX formation service.
