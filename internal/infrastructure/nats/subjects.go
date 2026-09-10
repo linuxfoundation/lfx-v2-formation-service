@@ -113,3 +113,27 @@ const (
 // meeting-service's convention, so an operator grepping the indexer's logs for
 // one of these finds all of them.
 const serviceAccountBearer = "Bearer lfx-v2-formation-service"
+
+// serviceAccountHeaders is the header map every publish from this service
+// carries.
+//
+// A function rather than a package-level map, because a shared map is writable
+// by whoever holds it and these headers travel into a JSON encoder on a path
+// with no user behind it. Built fresh per publish, which is a two-entry
+// allocation on a path that is already making a network call.
+//
+// It exists so the header is written once. The indexer refuses a V2 message
+// carrying no authorization, and because every publish here is
+// fire-and-forget, that refusal arrives as silence — so a publish that forgot
+// the header would look exactly like a publish that worked.
+func serviceAccountHeaders() map[string]string {
+	return map[string]string{"authorization": serviceAccountBearer}
+}
+
+// projectRefPrefix is how a project UID is named in a reference the indexer
+// understands, on both the reading and the writing side.
+//
+// One spelling, because the two sides fail differently and one of them fails
+// quietly: a wrong prefix on a publish is a document nobody can read, while a
+// wrong prefix on a parse leaves an empty parent UID and no error at all.
+const projectRefPrefix = projectObjectType + ":"

@@ -18,6 +18,7 @@ import (
 // no update or delete method, matching the immutability the real repository
 // enforces by omission.
 type ActivityRepository struct {
+	Recorder
 	mu      sync.Mutex
 	entries []*model.ActivityEntry
 }
@@ -29,6 +30,7 @@ func NewActivityRepository() *ActivityRepository {
 
 // Append adds one entry, assigning a ULID when the caller left it empty.
 func (r *ActivityRepository) Append(_ context.Context, e *model.ActivityEntry) error {
+	r.record("activity.Append")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -57,6 +59,7 @@ const (
 // List returns entries newest-first for a formation, honoring cursor and
 // limit. cursor is the ULID of the last entry from the previous page.
 func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cursor string, limit int) ([]*model.ActivityEntry, string, error) {
+	r.record("activity.List")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

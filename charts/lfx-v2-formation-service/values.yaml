@@ -23,6 +23,17 @@ replicaCount: 1
 #         app: lfx-v2-formation-service
 topologySpreadConstraints: []
 
+# terminationGracePeriodSeconds is how long Kubernetes waits after SIGTERM
+# before killing the pod.
+#
+# Set explicitly because the service's own shutdown budget adds up to more than
+# the 30s default: event handlers are drained first for up to 10s, and only then
+# does the HTTP server get its 25s to finish in-flight requests. On the default
+# the kill would arrive mid-request. 45 covers both with a small margin; raise
+# this together with DefaultListenerDrainTimeout or DefaultShutdownTimeout if
+# either changes.
+terminationGracePeriodSeconds: 45
+
 # podAnnotations are additional annotations applied to the pod template.
 # Example:
 #   prometheus.io/scrape: "true"

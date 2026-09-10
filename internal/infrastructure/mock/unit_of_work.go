@@ -18,6 +18,7 @@ import (
 // development and tests, not for exercising rollback behavior (that is
 // postgres/unit_of_work_test.go's job, against a real transaction).
 type UnitOfWork struct {
+	Recorder
 	tx tx
 }
 
@@ -34,6 +35,7 @@ func NewUnitOfWork(
 // Do runs fn against the wired repositories. It never fails on its own; only
 // fn's own return value can make it fail.
 func (u *UnitOfWork) Do(_ context.Context, fn func(port.Tx) error) error {
+	u.record("uow.Do")
 	return fn(u.tx)
 }
 

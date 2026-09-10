@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -221,7 +222,11 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 	// meant a template read and a speculative insert for every project on every
 	// tick — including the ones that already had everything they needed, which
 	// in a steady state is all of them.
-	sweep := r.prepare(ctx, projects, existing, existingKnown)
+	sweep := &sweepState{
+		existing:      existing,
+		existingKnown: existingKnown,
+		template:      r.prepare(ctx, len(projects)),
+	}
 
 	for _, project := range projects {
 		report.Swept++
@@ -254,11 +259,17 @@ func replicaName() string {
 // routine, so a project reconciled this way is indistinguishable from one the
 // sweep reached.
 //
-// Deliberately not cheaper than the sweep's per-project cost. It reads the whole
-// checklist set rather than asking after one project, because that is the read
-// the sweep makes and reusing it keeps one code path instead of two that could
-// disagree about what "already has a checklist" means. At this scale the read is
-// a list of tens of UIDs.
+// It asks after this one project rather than reading the whole checklist set,
+// which is the one place it deliberately diverges from the sweep. The full read
+// is right for the sweep — it amortizes over every project and supplies the
+// project list's request in the same breath — but on the event path it selects
+// every project UID in the table to perform a single lookup, and that table only
+// grows, because checklists are never deleted. Under a full-catalogue republish
+// it would be read once per project in the catalogue.
+//
+// The two reads still have to agree on what "already has a checklist" means, and
+// they do: both answer from the row keyed on project_uid, the column the
+// uniqueness constraint is on.
 //
 // It cannot fail, for the same reason the sweep's per-project routine cannot:
 // every outcome is a count. A caller wanting to know whether anything went wrong
@@ -268,8 +279,12 @@ func (r *Reconciler) ReconcileProject(
 ) *ReconcileReport {
 	report := &ReconcileReport{}
 
-	existing, existingKnown := r.knownChecklists(ctx)
-	sweep := r.prepare(ctx, []port.ProjectRef{project}, existing, existingKnown)
+	existing, existingKnown := r.hasChecklist(ctx, project.UID)
+	sweep := &sweepState{
+		existing:      existing,
+		existingKnown: existingKnown,
+		template:      r.prepare(ctx, 1),
+	}
 
 	report.Swept++
 	r.reconcileProject(ctx, project, sweep, report, trigger)
@@ -310,7 +325,7 @@ func (r *Reconciler) reconcileProject(
 	// case the gate must not skip past.
 	if !model.FormingStage(project.SubStage) {
 		report.Skipped++
-		r.finishProject(ctx, project, report)
+		r.finishProject(ctx, project, report, trigger)
 		return
 	}
 
@@ -326,32 +341,38 @@ func (r *Reconciler) reconcileProject(
 	// Lifecycle still runs: an existing checklist is exactly the thing that
 	// may need moving.
 	if sweep.existing[project.UID] {
-		r.finishProject(ctx, project, report)
+		r.finishProject(ctx, project, report, trigger)
 		return
 	}
 
-	// No template was resolvable, which prepare has already reported once.
-	// Lifecycles still need syncing, so the sweep continues rather than
+	// The first project to get this far is what triggers the template read, and
+	// the checks above are what most projects return at — so a sweep or an event
+	// that creates nothing reads no templates. Every later project this sweep
+	// gets the same answer without a second read.
+	//
+	// No template was resolvable, which the resolution has already reported
+	// once. Lifecycles still need syncing, so the sweep continues rather than
 	// returning — but nothing here can be created.
 	//
 	// Counted as blocked only when the checklist set was actually read.
-	// With both sweep-wide reads failing, every project looks absent from
-	// an empty set, and counting them all would report the whole sweep as
-	// waiting on a template when most of them may need nothing — the same
+	// With both reads failing, every project looks absent from an empty
+	// set, and counting them all would report the whole sweep as waiting
+	// on a template when most of them may need nothing — the same
 	// misleading number the check above is ordered to avoid. Degraded is
 	// reported instead, and it is a sweep-wide state rather than a per
-	// project one, so prepare's own log already carries the reason.
-	if sweep.template == nil {
+	// project one, so the resolution's own log already carries the reason.
+	template := sweep.template()
+	if template == nil {
 		if sweep.existingKnown {
 			report.Blocked++
 		} else {
 			report.Degraded++
 		}
-		r.finishProject(ctx, project, report)
+		r.finishProject(ctx, project, report, trigger)
 		return
 	}
 
-	created, expandErr := r.expander.ExpandWithTemplate(ctx, project.UID, sweep.template, trigger)
+	created, expandErr := r.expander.ExpandWithTemplate(ctx, project.UID, template, trigger)
 	if expandErr != nil {
 		// One project's failure must not end the sweep — the rest still
 		// need their checklists, and this one is retried next tick. The
@@ -369,15 +390,17 @@ func (r *Reconciler) reconcileProject(
 	// A project can re-enter formation, so a checklist that was frozen or
 	// completed has to come back to live. Run after creation because the
 	// checklist has to exist before its lifecycle can be moved.
-	r.finishProject(ctx, project, report)
+	r.finishProject(ctx, project, report, trigger)
 }
 
 // sweepState is what a sweep resolves once and reuses for every project.
 type sweepState struct {
-	// template is nil when nothing can be created this sweep: either no project
-	// in it is at a creating stage, so it was never looked up, or the lookup
-	// found nothing published or failed. All three leave lifecycle sync to run.
-	template *model.Template
+	// template resolves the template to create from, at most once per sweep and
+	// only when a project actually reaches the point of needing it.
+	//
+	// It returns nil when nothing can be created: no template is published, or
+	// the read failed. Both leave lifecycle sync to run.
+	template func() *model.Template
 	// existing holds the projects that already have a checklist.
 	existing map[string]bool
 	// existingKnown says whether existing was actually read. When the read
@@ -419,6 +442,33 @@ func (r *Reconciler) knownChecklists(ctx context.Context) (map[string]bool, bool
 	return existing, true
 }
 
+// hasChecklist answers knownChecklists' question for one named project, in the
+// form reconcileProject reads it.
+//
+// The same two answers, and the second one carries the same meaning: an empty
+// set from a failed read says nothing, where an empty set from a successful one
+// says this project needs a checklist. Getting that mapping backwards is the
+// hazard here — a transient database error read as "no checklist" would have
+// every event attempt a creation, and while the uniqueness constraint absorbs
+// those, it would do so a catalogue at a time.
+//
+// Not found is a successful read. It is how the port says no checklist exists,
+// which is exactly the evidence that one should be created.
+func (r *Reconciler) hasChecklist(ctx context.Context, projectUID string) (map[string]bool, bool) {
+	switch _, err := r.formations.GetByProject(ctx, projectUID); {
+	case err == nil:
+		return map[string]bool{projectUID: true}, true
+	case errors.Is(err, domain.ErrNotFound):
+		return map[string]bool{}, true
+	default:
+		slog.WarnContext(ctx, "could not read whether this project already has a checklist; "+
+			"attempting creation and letting the uniqueness constraint absorb a duplicate, "+
+			"and reaching no lifecycle that has already left formation",
+			"project_uid", projectUID, "error", err)
+		return map[string]bool{}, false
+	}
+}
+
 // keysOf returns the map's keys, which is the form the project list request
 // takes them in.
 func keysOf(set map[string]bool) []string {
@@ -429,51 +479,50 @@ func keysOf(set map[string]bool) []string {
 	return out
 }
 
-// prepare resolves the template for the sweep, carrying through the checklist
-// set already read.
+// prepare arranges the one thing a sweep resolves for every project: where a
+// checklist gets created from.
 //
-// It does no template read at all when nothing in the sweep is at a creating
-// stage, which is the steady state. A missing template is reported here rather
-// than per project, because that is the state a freshly deployed environment is
-// in until the template is seeded and it would otherwise be logged once for
-// every forming project on every tick.
+// It takes the batch only to say how many projects are waiting when it has to
+// report that no template exists. The checklist set it used to be handed and
+// pass straight through is now assembled by the caller, which is also where
+// both of its halves are read — a parameter that a function only copies into
+// its return value reads as though the function had a use for it.
+//
+// The template read is deferred rather than made here, and gated on a project
+// reaching the branch that needs it rather than on any project being at a
+// creating stage. Those are different tests, and the difference is the steady
+// state: every forming project is at a creating stage and almost none of them
+// need creating, so the stage test passed on every sweep and paid for a full
+// ListPublished — template bodies included — to answer for projects that all
+// returned at the already-exists check. Deferring means a settled sweep reads no
+// templates at all, and a settled event path reads none either.
+//
+// Resolved at most once whatever the batch size, which is what keeps the missing
+// template reported once rather than per project: that is the state a freshly
+// deployed environment is in until the template is seeded, and it would
+// otherwise be logged for every forming project on every tick.
 //
 // It cannot fail the sweep. A template is not needed to move a lifecycle, so a
 // transient error reading templates must not also stop a project that went
 // Active from being completed.
-func (r *Reconciler) prepare(
-	ctx context.Context, projects []port.ProjectRef, existing map[string]bool, existingKnown bool,
-) *sweepState {
-	state := &sweepState{existing: existing, existingKnown: existingKnown}
-
-	anyCreating := false
-	for _, project := range projects {
-		if model.FormingStage(project.SubStage) {
-			anyCreating = true
-			break
+func (r *Reconciler) prepare(ctx context.Context, forming int) func() *model.Template {
+	return sync.OnceValue(func() *model.Template {
+		tpl, err := r.expander.SelectTemplate(ctx)
+		if err == nil {
+			return tpl
 		}
-	}
-	if !anyCreating {
-		return state
-	}
-
-	tpl, err := r.expander.SelectTemplate(ctx)
-	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			slog.ErrorContext(ctx, "no published template, so no checklist can be created; "+
 				"seed one with formation-cli seed. Lifecycles are still synced",
-				"forming_projects", len(projects))
+				"forming_projects", forming)
 		} else {
 			slog.ErrorContext(ctx, "could not read templates, so no checklist can be created "+
 				"this sweep; lifecycles are still synced", "error", err)
 		}
-		// Left nil: this sweep syncs lifecycles and creates nothing, and the
-		// next one tries again.
-		return state
-	}
-	state.template = tpl
-
-	return state
+		// Nil: this sweep syncs lifecycles and creates nothing, and the next
+		// one tries again.
+		return nil
+	})
 }
 
 // finishProject runs the three things every project in the sweep needs whatever
@@ -496,7 +545,9 @@ func (r *Reconciler) prepare(
 // rather than by a tool somebody has to remember exists: the sweep does not know
 // which rows are missing from the index, and asking would cost more than
 // republishing.
-func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef, report *ReconcileReport) {
+func (r *Reconciler) finishProject(
+	ctx context.Context, project port.ProjectRef, report *ReconcileReport, trigger Trigger,
+) {
 	// The platform pass declines a checklist whose lifecycle has been completed
 	// or frozen, which is the whole protection the ordering above buys — and it
 	// only holds if the lifecycle actually moved. A failed sync leaves a closing
@@ -504,7 +555,7 @@ func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef,
 	// rows on it in exactly the sweep this ordering exists to protect. Skipped
 	// for this project only; the next sweep retries the sync and the pass with
 	// it.
-	if r.syncLifecycle(ctx, project, report) {
+	if r.syncLifecycle(ctx, project, report) && platformPassApplies(trigger) {
 		r.resolvePlatformItems(ctx, project, report)
 	}
 
@@ -527,6 +578,37 @@ func (r *Reconciler) finishProject(ctx context.Context, project port.ProjectRef,
 	if published {
 		report.Projected++
 	}
+}
+
+// platformPassApplies says whether a trigger is one the platform pass can learn
+// anything from.
+//
+// It cannot, on a project event, and the reason is about information rather than
+// cost: the pass asks other services whether a repository, a mailing list or a
+// committee exists yet, and none of those appear or disappear because a project
+// document changed. A project event is published when the project changes, so it
+// carries no news about the things being checked — running the pass on receipt
+// re-asks the same questions and gets the same answers.
+//
+// So the pass belongs to the mechanism that looks again on a schedule, which is
+// what the sweep is, and to an operator asking for everything now. That is this
+// service's existing division applied to one more step: events accelerate what
+// they carry information about, and the sweep remains the mechanism of record
+// for the rest. A newly created committee is reflected within the day either
+// way.
+//
+// The saving is what makes it worth stating rather than leaving to habit. The
+// pass is the only transaction on the per-project path, and its two queries
+// resolve nothing at all while no lookup is registered — so under a
+// full-catalogue republish it was a transaction per project, arriving as fast as
+// NATS delivers, to reach a conclusion the sweep reaches anyway.
+//
+// Keeping it in the sweep is also what keeps the gap measurable:
+// PlatformUnanswerable is the size of the missing-lookup problem, and a count
+// only the sweep produces is still a count, where skipping the pass everywhere
+// would report zero rows waiting and read as no rows waiting.
+func platformPassApplies(trigger Trigger) bool {
+	return trigger != TriggerListener
 }
 
 // resolvePlatformItems runs one platform pass over a project's checklist,

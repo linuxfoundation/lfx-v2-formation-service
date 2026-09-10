@@ -6,7 +6,8 @@ A backend service for managing project formation checklists and other formation 
 
 Nobody creates a checklist by hand. A project reaching a formation stage is what
 causes one, and three paths act on that fact. They are not alternatives — they
-run the same code and differ only in what wakes them up.
+run the same code, and what a project ends up with does not depend on which one
+reached it.
 
 | Path | Wakes on | Role |
 |------|----------|------|
@@ -42,6 +43,10 @@ Two consequences worth knowing before debugging a missing checklist:
 - **Nothing is created until a template is published.** `formation-cli seed` is
   a required one-time step per environment; see [Operator
   commands](#operator-commands).
+- **The platform checks run on the sweep, not on an event.** They ask other
+  services whether a repository, mailing list or committee exists yet, and none
+  of those changes because a project document did — so an event carries no news
+  about them. A resource created today shows on the checklist by the next sweep.
 
 To tell a working listener from a dead one, look for `project event listener
 summary` — it is logged on the sweep's interval and reports zero rather than

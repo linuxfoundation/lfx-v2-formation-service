@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
 // ProjectListener reacts to published project changes by reconciling the
@@ -81,27 +82,40 @@ func (l *ProjectListener) Start(
 
 	stops := make([]func(), 0, len(subjects))
 	stopAll := func() {
-		for _, stop := range stops {
-			stop()
+		// Bounded, because each drain waits on a handler that may itself be
+		// waiting on a NATS request, and this runs before the HTTP server's own
+		// shutdown budget rather than sharing it. Unbounded, one wedged handler
+		// spends the pod's whole grace period and the kill lands during the
+		// HTTP drain instead — trading a lost event, which costs nothing here,
+		// for an aborted request, which does.
+		drained := make(chan struct{})
+		go func() {
+			defer close(drained)
+			for _, stop := range stops {
+				stop()
+			}
+		}()
+
+		timeout := time.NewTimer(constants.DefaultListenerDrainTimeout)
+		defer timeout.Stop()
+		select {
+		case <-drained:
+		case <-timeout.C:
+			slog.WarnContext(ctx, "gave up waiting for event handlers to finish; cancelling them",
+				"waited", constants.DefaultListenerDrainTimeout)
 		}
+
 		cancelHandlers()
 
 		// Logged here rather than where the ticker notices the cancellation,
 		// because only here are the totals final: at cancellation there may
 		// still be a handler mid-transaction, and a summary printed then would
 		// undercount the very work the drain exists to let finish.
-		counts := l.Counts()
-		slog.InfoContext(ctx, "project event listener stopped",
-			"received", counts.Received, "handled", counts.Handled,
-			"dropped_no_stage", counts.DroppedStage,
-			"dropped_unreadable", counts.DroppedOther,
-			"failed", counts.Failed)
+		l.logCounts(ctx, "project event listener stopped")
 	}
 
 	for _, subject := range subjects {
-		stop, err := subscriber.Subscribe(handlerCtx, subject, queue, func(msgCtx context.Context, data []byte) {
-			l.Handle(msgCtx, data)
-		})
+		stop, err := subscriber.Subscribe(handlerCtx, subject, queue, l.Handle)
 		if err != nil {
 			// Undo the ones already made. A half-attached listener is worse
 			// than none: it accelerates creation but not updates, which is a
@@ -201,14 +215,23 @@ func (l *ProjectListener) ReportEvery(ctx context.Context, interval time.Duratio
 			// when the last handler actually finished.
 			return
 		case <-ticker.C:
-			counts := l.Counts()
-			slog.InfoContext(ctx, "project event listener summary",
-				"received", counts.Received, "handled", counts.Handled,
-				"dropped_no_stage", counts.DroppedStage,
-				"dropped_unreadable", counts.DroppedOther,
-				"failed", counts.Failed)
+			l.logCounts(ctx, "project event listener summary")
 		}
 	}
+}
+
+// logCounts emits the listener's totals under msg.
+//
+// One function for both the periodic summary and the closing one, because the
+// only reason to emit both is that they are comparable. Two copies of the same
+// five keys stay comparable exactly as long as nobody edits one of them.
+func (l *ProjectListener) logCounts(ctx context.Context, msg string) {
+	counts := l.Counts()
+	slog.InfoContext(ctx, msg,
+		"received", counts.Received, "handled", counts.Handled,
+		"dropped_no_stage", counts.DroppedStage,
+		"dropped_unreadable", counts.DroppedOther,
+		"failed", counts.Failed)
 }
 
 // Counts reports the listener's totals, for the periodic summary that makes a

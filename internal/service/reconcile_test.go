@@ -27,6 +27,7 @@ type listProjects struct {
 	announcement string
 	listErr      error
 	listCalls    int
+	nameRequests int
 	lastAlsoUIDs []string
 }
 
@@ -56,8 +57,21 @@ func (l *listProjects) ListFormingProjects(_ context.Context, alsoUIDs []string)
 
 // Name is unused by the reconcile — it is the queue projection that displays a
 // project name — and is here to satisfy the port.
+//
+// It counts its calls because on the event path it is not a detail: it is a NATS
+// request made once per event, for a name only the queue screen reads.
 func (l *listProjects) Name(_ context.Context, _ string) (string, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.nameRequests++
 	return "", nil
+}
+
+// nameCalls reports how many display-name requests were made.
+func (l *listProjects) nameCalls() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.nameRequests
 }
 
 // askedFor reports the UIDs the most recent sweep asked to have included.

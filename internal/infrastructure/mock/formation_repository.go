@@ -21,6 +21,7 @@ import (
 // FormationRepository is an in-memory port.FormationRepository double, keyed
 // on project UID the same way the real uniqueness constraint is.
 type FormationRepository struct {
+	Recorder
 	mu        sync.Mutex
 	byUID     map[uuid.UUID]*model.Formation
 	byProject map[string]uuid.UUID
@@ -38,6 +39,7 @@ func NewFormationRepository() *FormationRepository {
 // project already has one — callers treat that as success, per the port's
 // contract.
 func (r *FormationRepository) Create(_ context.Context, f *model.Formation) (*model.Formation, error) {
+	r.record("formations.Create")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -65,6 +67,7 @@ func (r *FormationRepository) Create(_ context.Context, f *model.Formation) (*mo
 
 // GetByProject returns the formation for a project, or domain.ErrNotFound.
 func (r *FormationRepository) GetByProject(_ context.Context, projectUID string) (*model.Formation, error) {
+	r.record("formations.GetByProject")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -79,6 +82,7 @@ func (r *FormationRepository) GetByProject(_ context.Context, projectUID string)
 // UpdateLifecycle moves the formation's lifecycle, refusing the write when
 // revision is stale (domain.ErrVersionMismatch).
 func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error) {
+	r.record("formations.UpdateLifecycle")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -112,6 +116,7 @@ func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, 
 func (r *FormationRepository) UpdateSections(
 	_ context.Context, uid uuid.UUID, sections []model.FormationSection, revision int64,
 ) (*model.Formation, error) {
+	r.record("formations.UpdateSections")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -131,6 +136,7 @@ func (r *FormationRepository) UpdateSections(
 
 // ListProjectUIDs returns every project that already has a formation.
 func (r *FormationRepository) ListProjectUIDs(_ context.Context) ([]string, error) {
+	r.record("formations.ListProjectUIDs")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

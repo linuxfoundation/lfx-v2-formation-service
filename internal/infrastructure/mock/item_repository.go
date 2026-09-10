@@ -25,6 +25,7 @@ const dueDateLayout = "2006-01-02"
 
 // ItemRepository is an in-memory port.ItemRepository double.
 type ItemRepository struct {
+	Recorder
 	mu    sync.Mutex
 	items map[uuid.UUID]*model.Item
 }
@@ -38,6 +39,7 @@ func NewItemRepository() *ItemRepository {
 // are left untouched, matching the real repository's idempotent-expansion
 // contract, and the returned keys are the ones actually added.
 func (r *ItemRepository) InsertMany(_ context.Context, items []*model.Item) ([]string, error) {
+	r.record("items.InsertMany")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -69,6 +71,7 @@ func (r *ItemRepository) hasKeyLocked(formationUID uuid.UUID, itemKey string) bo
 // ListByFormation returns every item for a formation, ordered by section
 // then position, matching the real repository's contract.
 func (r *ItemRepository) ListByFormation(_ context.Context, formationUID uuid.UUID) ([]*model.Item, error) {
+	r.record("items.ListByFormation")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -90,6 +93,7 @@ func (r *ItemRepository) ListByFormation(_ context.Context, formationUID uuid.UU
 
 // Get returns one item by UID, or domain.ErrNotFound.
 func (r *ItemRepository) Get(_ context.Context, uid uuid.UUID) (*model.Item, error) {
+	r.record("items.Get")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -104,6 +108,7 @@ func (r *ItemRepository) Get(_ context.Context, uid uuid.UUID) (*model.Item, err
 // GetByKey returns the item at item_key within a formation, or
 // domain.ErrNotFound.
 func (r *ItemRepository) GetByKey(_ context.Context, formationUID uuid.UUID, itemKey string) (*model.Item, error) {
+	r.record("items.GetByKey")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -119,6 +124,7 @@ func (r *ItemRepository) GetByKey(_ context.Context, formationUID uuid.UUID, ite
 // Update applies patch's non-nil fields, refusing a stale revision with
 // domain.ErrVersionMismatch.
 func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64, patch port.ItemPatch) (*model.Item, error) {
+	r.record("items.Update")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

@@ -64,22 +64,25 @@ func DecodeProjectEvent(data []byte) (port.ProjectRef, error) {
 		return port.ProjectRef{}, fmt.Errorf("event carries no body")
 	}
 
+	// The envelope's object_id is the same UID and is the more reliable of the
+	// two: it is what the indexer keyed the document on, where data is the body
+	// the publishing service supplied. Stated once, as a precedence, rather than
+	// assigned from the body and then overwritten — which read as though the
+	// body's value were being used.
+	uid := event.ObjectID
+	if uid == "" {
+		uid = stringField(event.Body.Data, "uid")
+	}
+	if uid == "" {
+		return port.ProjectRef{}, fmt.Errorf("event identifies no project")
+	}
+
 	ref := port.ProjectRef{
-		UID:          stringField(event.Body.Data, "uid"),
+		UID:          uid,
 		Slug:         stringField(event.Body.Data, "slug"),
 		SubStage:     stringField(event.Body.Data, "stage"),
 		ParentUID:    stringField(event.Body.Data, "parent_uid"),
 		IsFoundation: boolField(event.Body.Data, "is_foundation"),
-	}
-
-	// The envelope's object_id is the same UID and is the more reliable of the
-	// two: it is what the indexer keyed the document on, where data is the body
-	// the publishing service supplied.
-	if event.ObjectID != "" {
-		ref.UID = event.ObjectID
-	}
-	if ref.UID == "" {
-		return port.ProjectRef{}, fmt.Errorf("event identifies no project")
 	}
 
 	// parent_refs is the fallback rather than the primary: it is prefixed and
@@ -95,7 +98,7 @@ func DecodeProjectEvent(data []byte) (port.ProjectRef, error) {
 // firstParentUID strips the object-type prefix from the first parent reference.
 func firstParentUID(refs []string) string {
 	for _, ref := range refs {
-		if uid, ok := strings.CutPrefix(ref, projectObjectType+":"); ok && uid != "" {
+		if uid, ok := strings.CutPrefix(ref, projectRefPrefix); ok && uid != "" {
 			return uid
 		}
 	}

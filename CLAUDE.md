@@ -65,6 +65,12 @@ project should have a checklist — two implementations agree the day they are
 written and drift afterwards, and the drifted one is the fast path nobody sweeps
 behind. See the README section "How a checklist comes to exist".
 
+The one step that is trigger-dependent is the platform pass, and only because an
+event cannot inform it: it asks other services whether a repository, mailing
+list or committee exists, and none of that changes because a project document
+did. It is not licence to add more — anything deciding what a checklist should
+contain runs on every trigger.
+
 **The sweep is correctness; events are speed.** Inbound events use core NATS:
 no acknowledgement, no redelivery, nothing delivered while the pod restarts.
 Anything that must be true has to be reachable by the sweep. Never make a
