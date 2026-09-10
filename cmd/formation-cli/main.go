@@ -115,7 +115,7 @@ func expandCommand(ctx context.Context, projectUID string) error {
 			nil,
 		)
 
-		created, err := expander.ExpandFor(ctx, projectUID)
+		created, err := expander.ExpandFor(ctx, projectUID, service.TriggerOperator)
 		if err != nil {
 			return err
 		}

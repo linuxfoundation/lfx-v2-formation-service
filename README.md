@@ -2,6 +2,56 @@
 
 A backend service for managing project formation checklists and other formation related activities
 
+## How a checklist comes to exist
+
+Nobody creates a checklist by hand. A project reaching a formation stage is what
+causes one, and three paths act on that fact. They are not alternatives — they
+run the same code, and what a project ends up with does not depend on which one
+reached it.
+
+| Path | Wakes on | Role |
+|------|----------|------|
+| Listener | a published project change | speed |
+| Sweep | a timer, `RECONCILE_INTERVAL` | correctness |
+| CLI | an operator | repair |
+
+The **listener** subscribes to `lfx.project.created` and `lfx.project.updated`
+and reconciles the project the message names, which is what normally puts a
+checklist in place within seconds. It decides nothing itself; it turns a message
+into a project reference and hands it to the same reconcile the sweep uses.
+
+The **sweep** is the mechanism of record and the only one guaranteed to run. It
+matters because the listener's transport gives no acknowledgement, no
+redelivery, and nothing at all while this service is restarting — so events are
+lost occasionally and by design. Everything the listener does, the sweep does
+anyway; losing an event costs freshness and never a checklist. That is why the
+interval is a day rather than minutes: it is the worst case when the listener is
+not working, not the ordinary wait.
+
+Every replica runs both, with no leader election. Concurrent creation is absorbed
+by a uniqueness constraint on the project, so duplicate work is a no-op rather
+than a race. Sweep log lines name the replica that produced them, so three
+sweeps a day on three replicas reads as three replicas rather than a misbehaving
+timer.
+
+Two consequences worth knowing before debugging a missing checklist:
+
+- **An event carrying no project stage is ignored on purpose.** Most indexed
+  project documents have no stage field at all, and treating its absence as
+  "no longer forming" would freeze checklists people are actively working on.
+  The sweep, which asks the project service directly, settles those.
+- **Nothing is created until a template is published.** `formation-cli seed` is
+  a required one-time step per environment; see [Operator
+  commands](#operator-commands).
+- **The platform checks run on the sweep, not on an event.** They ask other
+  services whether a repository, mailing list or committee exists yet, and none
+  of those changes because a project document did — so an event carries no news
+  about them. A resource created today shows on the checklist by the next sweep.
+
+To tell a working listener from a dead one, look for `project event listener
+summary` — it is logged on the sweep's interval and reports zero rather than
+staying silent, which is the whole point of it.
+
 ## Getting Started
 
 1. Generate the Goa API code. Generated code **is** committed in this repo (`gen/` is tracked, and the module will not build without it), so regenerate after every change to `cmd/formation-api/design/` and commit the result:
@@ -52,7 +102,13 @@ of a value that could be logged whole.
 | `PGPASSWORD`         | *(none)*    | required                                                          |
 | `PGDATABASE`         | `formation` |                                                                   |
 | `PGSSLMODE`          | `require`   | TLS is mandatory; set `disable` for a local container without TLS |
-| `RECONCILE_INTERVAL` | `15m`       | period of the reconcile loop; any `time.ParseDuration` value      |
+| `RECONCILE_INTERVAL` | `24h`       | period of the reconcile sweep; any `time.ParseDuration` value     |
+| `NATS_URL`           | `nats://nats:4222` | one connection serves project lookups, the listener and the projection |
+
+Without NATS the service still serves requests and still creates checklists
+through the CLI, but it cannot list forming projects, cannot receive project
+events, and cannot refresh the queue's search projection. Each of those degrades
+with a log line at startup rather than a failure to boot.
 
 Against the container above:
 
@@ -67,6 +123,12 @@ Checklist templates have no API routes, so template management is a separate
 binary. It reads the same `PG*` environment as the service and applies the
 embedded schema on connect, so it needs no migration step of its own.
 
+`seed` is a required one-time step when deploying to a new environment, and
+nothing runs it automatically — no service chart here ships a `Job`. Until it
+has run, neither the sweep nor the listener creates anything, because no template
+is published; the sweep reports that once per sweep and names the command rather
+than failing per project.
+
 ```bash
 make build-cli
 
@@ -78,9 +140,8 @@ make build-cli
 ./bin/formation-cli validate
 
 # Create one project's checklist from the published template. Idempotent.
-# This is the only trigger for creation today. The reconcile loop that will do
-# it automatically exists but does not start: nothing can list forming projects
-# yet, which it reports at startup.
+# The listener and the sweep already do this for every forming project, so reach
+# for this only to create one project's checklist out of band.
 ./bin/formation-cli expand <project-uid>
 
 # Add items an existing checklist is missing, matched on key. Adds only —

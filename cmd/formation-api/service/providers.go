@@ -226,6 +226,23 @@ func IndexerPublisherImpl(ctx context.Context, cfg *config.Config) port.IndexerP
 	return nats.NewIndexerPublisher(client)
 }
 
+// SubscriberImpl returns the subscriber the project event listener attaches to.
+//
+// Nil when NATS could not be reached, and unlike the publisher that nil costs
+// nothing at all: the sweep still creates every checklist, just later. This is
+// the one dependency in this file whose absence has no consequence worth
+// warning about beyond the line the listener logs when it does not start.
+//
+// Shares the one NATS connection with the reader and the publisher.
+func SubscriberImpl(ctx context.Context, cfg *config.Config) port.Subscriber {
+	client := natsImpl(ctx, cfg)
+	if client == nil {
+		return nil
+	}
+	slog.InfoContext(ctx, "initializing NATS subscriber")
+	return nats.NewSubscriber(client)
+}
+
 // AuthServiceImpl initializes the authentication service implementation based
 // on AUTH_SOURCE. An unset value means "jwt", and any failure to build the
 // real validator is fatal rather than a silent downgrade to the mock.
@@ -289,6 +306,7 @@ type Deps struct {
 	UnitOfWork port.UnitOfWork
 	Projects   port.ProjectReader
 	Indexer    port.IndexerPublisher
+	Subscriber port.Subscriber
 }
 
 // New builds the wired service. Returns the dependencies so callers that need
@@ -348,30 +366,33 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		UnitOfWork: uow,
 		Projects:   projects,
 		Indexer:    IndexerPublisherImpl(ctx, cfg),
+		Subscriber: SubscriberImpl(ctx, cfg),
 	}
 
 	slog.InfoContext(ctx, "service dependencies wired")
 	return svc, deps, closeFn, nil
 }
 
-// StartReconcile starts the reconcile loop, and reports whether it started.
+// StartReconcile starts the reconcile loop, and returns the reconciler it
+// started so callers can drive the same instance by another route.
 //
 // The loop is the mechanism of record for creating checklists, so it runs on
 // every replica with no leader election — duplicate creation is absorbed by the
 // uniqueness constraint on project_uid.
 //
 // It is not started when nothing can list forming projects. A loop that woke up
-// every fifteen minutes to sweep an empty list would log its way through the
-// retention window saying nothing useful, and the absence is worth stating once
-// at startup instead.
+// to sweep an empty list would log its way through the retention window saying
+// nothing useful, and the absence is worth stating once at startup instead. A
+// nil return means exactly that, and the listener is not started either — there
+// is no point accelerating a reconcile that cannot read a project.
 //
 // It takes the already-wired deps rather than building its own. In mock mode
 // building its own meant writing checklists into stores no request could read.
-func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) bool {
+func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecaseSvc.Reconciler {
 	if deps.Projects == nil {
 		slog.WarnContext(ctx, "reconcile loop not started: nothing can list forming projects yet, "+
 			"so no checklist is created automatically. Use formation-cli expand in the meantime")
-		return false
+		return nil
 	}
 
 	reconciler := usecaseSvc.NewReconciler(
@@ -398,5 +419,51 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) bool {
 	)
 
 	go reconciler.Run(ctx)
-	return true
+	return reconciler
+}
+
+// StartProjectListener attaches the project event listener, and returns a
+// function that stops it.
+//
+// Always returns a usable stop function, including when nothing was started, so
+// the shutdown path has no condition in it.
+//
+// Every reason not to start is a log line and not an error. The listener makes
+// checklists appear in seconds instead of within a day; without it the service
+// is slower and not wrong, and that is not a reason to refuse to serve traffic.
+// The same goes for a subscription that fails to attach.
+func StartProjectListener(
+	ctx context.Context, cfg *config.Config, deps *Deps, reconciler *usecaseSvc.Reconciler,
+) func() {
+	noop := func() {}
+
+	if reconciler == nil {
+		return noop
+	}
+	if deps.Subscriber == nil {
+		slog.WarnContext(ctx, "project event listener not started: no NATS connection. "+
+			"Checklists are still created, but at the reconcile interval rather than on the change")
+		return noop
+	}
+
+	listener := usecaseSvc.NewProjectListener(reconciler, nats.DecodeProjectEvent)
+	stop, err := listener.Start(
+		ctx,
+		deps.Subscriber,
+		nats.ProjectEventsQueue,
+		nats.ProjectCreatedSubject,
+		nats.ProjectUpdatedSubject,
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "project event listener could not subscribe; "+
+			"checklists are still created at the reconcile interval",
+			"error", err)
+		return noop
+	}
+
+	// On the sweep's interval so the two summaries land together and can be read
+	// against each other.
+	go listener.ReportEvery(ctx, cfg.ReconcileInterval)
+
+	return stop
 }

@@ -64,7 +64,7 @@ func TestExpansionRecordsItselfInTheActivityFeed(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), &stubProjects{})
 
-	created, err := f.expander.ExpandFor(ctx, "project-1")
+	created, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep)
 	if err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
@@ -107,10 +107,10 @@ func TestASecondExpansionRecordsNothing(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), &stubProjects{})
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("first ExpandFor() = %v", err)
 	}
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("second ExpandFor() = %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestExpandForCreatesTheChecklist(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), stubProjects{announcement: "2026-12-01"})
 
-	created, err := f.expander.ExpandFor(ctx, "project-1")
+	created, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep)
 	if err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
@@ -337,7 +337,7 @@ func TestExpandForIsIdempotentUnderConcurrency(t *testing.T) {
 
 	// Seed first, then mutate a status, so a second expansion resetting it
 	// would be visible rather than hidden behind everything being not_started.
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("first ExpandFor() = %v, want no error", err)
 	}
 	formation, err := f.formations.GetByProject(ctx, "project-1")
@@ -361,7 +361,7 @@ func TestExpandForIsIdempotentUnderConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			createdCount[i], errs[i] = f.expander.ExpandFor(ctx, "project-1")
+			createdCount[i], errs[i] = f.expander.ExpandFor(ctx, "project-1", TriggerSweep)
 		}(i)
 	}
 	wg.Wait()
@@ -413,7 +413,7 @@ func TestExpandForToleratesAMissingAnnouncementDate(t *testing.T) {
 			ctx := context.Background()
 			f := newExpansionFixture(t, twoItemSections(), tc.projects)
 
-			created, err := f.expander.ExpandFor(ctx, "project-1")
+			created, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep)
 			if err != nil {
 				t.Fatalf("ExpandFor() = %v, want no error", err)
 			}
@@ -444,7 +444,7 @@ func TestExpandForWithNoPublishedTemplate(t *testing.T) {
 	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates)
 
 	expander := NewExpander(NewTemplateSelector(templates), uow, nil)
-	if _, err := expander.ExpandFor(ctx, "project-1"); err == nil {
+	if _, err := expander.ExpandFor(ctx, "project-1", TriggerSweep); err == nil {
 		t.Error("ExpandFor() = nil, want an error when nothing is published")
 	}
 	// Nothing half-created: the template read happens before the write.

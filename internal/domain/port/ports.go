@@ -166,6 +166,41 @@ type ProjectReader interface {
 	Name(ctx context.Context, projectUID string) (string, error)
 }
 
+// Subscriber delivers messages published by other services to a handler.
+//
+// The counterpart to ProjectReader: that one asks and waits, this one is told.
+// Both exist because the two answer different questions — the read is how the
+// sweep finds out what is true now, and the subscription is how the service
+// finds out sooner that something changed.
+//
+// Nothing here is required for correctness, and the interface is deliberately
+// too thin to promise otherwise. There is no acknowledgement, no redelivery and
+// no replay, so a handler that fails has no way to ask for the message again and
+// a service that is not running receives nothing. Whatever consumes this must be
+// an accelerator behind something that establishes the same outcome on its own.
+type Subscriber interface {
+	// Subscribe delivers messages on subject to handler, sharing the work with
+	// the other members of queue so that exactly one of them handles each
+	// message.
+	//
+	// The queue name scopes the sharing to this service. Other services
+	// consuming the same subject use their own name and receive their own copy,
+	// which is what lets one replica per service handle an event while every
+	// interested service still sees it.
+	//
+	// The returned function stops delivery and waits for the handler to finish.
+	// Waiting is the point: a handler is inside a database transaction, and
+	// tearing it down mid-flight during shutdown would abort work that had
+	// already been decided on.
+	// The handler receives the message's own context, which continues the
+	// publisher's trace rather than starting a new one, and derives from the
+	// context given here — so a caller wanting handlers to outlive its own
+	// cancellation passes one that does.
+	Subscribe(
+		ctx context.Context, subject, queue string, handler func(ctx context.Context, data []byte),
+	) (stop func(), err error)
+}
+
 // IndexerPublisher publishes a checklist's search projection.
 //
 // The queue screen is one access-filtered search against this projection and
@@ -176,11 +211,35 @@ type ProjectReader interface {
 //
 // Publishing is best-effort by design. Postgres is the source of truth, the
 // projection is derived, and the reconcile republishes on every sweep, so a
-// failed publish self-heals within one tick. A caller must therefore never fail
-// a user's write because this failed.
+// failed publish is repaired by the next one. A caller must therefore never
+// fail a user's write because this failed.
+//
+// How long that repair takes is a deployment decision rather than a property of
+// this interface, and it is getting longer: the sweep is moving to a daily
+// cadence, so "the next sweep fixes it" means within a day rather than within
+// fifteen minutes. Best-effort is still the right trade for a derived document,
+// but the window is now wide enough that an operator-run repair exists
+// alongside it rather than as a theoretical escape hatch.
 type IndexerPublisher interface {
 	// PublishFormation upserts one checklist's projection.
 	PublishFormation(ctx context.Context, doc *FormationProjection) error
+
+	// DeleteFormation removes one checklist's projection from the index.
+	//
+	// Keyed on the formation UID because that is the document's identity — the
+	// same value PublishFormation sends as the object ID.
+	//
+	// Separate from PublishFormation rather than an action argument on it. The
+	// upsert has no legitimate reason to ever delete, and a shared entry point
+	// would put "which action?" on a path that publishes on every sweep for
+	// every project.
+	//
+	// There is deliberately no caller in the sweep. A checklist is never
+	// deleted, so the only way its row is orphaned is the project behind it
+	// disappearing — which the sweep cannot observe, because it lists forming
+	// projects and a project that is gone is not in any list. Removal is
+	// therefore an operator-run repair, and this exists for that job to call.
+	DeleteFormation(ctx context.Context, formationUID string) error
 }
 
 // FormationProjection is one row of the Formations queue.

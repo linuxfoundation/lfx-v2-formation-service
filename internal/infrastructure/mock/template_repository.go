@@ -18,6 +18,7 @@ import (
 
 // TemplateRepository is an in-memory port.TemplateRepository double.
 type TemplateRepository struct {
+	Recorder
 	mu        sync.Mutex
 	templates map[uuid.UUID]*model.Template
 }
@@ -29,6 +30,7 @@ func NewTemplateRepository() *TemplateRepository {
 
 // ListPublished returns published templates ordered by priority.
 func (r *TemplateRepository) ListPublished(_ context.Context) ([]*model.Template, error) {
+	r.record("templates.ListPublished")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -75,6 +77,7 @@ func sameSections(a, b []model.TemplateSection) bool {
 
 // Get returns one template by UID, or domain.ErrNotFound.
 func (r *TemplateRepository) Get(_ context.Context, uid uuid.UUID) (*model.Template, error) {
+	r.record("templates.Get")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -91,6 +94,7 @@ func (r *TemplateRepository) Get(_ context.Context, uid uuid.UUID) (*model.Templ
 // with domain.ErrConflict, mirroring the repository — a double that allowed it
 // would let the seed command's guard pass in tests and fail against Postgres.
 func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*model.Template, error) {
+	r.record("templates.Upsert")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
