@@ -206,11 +206,23 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		return
 	}
 
-	// LFX stores grantees by username, which may not be an email address.
-	// Skip rather than delivering to an unroutable address; when LFX uses
-	// email-as-username the send proceeds normally.
-	if !strings.Contains(item.Assignee, "@") {
-		slog.WarnContext(ctx, "item-assigned email: assignee has no @ — not an email address; not sent",
+	// The assignee is stored as a username. Resolve it to an email address
+	// using the project settings roster; the email field on each grantee
+	// entry is what the project service carries alongside the username.
+	// A missing or unresolvable address is logged and silently skipped —
+	// the write already succeeded and best-effort dispatch must not block it.
+	var to string
+	if s.projects != nil {
+		settings, err := s.projects.GetSettings(ctx, projectUID)
+		if err != nil {
+			slog.WarnContext(ctx, "item-assigned email: could not read project settings; not sent",
+				"item_key", item.ItemKey, "assignee", item.Assignee, "error", err)
+			return
+		}
+		to = settings.UserEmails[item.Assignee]
+	}
+	if to == "" {
+		slog.WarnContext(ctx, "item-assigned email: no email address on record for assignee; not sent",
 			"item_key", item.ItemKey, "assignee", item.Assignee)
 		return
 	}
@@ -241,14 +253,14 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	if sendErr := s.emailer.Send(ctx, port.EmailMessage{
-		To:      item.Assignee,
+		To:      to,
 		Subject: subject,
 		HTML:    html,
 		Text:    text,
 		GroupID: "formation.item_assigned",
 	}); sendErr != nil {
 		slog.WarnContext(ctx, "item-assigned email: send failed",
-			"item_key", item.ItemKey, "assignee", item.Assignee, "error", sendErr)
+			"item_key", item.ItemKey, "assignee", item.Assignee, "to", to, "error", sendErr)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -719,17 +718,18 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 	recipients := make([]string, 0, len(settings.Writers)+len(settings.Auditors))
 	recipients = append(recipients, settings.Writers...)
 	recipients = append(recipients, settings.Auditors...)
-	for _, to := range recipients {
-		if to == "" {
+	for _, username := range recipients {
+		if username == "" {
 			continue
 		}
-		// LFX usernames are not always email addresses. Skip any recipient
-		// that lacks an '@' rather than delivering to an unroutable address.
-		// When LFX uses email-as-username the send proceeds normally; when it
-		// does not, the notification is dropped and logged rather than bounced.
-		if !strings.Contains(to, "@") {
-			slog.WarnContext(ctx, "active email: skipping recipient — not an email address",
-				"project_uid", project.UID, "recipient", to)
+		// Resolve the username to an email address. The roster stores
+		// usernames; addresses are carried in the UserEmails map populated
+		// from the same settings reply. A username with no email entry is
+		// skipped and logged rather than dispatched to an unroutable address.
+		to, ok := settings.UserEmails[username]
+		if !ok || to == "" {
+			slog.WarnContext(ctx, "active email: skipping recipient — no email address on record",
+				"project_uid", project.UID, "recipient", username)
 			continue
 		}
 		subj, html, text, renderErr := email.RenderActive(email.ActiveData{

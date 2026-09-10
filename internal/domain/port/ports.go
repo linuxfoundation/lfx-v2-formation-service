@@ -326,6 +326,11 @@ type ProjectSettings struct {
 	AnnouncementDate *string
 	Writers          []string
 	Auditors         []string
+	// UserEmails maps each username in Writers and Auditors to the email
+	// address the project service carries for them. Populated from the
+	// settings reply when the field is present; absent entries mean the
+	// service returned no email for that user.
+	UserEmails map[string]string
 }
 
 // ProjectRef identifies a project and the facts template selection needs.

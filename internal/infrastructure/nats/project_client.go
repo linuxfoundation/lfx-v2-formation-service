@@ -95,12 +95,14 @@ func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]strin
 	return usernames(writers), nil
 }
 
-// projectUser is the per-person shape inside a grant roster. Only the username
-// is taken: it is the identifier an assignee is recorded as, and the name, email
-// and avatar the reply also carries would be personal data this service holds
-// for no reason.
+// projectUser is the per-person shape inside a grant roster. Username is the
+// identifier an assignee is recorded as. Email is carried alongside it so
+// notification dispatch can route to a real mailbox: the service stores
+// usernames, not addresses, so email must be resolved at send time from the
+// same grant roster that accepted the assignee.
 type projectUser struct {
 	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 // projectSettingsReply is the get_settings reply, declared here rather than
@@ -173,6 +175,17 @@ func (p *ProjectClient) GetSettings(ctx context.Context, projectUID string) (*po
 		Writers:    usernames(decoded.Writers),
 		Auditors:   usernames(decoded.Auditors),
 	}
+	// Build a username→email map from the combined roster so callers that
+	// need to send email to a named grantee can resolve their address without
+	// a second NATS round-trip. Writers and Auditors share one map: both
+	// halves appear in the People panel and either may be an assignee or
+	// notification recipient. When the same username appears in both, the
+	// writer entry wins (first write), but in practice duplicates carry the
+	// same address.
+	allUsers := make([]projectUser, 0, len(decoded.Writers)+len(decoded.Auditors))
+	allUsers = append(allUsers, decoded.Writers...)
+	allUsers = append(allUsers, decoded.Auditors...)
+	settings.UserEmails = userEmailMap(allUsers)
 	// Narrowed to a date deliberately. Due dates are computed by offsetting
 	// whole days from this, so the time of day is precision the calculation
 	// cannot use and would only introduce timezone questions into a comparison
@@ -248,6 +261,23 @@ func usernames(users []projectUser) []string {
 	for _, u := range users {
 		if u.Username != "" {
 			out = append(out, u.Username)
+		}
+	}
+	return out
+}
+
+// userEmailMap builds a username→email index from a grant roster, used by
+// notification dispatch to route to a real mailbox when the stored assignee is
+// a username. Entries with a blank username or blank email are skipped:
+// a blank username has no key to index under, and a blank email would silently
+// overwrite a good entry if the same username appeared twice.
+func userEmailMap(users []projectUser) map[string]string {
+	out := make(map[string]string, len(users))
+	for _, u := range users {
+		if u.Username != "" && u.Email != "" {
+			if _, exists := out[u.Username]; !exists {
+				out[u.Username] = u.Email
+			}
 		}
 	}
 	return out
