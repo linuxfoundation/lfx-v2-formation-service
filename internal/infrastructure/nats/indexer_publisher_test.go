@@ -332,3 +332,58 @@ func TestTheSubjectNamesTheFormationObjectType(t *testing.T) {
 			"the object type from what follows lfx.index.", IndexFormationSubject)
 	}
 }
+
+// The one place this envelope departs from every other message the service
+// sends, and the departure is invisible at runtime: the indexer reads the object
+// ID straight out of data for a delete, where it decodes a body for everything
+// else. Encoding the UID the way the upsert encodes its own would delete
+// nothing — and report nothing, because the publish is fire-and-forget. That is
+// exactly how an orphaned row survives a repair job that looked like it worked,
+// so the shape is pinned here rather than trusted.
+func TestDeleteFormationSendsTheUIDAsABareString(t *testing.T) {
+	url := startTestNATSServer(t)
+	await := captureOn(t, url, IndexFormationSubject)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	const formationUID = "01JQ0000000000000000000000"
+	if err := publisher.DeleteFormation(context.Background(), formationUID); err != nil {
+		t.Fatalf("DeleteFormation() = %v, want no error", err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(await(), &envelope); err != nil {
+		t.Fatalf("decoding the envelope = %v", err)
+	}
+
+	if got := envelope["action"]; got != "deleted" {
+		t.Errorf("action = %v, want deleted", got)
+	}
+	got, ok := envelope["data"].(string)
+	if !ok {
+		t.Fatalf("data = %#v, want the UID as a bare string; an object here deletes nothing", envelope["data"])
+	}
+	if got != formationUID {
+		t.Errorf("data = %q, want %q", got, formationUID)
+	}
+	// Nothing to gate or sort once the document is gone.
+	if _, present := envelope["indexing_config"]; present {
+		t.Errorf("envelope carries indexing_config on a delete: %v", envelope)
+	}
+	// The indexer refuses a V2 message with no authorization header, delete
+	// included.
+	headers, ok := envelope["headers"].(map[string]any)
+	if !ok || headers["authorization"] != serviceAccountBearer {
+		t.Errorf("headers = %v, want the service-account bearer", envelope["headers"])
+	}
+}
+
+// The indexer validates the object ID and refuses an empty one, but that refusal
+// arrives here as silence. Caught where it is attributable instead.
+func TestDeleteFormationRefusesAnEmptyUID(t *testing.T) {
+	url := startTestNATSServer(t)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	if err := publisher.DeleteFormation(context.Background(), ""); err == nil {
+		t.Error("DeleteFormation(\"\") = nil, want an error rather than a publish nothing acts on")
+	}
+}

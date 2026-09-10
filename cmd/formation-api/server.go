@@ -37,12 +37,15 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	// Started before the listener rather than after: creating checklists does
 	// not depend on serving requests, and it stops when ctx is cancelled on
 	// shutdown alongside everything else.
-	diservice.StartReconcile(ctx, cfg, deps)
+	reconciler := diservice.StartReconcile(ctx, cfg, deps)
+	stopListener := diservice.StartProjectListener(ctx, cfg, deps, reconciler)
 
-	return handleHTTPServer(ctx, cfg, endpoints, closeFn)
+	return handleHTTPServer(ctx, cfg, endpoints, closeFn, stopListener)
 }
 
-func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error) error {
+func handleHTTPServer(
+	ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error, stopListener func(),
+) error {
 	mux := goahttp.NewMuxer()
 	if cfg.Debug {
 		debug.MountPprofHandlers(debug.Adapt(mux))
@@ -75,7 +78,7 @@ func handleHTTPServer(ctx context.Context, cfg *config.Config, endpoints *svc.En
 		IdleTimeout:       constants.DefaultIdleTimeout,
 	}
 
-	return runServerWithContext(ctx, srv, closeFn)
+	return runServerWithContext(ctx, srv, closeFn, stopListener)
 }
 
 func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWriter, error) {
@@ -84,7 +87,7 @@ func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWri
 	}
 }
 
-func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() error) error {
+func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() error, stopListener func()) error {
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -100,6 +103,13 @@ func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() 
 	case <-ctx.Done():
 		slog.InfoContext(ctx, "shutdown initiated")
 	}
+
+	// Stop taking events first, and for the same reason the HTTP server is
+	// drained below: an event handler writes to Postgres, so it has to be
+	// finished with the pool before closeFn releases it. Draining rather than
+	// unsubscribing lets a message already delivered run to completion, and an
+	// event lost here costs nothing anyway — the next sweep repairs it.
+	stopListener()
 
 	// Drain in-flight requests before releasing the Postgres pool: closing
 	// it concurrently with Shutdown risks a mid-flight request seeing a

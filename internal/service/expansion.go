@@ -32,6 +32,31 @@ const (
 // happened to trigger the sweep would be a lie in the audit trail.
 const actorSystem = "system"
 
+// A Trigger names which automatic path created a checklist.
+//
+// A finer distinction inside actorSystem, and deliberately not a fourth value of
+// SetBy. SetBy answers "was this a person or the service", which is what the UI
+// renders and what the audit trail turns on; splitting the machine half of that
+// question across three values would change the meaning of a field every reader
+// already interprets. This is metadata on the one entry that records the
+// expansion, and nothing branches on it.
+//
+// It exists because the three paths now produce identical rows and have stopped
+// being distinguishable after the fact. That was tolerable when the sweep was
+// the only one; with an accelerator in front of it, "is the listener actually
+// doing anything" is a question about checklists already created, and without
+// this the only honest answer is to read the logs before they age out.
+type Trigger string
+
+const (
+	// TriggerSweep is the periodic reconcile, the mechanism of record.
+	TriggerSweep Trigger = "sweep"
+	// TriggerListener is a project event, the accelerator.
+	TriggerListener Trigger = "listener"
+	// TriggerOperator is someone running the CLI by hand.
+	TriggerOperator Trigger = "operator"
+)
+
 // projectUIDPlaceholder is substituted into a template's action link once, at
 // expansion, and the result is then fixed. Resolving it on every read would make
 // a link change with a template edit, which is the opposite of the pinning rule
@@ -65,12 +90,12 @@ func NewExpander(selector *TemplateSelector, uow port.UnitOfWork, projects port.
 // uniqueness constraint on project_uid is what makes the loop safe to run on
 // every replica, so losing that race is the expected outcome rather than a
 // failure to report.
-func (e *Expander) ExpandFor(ctx context.Context, projectUID string) (bool, error) {
+func (e *Expander) ExpandFor(ctx context.Context, projectUID string, trigger Trigger) (bool, error) {
 	tpl, err := e.SelectTemplate(ctx)
 	if err != nil {
 		return false, err
 	}
-	return e.ExpandWithTemplate(ctx, projectUID, tpl)
+	return e.ExpandWithTemplate(ctx, projectUID, tpl, trigger)
 }
 
 // SelectTemplate resolves the template a checklist would be created from.
@@ -84,7 +109,9 @@ func (e *Expander) SelectTemplate(ctx context.Context) (*model.Template, error) 
 }
 
 // ExpandWithTemplate creates the checklist from an already-resolved template.
-func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tpl *model.Template) (bool, error) {
+func (e *Expander) ExpandWithTemplate(
+	ctx context.Context, projectUID string, tpl *model.Template, trigger Trigger,
+) (bool, error) {
 	if projectUID == "" {
 		return false, fmt.Errorf("expanding a checklist: %w", domain.ErrInvalidRequest)
 	}
@@ -135,7 +162,8 @@ func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tp
 		//
 		// Formation-level, so no item UID — it is the whole checklist that was
 		// created. Attributed to the system because no person asked for it; the
-		// reconcile did, on the strength of the project's stage.
+		// reconcile did, on the strength of the project's stage. The trigger
+		// narrows that to which of the automatic paths it was.
 		if activityErr := tx.Activity().Append(ctx, &model.ActivityEntry{
 			FormationUID: formation.UID,
 			Actor:        actorSystem,
@@ -145,6 +173,7 @@ func (e *Expander) ExpandWithTemplate(ctx context.Context, projectUID string, tp
 				"template_uid":     tpl.UID.String(),
 				"template_version": tpl.Version,
 				"items":            len(items),
+				"trigger":          string(trigger),
 			},
 		}); activityErr != nil {
 			return fmt.Errorf("recording the expansion for %s: %w", projectUID, activityErr)

@@ -67,7 +67,12 @@ const (
 	DefaultDBSSLMode = "require"
 
 	// DefaultReconcileInterval is the period of the reconcile ticker. The
-	// loop is the primary correctness path, so this bounds how long a
-	// missed change notification can leave a project without a checklist.
-	DefaultReconcileInterval = 15 * time.Minute
+	// loop remains the only mechanism guaranteed to run, so this bounds how
+	// long a missed project event can leave a project without a checklist —
+	// but it is no longer how long that normally takes, because the listener
+	// reconciles on the change itself. Daily rather than quarter-hourly: the
+	// sweep reads every forming project on every replica, and paying that
+	// ninety-six times a day to shorten a window the listener already closes
+	// is load spent against the project service for nothing.
+	DefaultReconcileInterval = 24 * time.Hour
 )

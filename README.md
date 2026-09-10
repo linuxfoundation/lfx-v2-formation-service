@@ -52,7 +52,7 @@ of a value that could be logged whole.
 | `PGPASSWORD`         | *(none)*    | required                                                          |
 | `PGDATABASE`         | `formation` |                                                                   |
 | `PGSSLMODE`          | `require`   | TLS is mandatory; set `disable` for a local container without TLS |
-| `RECONCILE_INTERVAL` | `15m`       | period of the reconcile loop; any `time.ParseDuration` value      |
+| `RECONCILE_INTERVAL` | `24h`       | period of the reconcile sweep; any `time.ParseDuration` value     |
 
 Against the container above:
 

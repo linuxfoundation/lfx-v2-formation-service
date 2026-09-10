@@ -61,6 +61,43 @@ const (
 	IndexFormationSubject = "lfx.index.formation"
 )
 
+// The subjects this service consumes, published by lfx-v2-indexer-service after
+// it has successfully written a project document.
+//
+// Named individually rather than matched with a wildcard. `lfx.project.>` would
+// pick up whatever actions are added later and hand this service messages it has
+// no branch for, and the one action that exists today and is deliberately absent
+// below is the one a wildcard would quietly start delivering.
+const (
+	// ProjectCreatedSubject announces a project document that was just indexed
+	// for the first time.
+	ProjectCreatedSubject = "lfx.project.created"
+
+	// ProjectUpdatedSubject announces a project document that was re-indexed,
+	// which is where a stage change arrives.
+	ProjectUpdatedSubject = "lfx.project.updated"
+
+	// ProjectEventsQueue shares each message across this service's replicas so
+	// exactly one of them handles it.
+	//
+	// Scoped to this service by name, which is what makes the sharing safe:
+	// other services consuming the same subjects use their own queue and
+	// receive their own copy. A name that collided with another service's would
+	// take that service's messages instead of duplicating them, and nothing
+	// about either subscription would look wrong from the inside.
+	ProjectEventsQueue = "formation-service-project-events"
+)
+
+// Deliberately not consumed: lfx.project.deleted.
+//
+// A checklist is never deleted, so a project's disappearance cannot change one.
+// What it can orphan is the queue row, and reacting to a delete event is the
+// worst available way to handle that — the transport may lose the message, and
+// unlike every other event here there is no sweep behind it to notice, because
+// the sweep lists forming projects and a project that is gone appears in no
+// list. A lost delete would orphan a row permanently. Removal is an
+// operator-run repair instead; see IndexerPublisher.DeleteFormation.
+
 // serviceAccountBearer is the Authorization header value used when a publish
 // has no user behind it, which for this service is every publish: projections
 // are built by the reconcile sweep, on a ticker, with no request context.

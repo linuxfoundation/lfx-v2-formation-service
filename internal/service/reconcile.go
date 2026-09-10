@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -21,10 +22,15 @@ import (
 // The reconcile is the mechanism of record for creation and repair, not a
 // backstop behind change notifications. Notifications arrive on a best-effort
 // channel with no replay, so one lost while this service is restarting is lost
-// for good — the sweep is what makes the outcome correct regardless, and the
-// interval is the worst-case delay before a project that entered formation gets
-// its checklist. That makes it the knob to reach for during an incident, so it
-// is configured rather than compiled in.
+// for good — the sweep is what makes the outcome correct regardless.
+//
+// A project event listener runs alongside it and calls ReconcileProject on the
+// project a change names, which is what normally makes a checklist appear within
+// seconds. That does not demote the sweep; it changes what the interval means.
+// The interval is now the worst case when the listener is not working, rather
+// than the ordinary wait, which is why it is a day rather than a quarter of an
+// hour. It stays configured rather than compiled in, because lowering it is
+// still the knob to reach for during an incident.
 //
 // It is safe to run on every replica at once, with no leader election and no
 // singleton job. Two replicas sweeping the same project both try to create the
@@ -120,10 +126,25 @@ type ReconcileReport struct {
 // Run sweeps on a ticker until ctx is cancelled.
 //
 // It sweeps once immediately rather than waiting out the first interval: a
-// replica that has just started may be the only one running, and a project that
-// entered formation during a deployment should not wait fifteen minutes.
+// replica that has just started may be the only one running, and with the
+// interval now a day, a project that entered formation during a deployment would
+// otherwise wait until tomorrow.
+//
+// Every line it logs names the replica that produced it. There is no leader
+// election, so a three-replica deployment sweeps three times a day and each
+// sweep reads every forming project — a real and accepted cost, but one that
+// looks like a bug to anyone reading the logs who does not already know. Naming
+// the replica makes three sweeps legible as three replicas rather than as a loop
+// firing more often than it was configured to.
 func (r *Reconciler) Run(ctx context.Context) {
-	slog.InfoContext(ctx, "reconcile loop started", "interval", r.interval)
+	replica := replicaName()
+
+	slog.InfoContext(ctx, "reconcile loop started",
+		"interval", r.interval, "replica", replica,
+		// Stated at startup because the interval alone no longer explains when a
+		// checklist appears, and this is the line someone finds when asking why
+		// it took a day.
+		"note", "the listener accelerates this; the sweep is the backstop")
 
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
@@ -133,9 +154,10 @@ func (r *Reconciler) Run(ctx context.Context) {
 			// Logged and dropped rather than returned: the loop must outlive a
 			// bad sweep. Whatever failed is still wrong at the next tick, and
 			// stopping here would mean nothing ever repairs it.
-			slog.ErrorContext(ctx, "reconcile sweep failed", "error", err)
+			slog.ErrorContext(ctx, "reconcile sweep failed", "replica", replica, "error", err)
 		} else {
 			slog.InfoContext(ctx, "reconcile sweep finished",
+				"replica", replica,
 				"swept", report.Swept,
 				"created", report.Created,
 				"lifecycles_moved", report.LifecyclesMoved,
@@ -153,7 +175,7 @@ func (r *Reconciler) Run(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			slog.InfoContext(ctx, "reconcile loop stopped")
+			slog.InfoContext(ctx, "reconcile loop stopped", "replica", replica)
 			return
 		case <-ticker.C:
 		}
@@ -203,79 +225,151 @@ func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error
 
 	for _, project := range projects {
 		report.Swept++
-
-		// The stage gate. Prospect, Active, Archived and Disengaged create
-		// nothing, and an unrecognised value creates nothing either — better a
-		// project waits for the next sweep than gets a checklist on a guess.
-		//
-		// Lifecycle is still synced for those stages: a project that has just
-		// become Active or been archived has a checklist to move, which is the
-		// case the gate must not skip past.
-		if !model.FormingStage(project.SubStage) {
-			report.Skipped++
-			r.finishProject(ctx, project, report)
-			continue
-		}
-
-		// A project that already has a checklist needs no creation attempt.
-		// Skipping it is not an optimisation of the uniqueness constraint —
-		// that still absorbs concurrent replicas, which is what makes the loop
-		// safe. It avoids paying for a transaction and a discarded violation on
-		// every project on every tick once the backlog is drained.
-		//
-		// Checked before the template, so a sweep with no template does not
-		// report these as blocked: they are not waiting on one.
-		//
-		// Lifecycle still runs: an existing checklist is exactly the thing that
-		// may need moving.
-		if sweep.existing[project.UID] {
-			r.finishProject(ctx, project, report)
-			continue
-		}
-
-		// No template was resolvable, which prepare has already reported once.
-		// Lifecycles still need syncing, so the sweep continues rather than
-		// returning — but nothing here can be created.
-		//
-		// Counted as blocked only when the checklist set was actually read.
-		// With both sweep-wide reads failing, every project looks absent from
-		// an empty set, and counting them all would report the whole sweep as
-		// waiting on a template when most of them may need nothing — the same
-		// misleading number the check above is ordered to avoid. Degraded is
-		// reported instead, and it is a sweep-wide state rather than a per
-		// project one, so prepare's own log already carries the reason.
-		if sweep.template == nil {
-			if sweep.existingKnown {
-				report.Blocked++
-			} else {
-				report.Degraded++
-			}
-			r.finishProject(ctx, project, report)
-			continue
-		}
-
-		created, expandErr := r.expander.ExpandWithTemplate(ctx, project.UID, sweep.template)
-		if expandErr != nil {
-			// One project's failure must not end the sweep — the rest still
-			// need their checklists, and this one is retried next tick. The
-			// sweep-wide failure that used to be handled here, a missing
-			// template, is now caught before the loop starts.
-			report.Failed++
-			slog.ErrorContext(ctx, "could not create checklist; continuing the sweep",
-				"project_uid", project.UID, "stage", project.SubStage, "error", expandErr)
-			continue
-		}
-		if created {
-			report.Created++
-		}
-
-		// A project can re-enter formation, so a checklist that was frozen or
-		// completed has to come back to live. Run after creation because the
-		// checklist has to exist before its lifecycle can be moved.
-		r.finishProject(ctx, project, report)
+		r.reconcileProject(ctx, project, sweep, report, TriggerSweep)
 	}
 
 	return report, nil
+}
+
+// replicaName identifies which pod produced a log line.
+//
+// The hostname, because in Kubernetes that is the pod name and no other
+// identifier is both already present and stable for the pod's life. An
+// unreadable hostname is not worth failing over — the sweep still runs, it is
+// just anonymous.
+func replicaName() string {
+	name, err := os.Hostname()
+	if err != nil || name == "" {
+		return "unknown"
+	}
+	return name
+}
+
+// ReconcileProject brings one named project into line with its stage, outside
+// any sweep, and reports what it did.
+//
+// The entry point for anything that already knows which project changed — a
+// listener reacting to an event, or an operator naming one. It resolves for this
+// single project what a sweep resolves once for all of them, then runs the same
+// routine, so a project reconciled this way is indistinguishable from one the
+// sweep reached.
+//
+// Deliberately not cheaper than the sweep's per-project cost. It reads the whole
+// checklist set rather than asking after one project, because that is the read
+// the sweep makes and reusing it keeps one code path instead of two that could
+// disagree about what "already has a checklist" means. At this scale the read is
+// a list of tens of UIDs.
+//
+// It cannot fail, for the same reason the sweep's per-project routine cannot:
+// every outcome is a count. A caller wanting to know whether anything went wrong
+// reads Failed on the report.
+func (r *Reconciler) ReconcileProject(
+	ctx context.Context, project port.ProjectRef, trigger Trigger,
+) *ReconcileReport {
+	report := &ReconcileReport{}
+
+	existing, existingKnown := r.knownChecklists(ctx)
+	sweep := r.prepare(ctx, []port.ProjectRef{project}, existing, existingKnown)
+
+	report.Swept++
+	r.reconcileProject(ctx, project, sweep, report, trigger)
+
+	return report
+}
+
+// reconcileProject brings one project into line with its stage: creating its
+// checklist if it needs one and can have one, then finishing it whatever branch
+// it took.
+//
+// Lifted out of the sweep loop so that it is the only place this decision is
+// made. A second caller is coming — a listener that reacts to a project event
+// rather than waiting for a tick — and the alternative was for that caller to
+// re-derive the stage gate, the already-exists check and the template block for
+// itself. Two implementations of "what should this project have" would agree on
+// the day they were written and drift thereafter, and the one that drifted would
+// be the fast path nobody sweeps behind.
+//
+// It takes the sweep's resolved state rather than resolving its own, because
+// resolving per project is exactly what this sweep was changed to stop doing:
+// the template read and the checklist-set read cost the same whether they answer
+// for one project or sixty. A caller holding one project builds a sweepState for
+// it and passes that.
+//
+// It cannot fail. Every outcome — created, skipped, blocked, failed — is a count
+// on the report, because a single project's trouble must not end a sweep that
+// still has projects to visit.
+func (r *Reconciler) reconcileProject(
+	ctx context.Context, project port.ProjectRef, sweep *sweepState, report *ReconcileReport, trigger Trigger,
+) {
+	// The stage gate. Prospect, Active, Archived and Disengaged create
+	// nothing, and an unrecognised value creates nothing either — better a
+	// project waits for the next sweep than gets a checklist on a guess.
+	//
+	// Lifecycle is still synced for those stages: a project that has just
+	// become Active or been archived has a checklist to move, which is the
+	// case the gate must not skip past.
+	if !model.FormingStage(project.SubStage) {
+		report.Skipped++
+		r.finishProject(ctx, project, report)
+		return
+	}
+
+	// A project that already has a checklist needs no creation attempt.
+	// Skipping it is not an optimisation of the uniqueness constraint —
+	// that still absorbs concurrent replicas, which is what makes the loop
+	// safe. It avoids paying for a transaction and a discarded violation on
+	// every project on every tick once the backlog is drained.
+	//
+	// Checked before the template, so a sweep with no template does not
+	// report these as blocked: they are not waiting on one.
+	//
+	// Lifecycle still runs: an existing checklist is exactly the thing that
+	// may need moving.
+	if sweep.existing[project.UID] {
+		r.finishProject(ctx, project, report)
+		return
+	}
+
+	// No template was resolvable, which prepare has already reported once.
+	// Lifecycles still need syncing, so the sweep continues rather than
+	// returning — but nothing here can be created.
+	//
+	// Counted as blocked only when the checklist set was actually read.
+	// With both sweep-wide reads failing, every project looks absent from
+	// an empty set, and counting them all would report the whole sweep as
+	// waiting on a template when most of them may need nothing — the same
+	// misleading number the check above is ordered to avoid. Degraded is
+	// reported instead, and it is a sweep-wide state rather than a per
+	// project one, so prepare's own log already carries the reason.
+	if sweep.template == nil {
+		if sweep.existingKnown {
+			report.Blocked++
+		} else {
+			report.Degraded++
+		}
+		r.finishProject(ctx, project, report)
+		return
+	}
+
+	created, expandErr := r.expander.ExpandWithTemplate(ctx, project.UID, sweep.template, trigger)
+	if expandErr != nil {
+		// One project's failure must not end the sweep — the rest still
+		// need their checklists, and this one is retried next tick. The
+		// sweep-wide failure that used to be handled here, a missing
+		// template, is now caught before the loop starts.
+		report.Failed++
+		slog.ErrorContext(ctx, "could not create checklist; continuing the sweep",
+			"project_uid", project.UID, "stage", project.SubStage, "error", expandErr)
+		return
+	}
+	if created {
+		report.Created++
+	}
+
+	// A project can re-enter formation, so a checklist that was frozen or
+	// completed has to come back to live. Run after creation because the
+	// checklist has to exist before its lifecycle can be moved.
+	r.finishProject(ctx, project, report)
 }
 
 // sweepState is what a sweep resolves once and reuses for every project.

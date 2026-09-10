@@ -1015,7 +1015,7 @@ func TestALifecycleThatCannotBeMovedIsCounted(t *testing.T) {
 		{UID: "project-1", SubStage: model.StageActive},
 	}}
 	f := newExpansionFixture(t, twoItemSections(), projects)
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 
@@ -1054,7 +1054,7 @@ func TestAFailedLifecycleSyncSkipsThePlatformPass(t *testing.T) {
 		{UID: "project-1", SubStage: model.StageActive},
 	}}
 	f := newExpansionFixture(t, twoItemSections(), projects)
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 
@@ -1103,7 +1103,7 @@ func TestBothSweepReadsFailingIsDegradedRatherThanBlocked(t *testing.T) {
 
 	// project-1 already has a checklist, so it is one of the projects a blocked
 	// count would be wrong about.
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 
@@ -1139,7 +1139,7 @@ func TestOnlyTheTemplateFailingStillReportsBlocked(t *testing.T) {
 		{UID: "project-2", SubStage: model.StageFormationEngaged},
 	}}
 	f := newExpansionFixture(t, twoItemSections(), projects)
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 

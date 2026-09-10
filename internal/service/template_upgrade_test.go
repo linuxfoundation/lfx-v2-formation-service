@@ -84,7 +84,7 @@ func TestUpgradeAddsOnlyMissingItems(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	formation, err := f.formations.GetByProject(ctx, "project-1")
@@ -182,7 +182,7 @@ func TestUpgradeAddsOnlyMissingItems(t *testing.T) {
 func TestUpgradeIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	publishNextVersion(t, f.templates, 2, sectionsPlusOneMinusOne())
@@ -228,7 +228,7 @@ func TestUpgradeResolvesDueDatesOnAddedItems(t *testing.T) {
 	projects := stubProjects{announcement: announcement}
 	f := newExpansionFixture(t, twoItemSections(), projects)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 
@@ -273,7 +273,7 @@ func TestUpgradeAllCoversEveryChecklist(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 	for _, projectUID := range []string{"project-1", "project-2", "project-3"} {
-		if _, err := f.expander.ExpandFor(ctx, projectUID); err != nil {
+		if _, err := f.expander.ExpandFor(ctx, projectUID, TriggerSweep); err != nil {
 			t.Fatalf("ExpandFor(%s) = %v, want no error", projectUID, err)
 		}
 	}
@@ -300,7 +300,7 @@ func TestUpgradeRecordsWhatItAdded(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	formation, err := f.formations.GetByProject(ctx, "project-1")
@@ -371,7 +371,7 @@ func TestAnUpgradeThatLosesTheRaceRecordsNothing(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	formation, err := f.formations.GetByProject(ctx, "project-1")
@@ -459,7 +459,7 @@ func TestAnUpgradeThatLosesTheRaceOnANewSectionWritesNoSnapshot(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 
@@ -502,7 +502,7 @@ func TestUpgradeThatAddsANewSectionRecordsItOnTheChecklist(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	before, err := f.formations.GetByProject(ctx, "project-1")
@@ -571,7 +571,7 @@ func TestUpgradeWithNothingToAddRecordsNothing(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	formation, err := f.formations.GetByProject(ctx, "project-1")
@@ -634,7 +634,7 @@ func TestAnUpgradeThatCannotRecordANewSectionFails(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), nil)
 
-	if _, err := f.expander.ExpandFor(ctx, "project-1"); err != nil {
+	if _, err := f.expander.ExpandFor(ctx, "project-1", TriggerSweep); err != nil {
 		t.Fatalf("ExpandFor() = %v, want no error", err)
 	}
 	withNewSection := append(twoItemSections(), model.TemplateSection{

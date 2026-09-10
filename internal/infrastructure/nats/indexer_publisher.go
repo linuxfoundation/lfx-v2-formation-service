@@ -95,6 +95,39 @@ func (p *IndexerPublisher) PublishFormation(ctx context.Context, doc *port.Forma
 	return p.client.Publish(ctx, IndexFormationSubject, payload)
 }
 
+// DeleteFormation removes one checklist's projection from the index.
+//
+// The envelope departs from PublishFormation in the one way worth stating
+// plainly: Data is the UID itself, as a bare string, where the upsert sends an
+// object. The indexer reads the object ID straight out of Data for a delete and
+// decodes a body for everything else, so encoding this the way the upsert
+// encodes its own would delete nothing. It would also report nothing, because
+// the publish is fire-and-forget and a refusal on the far side arrives here as
+// silence — which is precisely how an orphaned row survives a repair job that
+// looked like it worked.
+//
+// No indexing_config. Its fields describe who may read the document and how it
+// sorts, and there is no document left to read or sort.
+func (p *IndexerPublisher) DeleteFormation(ctx context.Context, formationUID string) error {
+	if formationUID == "" {
+		// The indexer validates the object ID and refuses an empty one, but
+		// that refusal is invisible here. Caught where it is attributable.
+		return fmt.Errorf("no formation_uid to delete")
+	}
+
+	envelope := indexerDeleteMessage{
+		Action:  "deleted",
+		Headers: map[string]string{"authorization": serviceAccountBearer},
+		Data:    formationUID,
+	}
+
+	payload, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("encoding the formation deletion: %w", err)
+	}
+	return p.client.Publish(ctx, IndexFormationSubject, payload)
+}
+
 // indexerMessage is the envelope the indexer consumes. Declared here for the
 // same reason the donors declare their own: the envelope's Data and Action are
 // service-specific, while IndexingConfig is genuinely shared and is imported.
@@ -107,6 +140,19 @@ type indexerMessage struct {
 	Headers        map[string]string            `json:"headers"`
 	Data           map[string]any               `json:"data"`
 	IndexingConfig *indexerTypes.IndexingConfig `json:"indexing_config,omitempty"`
+}
+
+// indexerDeleteMessage is the same envelope with Data as a string.
+//
+// A separate type rather than widening indexerMessage.Data to any. The upsert's
+// body is built by projectionData, which returns a map precisely so that adding
+// a field to the projection cannot silently publish it — and typing Data as any
+// would give that guarantee up for every publish in order to serve the one that
+// sends a UID.
+type indexerDeleteMessage struct {
+	Action  string            `json:"action"`
+	Headers map[string]string `json:"headers"`
+	Data    string            `json:"data"`
 }
 
 // projectionData is the searchable body.

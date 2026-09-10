@@ -15,6 +15,7 @@ import (
 type IndexerPublisher struct {
 	mu        sync.Mutex
 	published []*port.FormationProjection
+	deleted   []string
 	err       error
 }
 
@@ -44,6 +45,30 @@ func (p *IndexerPublisher) PublishFormation(_ context.Context, doc *port.Formati
 	copied := *doc
 	p.published = append(p.published, &copied)
 	return nil
+}
+
+// DeleteFormation records the removal, or fails if SetError armed an error.
+//
+// Recorded separately from the publishes rather than as an absence among them.
+// A test for the repair job is asking "was this row removed", and inferring
+// that from a projection that is missing from a list cannot tell a row that was
+// deleted from one that was never published.
+func (p *IndexerPublisher) DeleteFormation(_ context.Context, formationUID string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.err != nil {
+		return p.err
+	}
+	p.deleted = append(p.deleted, formationUID)
+	return nil
+}
+
+// Deleted returns the formation UIDs removed so far, in order.
+func (p *IndexerPublisher) Deleted() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]string{}, p.deleted...)
 }
 
 // Published returns every projection published so far, in order.

@@ -9,6 +9,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -60,6 +61,25 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			slog.InfoContext(ctx, "NATS reconnected", "url", nc.ConnectedUrl())
+		}),
+		// Without this, shedding is silent. A subscription that hits its
+		// pending limit drops messages and carries on, and from inside the
+		// service that is indistinguishable from a quiet subject — the only
+		// evidence would be checklists that appear a day late, which reads as
+		// a listener problem rather than a load one. The slow-consumer error
+		// is the moment it starts, so it is worth a line of its own.
+		nats.ErrorHandler(func(_ *nats.Conn, sub *nats.Subscription, aErr error) {
+			subject := ""
+			if sub != nil {
+				subject = sub.Subject
+			}
+			if errors.Is(aErr, nats.ErrSlowConsumer) {
+				slog.WarnContext(ctx, "NATS is shedding messages for a slow consumer; "+
+					"whatever is dropped is repaired by the next reconcile sweep",
+					"subject", subject)
+				return
+			}
+			slog.ErrorContext(ctx, "NATS asynchronous error", "subject", subject, "error", aErr)
 		}),
 	)
 	if err != nil {
@@ -165,4 +185,83 @@ func (c *Client) Publish(ctx context.Context, subject string, data []byte) error
 		return fmt.Errorf("NATS flush after publishing to %s failed: %w", subject, err)
 	}
 	return nil
+}
+
+// subPendingMsgs and subPendingBytes bound what one subscription will hold for a
+// handler that is behind.
+//
+// Set explicitly because the library's defaults — 500,000 messages and 64MB —
+// are effectively unbounded for a handler whose work is a database transaction.
+// The case that matters is a full-catalogue reindex, which republishes every
+// project at once: with the defaults the buffer grows to hold hundreds of
+// thousands of messages this service will get to eventually, all of them
+// describing states that are stale by the time it does. Shedding is the better
+// outcome, and it is only the better outcome because the sweep picks up whatever
+// was shed.
+//
+// Deliberately small enough that shedding actually happens under a burst. A
+// limit that is never reached would be the defaults with extra ceremony.
+const (
+	subPendingMsgs  = 2048
+	subPendingBytes = 8 * 1024 * 1024
+)
+
+// QueueSubscribe delivers messages on subject to handler, sharing the work
+// across the members of queue so exactly one replica handles each message.
+//
+// The returned stop function unsubscribes and waits for an in-flight handler to
+// finish, which is why it is a function rather than the caller keeping the
+// subscription: the ordering — stop delivery, drain what is running, only then
+// let the context go — is the part worth not asking every caller to remember.
+//
+// Handler panics are contained here. A message from another service is data this
+// service did not construct, and the failure mode of letting a decode panic
+// escape is that one malformed publish takes down a replica that is otherwise
+// serving reads perfectly well.
+func (c *Client) QueueSubscribe(
+	ctx context.Context, subject, queue string, handler func(data []byte),
+) (func(), error) {
+	sub, err := c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.ErrorContext(ctx, "recovered from a panic while handling a message",
+					"subject", msg.Subject, "queue", queue, "panic", r)
+			}
+		}()
+		handler(msg.Data)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("NATS subscribe to %s failed: %w", subject, err)
+	}
+
+	if limitErr := sub.SetPendingLimits(subPendingMsgs, subPendingBytes); limitErr != nil {
+		// Not fatal. The subscription works with the library defaults; it just
+		// buffers far more than intended under a burst, which costs memory
+		// rather than correctness.
+		slog.WarnContext(ctx, "could not bound the subscription buffer; the library defaults apply",
+			"subject", subject, "error", limitErr)
+	}
+
+	slog.InfoContext(ctx, "NATS subscribed", "subject", subject, "queue", queue)
+
+	return func() {
+		// Read before draining: Dropped answers only for a live subscription,
+		// and a drained one reports an error instead of the count.
+		if dropped, dropErr := sub.Dropped(); dropErr == nil && dropped > 0 {
+			slog.WarnContext(ctx, "messages were shed by this subscription",
+				"subject", subject, "dropped", dropped)
+		}
+
+		// Drain rather than Unsubscribe: it stops new delivery and waits for
+		// the messages already handed to the handler, where Unsubscribe would
+		// discard them. One of those may be mid-transaction.
+		if drainErr := sub.Drain(); drainErr != nil {
+			slog.WarnContext(ctx, "could not drain the subscription",
+				"subject", subject, "error", drainErr)
+			return
+		}
+		for sub.IsValid() {
+			time.Sleep(5 * time.Millisecond)
+		}
+	}, nil
 }
