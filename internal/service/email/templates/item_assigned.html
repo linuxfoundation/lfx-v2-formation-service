@@ -1,0 +1,23 @@
+<!-- Copyright The Linux Foundation and each contributor to LFX. -->
+<!-- SPDX-License-Identifier: MIT -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Formation checklist item assigned</title></head>
+<body style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.5">
+<p>{{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}</p>
+
+<p>You have been assigned a checklist item for the <strong>{{.ProjectName}}</strong> formation on LFX.</p>
+
+<table style="border-collapse:collapse;margin:16px 0">
+  <tr><th align="left" style="padding:4px 12px 4px 0;white-space:nowrap">Item</th>
+      <td style="padding:4px 0"><strong>{{.ItemTitle}}</strong></td></tr>
+  {{if .IsGating}}<tr><td colspan="2" style="padding:4px 0;color:#b91c1c">&#9888; This item gates the project going Active.</td></tr>{{end}}
+  {{if .DueDate}}<tr><th align="left" style="padding:4px 12px 4px 0;white-space:nowrap">Due</th>
+      <td style="padding:4px 0">{{.DueDate}}</td></tr>{{end}}
+</table>
+
+<p><a href="{{.ChecklistURL}}" style="display:inline-block;padding:10px 20px;background:#0074D9;color:#fff;text-decoration:none;border-radius:4px">Open checklist item</a></p>
+
+<p style="font-size:13px;color:#666">You are receiving this email because you were assigned this item on the LFX Self Serve formation checklist. If this was unexpected, please contact the formation team.</p>
+</body>
+</html>

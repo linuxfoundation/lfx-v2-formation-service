@@ -44,6 +44,19 @@ type Formation struct {
 	// response's own sections[] does not list.
 	Sections []FormationSection `bun:"sections,type:jsonb,notnull"`
 
+	// Notification state: each column records when a one-shot email was
+	// sent so the reconcile sweep does not re-send on the next pass.
+	// NULL means the email has not been sent yet.
+	//
+	// These are set before the NATS publish (at-most-once delivery) so a
+	// pod restart between marking and dispatching silently drops the send
+	// rather than letting the sweep send it again on the next cycle.
+	// That trade-off is appropriate for these low-urgency nudges: the
+	// email service itself already uses NATS core with no redelivery.
+	NotifiedActivatingAt       *time.Time `bun:"notified_activating_at"`
+	NotifiedReminderThreeDayAt *time.Time `bun:"notified_reminder_3d_at"`
+	NotifiedReminderOverdueAt  *time.Time `bun:"notified_reminder_overdue_at"`
+
 	// Revision is the optimistic-lock counter for this row. It is not
 	// surfaced on the wire: versioning is deliberately per item, not per
 	// checklist, so two people editing different rows both succeed. Only

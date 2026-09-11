@@ -14,6 +14,7 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/service/email"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
@@ -47,6 +48,25 @@ type Reconciler struct {
 	projector  *Projector
 	platform   *PlatformChecker
 	interval   time.Duration
+
+	// items is used by the notification path to evaluate IsActivating and
+	// announcement reminders. Wired separately (not in NewReconciler) so test
+	// call-sites that don't exercise notifications do not have to change.
+	items port.ItemRepository
+
+	// emailer dispatches one-shot formation notification emails. Nil means
+	// email is not configured; all notification paths degrade silently.
+	emailer  port.EmailDispatcher
+	emailCfg EmailConfig
+}
+
+// SetEmailer wires the email dispatcher, item repository, and config into an
+// existing Reconciler. Called after NewReconciler so test call-sites that do
+// not exercise notifications do not have to change.
+func (r *Reconciler) SetEmailer(items port.ItemRepository, emailer port.EmailDispatcher, cfg EmailConfig) {
+	r.items = items
+	r.emailer = emailer
+	r.emailCfg = cfg
 }
 
 // NewReconciler wires a reconciler. A non-positive interval falls back to the
@@ -555,8 +575,18 @@ func (r *Reconciler) finishProject(
 	// rows on it in exactly the sweep this ordering exists to protect. Skipped
 	// for this project only; the next sweep retries the sync and the pass with
 	// it.
-	if r.syncLifecycle(ctx, project, report) && platformPassApplies(trigger) {
+	safe, lifecycleMoved := r.syncLifecycle(ctx, project, report)
+	if safe && platformPassApplies(trigger) {
 		r.resolvePlatformItems(ctx, project, report)
+	}
+
+	// Active email: fired once, immediately after a lifecycle transition to
+	// completed. LifecycleForStage knows the target, so the reconciler can
+	// infer it from the stage rather than reading the row back.
+	if lifecycleMoved {
+		if want, _ := model.LifecycleForStage(project.SubStage); want == model.LifecycleCompleted {
+			r.dispatchActiveEmails(ctx, project)
+		}
 	}
 
 	if r.projector == nil {
@@ -577,6 +607,21 @@ func (r *Reconciler) finishProject(
 	// that holds no checklist has nothing to publish and is not a queue row.
 	if published {
 		report.Projected++
+	}
+
+	// Activating + announcement reminder emails. These require the formation's
+	// own notification state (to fire at most once) and the items + settings
+	// (for IsActivating and the announcement date). Only attempted when a
+	// projection was just published — meaning this project has a live checklist
+	// — and when the emailer is wired.
+	//
+	// Skipped when lifecycleMoved: the Active email was already dispatched
+	// above for a project that just completed, and sending "Activating" or
+	// a reminder in the same sweep would be confusing (the project is no
+	// longer in formation). The at-most-once column guards against a
+	// subsequent sweep re-sending, but not against this sweep firing both.
+	if published && !lifecycleMoved && r.emailer != nil && r.emailCfg.Enabled {
+		r.dispatchProjectNotifications(ctx, project)
 	}
 }
 
@@ -654,18 +699,243 @@ func (r *Reconciler) resolvePlatformItems(
 //
 // It reports whether the lifecycle is in step, so a caller can tell a project
 // whose closing state is unknown from one that is simply where it was.
+// dispatchActiveEmails fans out the "project is now Active" email to every
+// writer and auditor on the project. It is called at most once per transition
+// to LifecycleCompleted; subsequent sweeps do not reach this path because
+// SyncTo is a no-op once the lifecycle already matches.
+//
+// A failure reading settings or sending any individual email is logged and
+// swallowed — the checklist transition already committed, so blocking on a
+// best-effort notification would be the wrong trade.
+func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.ProjectRef) {
+	if r.emailer == nil || !r.emailCfg.Enabled || r.projects == nil {
+		return
+	}
+
+	settings, err := r.projects.GetSettings(ctx, project.UID)
+	if err != nil {
+		slog.WarnContext(ctx, "active email: could not read project settings; not sent",
+			"project_uid", project.UID, "error", err)
+		return
+	}
+
+	projectURL := r.emailCfg.AdminBaseURL + "/manage/projects/" + project.Slug
+
+	// Build a deduplicated recipient list: a person holding both writer and
+	// auditor grants would otherwise receive two copies of the Active email.
+	seen := make(map[string]struct{}, len(settings.Writers)+len(settings.Auditors))
+	recipients := make([]string, 0, len(settings.Writers)+len(settings.Auditors))
+	for _, u := range append(settings.Writers, settings.Auditors...) {
+		if u == "" {
+			continue
+		}
+		if _, dup := seen[u]; !dup {
+			seen[u] = struct{}{}
+			recipients = append(recipients, u)
+		}
+	}
+	for _, username := range recipients {
+		// Resolve the username to an email address. The roster stores
+		// usernames; addresses are carried in the UserEmails map populated
+		// from the same settings reply. A username with no email entry is
+		// skipped and logged rather than dispatched to an unroutable address.
+		to, ok := settings.UserEmails[username]
+		if !ok || to == "" {
+			slog.WarnContext(ctx, "active email: skipping recipient — no email address on record",
+				"project_uid", project.UID, "recipient", username)
+			continue
+		}
+		subj, html, text, renderErr := email.RenderActive(email.ActiveData{
+			ProjectName: project.Slug, // name not on ProjectRef; slug used as fallback
+			ProjectURL:  projectURL,
+		})
+		if renderErr != nil {
+			slog.WarnContext(ctx, "active email: render failed", "error", renderErr)
+			continue
+		}
+		if sendErr := r.emailer.Send(ctx, port.EmailMessage{
+			To:      to,
+			Subject: subj,
+			HTML:    html,
+			Text:    text,
+			GroupID: "formation.active." + project.UID,
+		}); sendErr != nil {
+			slog.WarnContext(ctx, "active email: send failed",
+				"project_uid", project.UID, "recipient", username, "error", sendErr)
+		}
+	}
+}
+
+// dispatchProjectNotifications sends the Activating and announcement-date
+// reminder emails when their conditions are met and they have not been sent
+// before. It is called only when the project has a live checklist (published=true)
+// and the emailer is wired and enabled.
+func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project port.ProjectRef) {
+	if r.items == nil || r.projects == nil {
+		return
+	}
+	// Read the formation to check which notifications have already fired.
+	formation, err := r.formations.GetByProject(ctx, project.UID)
+	if err != nil {
+		// ErrNotFound is normal here (project has no checklist yet). Any other
+		// error is logged; neither blocks the sweep.
+		if !errors.Is(err, domain.ErrNotFound) {
+			slog.WarnContext(ctx, "notification check: could not read formation",
+				"project_uid", project.UID, "error", err)
+		}
+		return
+	}
+
+	// Fast exit: all three notifications already sent for this formation.
+	allSent := formation.NotifiedActivatingAt != nil &&
+		formation.NotifiedReminderThreeDayAt != nil &&
+		formation.NotifiedReminderOverdueAt != nil
+	if allSent {
+		return
+	}
+
+	// Read items and settings to evaluate conditions.
+	items, err := r.items.ListByFormation(ctx, formation.UID)
+	if err != nil {
+		slog.WarnContext(ctx, "notification check: could not list items",
+			"project_uid", project.UID, "error", err)
+		return
+	}
+	settings, err := r.projects.GetSettings(ctx, project.UID)
+	if err != nil {
+		slog.WarnContext(ctx, "notification check: could not read settings",
+			"project_uid", project.UID, "error", err)
+		return
+	}
+
+	var announcementDate *string
+	if settings.AnnouncementDate != nil && *settings.AnnouncementDate != "" {
+		announcementDate = settings.AnnouncementDate
+	}
+
+	gateTotal, gateOutstanding := gateSummaryFromItems(items)
+	activating := isActivating(gateTotal, gateOutstanding, announcementDate)
+
+	adminToolURL := r.emailCfg.AdminBaseURL + "/manage/projects/" + project.Slug + "/checklist"
+
+	// Name is not on ProjectRef; use the slug as a readable placeholder until
+	// the project list reply carries the display name (see the TODO in ports.go).
+	projectName := project.Slug
+
+	// Activating email.
+	if activating && formation.NotifiedActivatingAt == nil {
+		r.sendOneShot(ctx, formation, "notified_activating_at", func() (string, string, string, error) {
+			return email.RenderActivating(email.ActivatingData{
+				ProjectName:      projectName,
+				AnnouncementDate: *announcementDate,
+				AdminToolURL:     adminToolURL,
+			})
+		}, r.emailCfg.FormationInbox, "formation.activating."+project.UID)
+	}
+
+	if announcementDate == nil {
+		return
+	}
+
+	// Parse the announcement date to evaluate reminders.
+	ad, parseErr := time.Parse("2006-01-02", *announcementDate)
+	if parseErr != nil {
+		return
+	}
+	// Truncate both sides to midnight UTC before computing the delta.
+	// Without truncation, daysUntil is a float that includes time-of-day:
+	// at 3pm UTC on the announcement date itself daysUntil = -0.625, which
+	// trips the overdue branch before the calendar date has actually passed.
+	todayUTC := time.Now().UTC().Truncate(24 * time.Hour)
+	daysUntil := int(ad.Sub(todayUTC).Hours() / 24)
+
+	// 3-day warning: announcement is within 3 days and project is not yet Active.
+	if daysUntil <= 3 && daysUntil > 0 && formation.NotifiedReminderThreeDayAt == nil {
+		r.sendOneShot(ctx, formation, "notified_reminder_3d_at", func() (string, string, string, error) {
+			return email.RenderAnnouncementReminder(email.AnnouncementReminderData{
+				ProjectName:      projectName,
+				AnnouncementDate: *announcementDate,
+				Kind:             email.ReminderThreeDayWarning,
+				AdminToolURL:     adminToolURL,
+			})
+		}, r.emailCfg.FormationInbox, "formation.reminder_3d."+project.UID)
+	}
+
+	// Overdue: the announcement date has been reached or passed and the project
+	// is still live (not yet Active). daysUntil == 0 means today is the
+	// announcement date; we fire on the day itself because the 3-day warning
+	// covers only daysUntil > 0, which would leave the deadline day silent.
+	if daysUntil <= 0 && formation.NotifiedReminderOverdueAt == nil {
+		r.sendOneShot(ctx, formation, "notified_reminder_overdue_at", func() (string, string, string, error) {
+			return email.RenderAnnouncementReminder(email.AnnouncementReminderData{
+				ProjectName:      projectName,
+				AnnouncementDate: *announcementDate,
+				Kind:             email.ReminderOverdue,
+				AdminToolURL:     adminToolURL,
+			})
+		}, r.emailCfg.FormationInbox, "formation.reminder_overdue."+project.UID)
+	}
+}
+
+// sendOneShot marks a notification column as sent (at-most-once), then renders
+// and dispatches the email. Marking first means a pod restart between mark and
+// send drops the send rather than re-sending on the next sweep — the right
+// trade for a low-urgency nudge over a best-effort transport.
+func (r *Reconciler) sendOneShot(
+	ctx context.Context,
+	formation *model.Formation,
+	column string,
+	render func() (subject, html, text string, err error),
+	to, groupID string,
+) {
+	// Mark first (at-most-once). Only the replica whose UPDATE touches a row
+	// (acquired=true) proceeds to Send; the loser exits here so a concurrent
+	// sweep does not dispatch a duplicate.
+	acquired, markErr := r.formations.MarkNotified(ctx, formation.UID, column)
+	if markErr != nil {
+		slog.WarnContext(ctx, "notification: could not mark; not sending",
+			"formation_uid", formation.UID, "column", column, "error", markErr)
+		return
+	}
+	if !acquired {
+		return // another replica already sent this notification
+	}
+
+	subject, html, text, renderErr := render()
+	if renderErr != nil {
+		slog.WarnContext(ctx, "notification: render failed",
+			"formation_uid", formation.UID, "column", column, "error", renderErr)
+		return
+	}
+
+	if sendErr := r.emailer.Send(ctx, port.EmailMessage{
+		To:      to,
+		Subject: subject,
+		HTML:    html,
+		Text:    text,
+		GroupID: groupID,
+	}); sendErr != nil {
+		slog.WarnContext(ctx, "notification: send failed",
+			"formation_uid", formation.UID, "column", column, "to", to, "error", sendErr)
+	}
+}
+
+// syncLifecycle moves the project's checklist lifecycle to match its stage.
+// It returns (safe, moved) where safe = no error occurred (sweep may continue)
+// and moved = the lifecycle actually changed this call.
 func (r *Reconciler) syncLifecycle(
 	ctx context.Context, project port.ProjectRef, report *ReconcileReport,
-) bool {
-	moved, err := r.lifecycler.SyncTo(ctx, project.UID, project.SubStage)
+) (safe, moved bool) {
+	var err error
+	moved, err = r.lifecycler.SyncTo(ctx, project.UID, project.SubStage)
 	switch {
 	case err != nil:
 		slog.ErrorContext(ctx, "could not sync lifecycle; continuing the sweep",
 			"project_uid", project.UID, "stage", project.SubStage, "error", err)
 		report.Failed++
-		return false
+		return false, false
 	case moved:
 		report.LifecyclesMoved++
 	}
-	return true
+	return true, moved
 }

@@ -18,6 +18,7 @@ type ProjectReader struct {
 	mu       sync.Mutex
 	settings map[string]*port.ProjectSettings
 	names    map[string]string
+	slugs    map[string]string
 	forming  []port.ProjectRef
 	// byUID answers the uids half of the list, whatever stage the project is
 	// at. Seeded separately from forming precisely so a test can put a project
@@ -33,8 +34,28 @@ func NewProjectReader() *ProjectReader {
 	return &ProjectReader{
 		settings: make(map[string]*port.ProjectSettings),
 		names:    make(map[string]string),
+		slugs:    make(map[string]string),
 		byUID:    make(map[string]port.ProjectRef),
 	}
+}
+
+// SetSlug seeds the URL slug returned for a project.
+func (r *ProjectReader) SetSlug(projectUID, slug string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.slugs[projectUID] = slug
+}
+
+// Slug returns the seeded slug, or domain.ErrNotFound.
+func (r *ProjectReader) Slug(_ context.Context, projectUID string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	slug, ok := r.slugs[projectUID]
+	if !ok {
+		return "", domain.ErrNotFound
+	}
+	return slug, nil
 }
 
 // SetName seeds the display name returned for a project.

@@ -192,6 +192,10 @@ func (s stubProjects) Name(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
+func (s stubProjects) Slug(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 func TestExpandForCreatesTheChecklist(t *testing.T) {
 	ctx := context.Background()
 	f := newExpansionFixture(t, twoItemSections(), stubProjects{announcement: "2026-12-01"})

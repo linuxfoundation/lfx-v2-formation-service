@@ -60,6 +60,29 @@ type Service struct {
 	// than an error — the read path must not depend on a dependency that
 	// does not exist yet.
 	projects port.ProjectReader
+
+	// emailer dispatches formation notification emails. A nil emailer
+	// degrades silently (no emails sent) rather than erroring, so a pod
+	// without a NATS connection still serves all mutation routes.
+	emailer port.EmailDispatcher
+
+	// emailCfg carries the operational email settings (inbox address,
+	// admin tool base URL). Set by WithEmailConfig during startup.
+	emailCfg EmailConfig
+}
+
+// EmailConfig carries the runtime email settings the service needs without
+// importing the config package (keeping internal/service free of
+// infrastructure imports).
+type EmailConfig struct {
+	// Enabled gates all dispatch calls. False in local dev and tests.
+	Enabled bool
+
+	// FormationInbox is the To address for formation-team notifications.
+	FormationInbox string
+
+	// AdminBaseURL is the root URL for admin-tool deep links in emails.
+	AdminBaseURL string
 }
 
 // Ensure Service satisfies the generated service and authorization interfaces.
@@ -109,6 +132,18 @@ func WithTemplates(templates port.TemplateRepository) serviceOption {
 // conservative answer until the NATS adapter is wired.
 func WithProjects(projects port.ProjectReader) serviceOption {
 	return func(s *Service) { s.projects = projects }
+}
+
+// WithEmailer wires the email dispatcher. Omitting it disables all outbound
+// formation notification emails rather than erroring.
+func WithEmailer(emailer port.EmailDispatcher) serviceOption {
+	return func(s *Service) { s.emailer = emailer }
+}
+
+// WithEmailConfig carries the operational email settings (inbox address,
+// admin tool base URL, enabled flag) into the service.
+func WithEmailConfig(cfg EmailConfig) serviceOption {
+	return func(s *Service) { s.emailCfg = cfg }
 }
 
 // WithUnitOfWork wires the transaction that UpdateItem commits an item

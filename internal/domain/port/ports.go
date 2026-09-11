@@ -40,6 +40,19 @@ type FormationRepository interface {
 	// ListProjectUIDs returns the projects that already have a formation,
 	// so the reconcile loop can find the ones that do not.
 	ListProjectUIDs(ctx context.Context) ([]string, error)
+
+	// MarkNotified records that a one-shot notification email was sent for
+	// a formation, so the reconcile sweep does not re-send it on the next
+	// pass. column must be one of the three recognised names:
+	//   "notified_activating_at"
+	//   "notified_reminder_3d_at"
+	//   "notified_reminder_overdue_at"
+	//
+	// It returns acquired=true when this call set the timestamp (the caller
+	// won the race) and acquired=false when the column was already non-NULL
+	// (another replica got there first). Callers must only dispatch the
+	// email when acquired is true.
+	MarkNotified(ctx context.Context, uid uuid.UUID, column string) (acquired bool, err error)
 }
 
 // ItemRepository stores checklist items. Every mutation carries the caller's
@@ -145,6 +158,10 @@ type ProjectReader interface {
 	// in a deployed pod. The caller passes the projects it holds a checklist
 	// for, and gets their current stage back whatever it is.
 	ListFormingProjects(ctx context.Context, alsoUIDs []string) ([]ProjectRef, error)
+
+	// Slug resolves the project's URL slug, one project per call. Used to
+	// build checklist deep links in outbound emails.
+	Slug(ctx context.Context, projectUID string) (string, error)
 
 	// Name resolves the project's display name, one project per call.
 	//
@@ -309,6 +326,11 @@ type ProjectSettings struct {
 	AnnouncementDate *string
 	Writers          []string
 	Auditors         []string
+	// UserEmails maps each username in Writers and Auditors to the email
+	// address the project service carries for them. Populated from the
+	// settings reply when the field is present; absent entries mean the
+	// service returned no email for that user.
+	UserEmails map[string]string
 }
 
 // ProjectRef identifies a project and the facts template selection needs.

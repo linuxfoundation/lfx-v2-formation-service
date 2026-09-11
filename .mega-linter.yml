@@ -41,5 +41,8 @@ API_SPECTRAL_FILTER_REGEX_EXCLUDE: "gen/"
 # Ignore YAML files with templating macros; these typically fail linting and/or
 # schema checking.
 FILTER_REGEX_EXCLUDE: '(templates/.*\.yml|templates/.*\.yaml|gen/.*)'
+# Email templates contain Go text/html template syntax ({{.Field}}) which is
+# not valid HTML. Exclude them from djlint's structural HTML checks.
+HTML_DJLINT_FILTER_REGEX_EXCLUDE: "internal/service/email/templates/"
 KUBERNETES_DIRECTORY: charts/lfx-v2-formation-service/templates
 KUBERNETES_HELM_ARGUMENTS: charts/lfx-v2-formation-service
