@@ -187,6 +187,51 @@ func (c *Client) Publish(ctx context.Context, subject string, data []byte) error
 	return nil
 }
 
+// PublishNoFlush is Publish without the trailing flush, for a caller sending
+// several messages that only needs the buffer flushed once at the end.
+//
+// Everything else about Publish's contract — fire-and-forget, no
+// acknowledgement, the same trace span shape — applies unchanged; only the
+// flush is the caller's responsibility, via Flush.
+func (c *Client) PublishNoFlush(ctx context.Context, subject string, data []byte) error {
+	_, span := tracer.Start(ctx, "nats.publish",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination.name", subject),
+			attribute.Int("messaging.message.body.size", len(data)),
+		),
+	)
+	defer span.End()
+
+	msg := nats.NewMsg(subject)
+	msg.Header = make(nats.Header)
+	msg.Data = data
+	otel.GetTextMapPropagator().Inject(ctx, natsHeaderCarrier(msg.Header))
+
+	if err := c.conn.PublishMsg(msg); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return fmt.Errorf("NATS publish to %s failed: %w", subject, err)
+	}
+	return nil
+}
+
+// Flush waits for every message queued by PublishNoFlush to reach the
+// connection's write buffer, the same guarantee Publish gives per call.
+//
+// Without this, messages sent immediately before shutdown can be silently
+// discarded when the connection closes — the same risk Publish's own trailing
+// flush exists to close.
+func (c *Client) Flush(ctx context.Context) error {
+	flushCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	if err := c.conn.FlushWithContext(flushCtx); err != nil {
+		return fmt.Errorf("NATS flush failed: %w", err)
+	}
+	return nil
+}
+
 // subPendingMsgs and subPendingBytes bound what one subscription will hold for a
 // handler that is behind.
 //

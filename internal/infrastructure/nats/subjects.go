@@ -3,6 +3,10 @@
 
 package nats
 
+import (
+	indexerConstants "github.com/linuxfoundation/lfx-v2-indexer-service/pkg/constants"
+)
+
 // Subjects served by lfx-v2-project-service. Every constant here was read from
 // that service's own subscription list rather than assumed, because a subject
 // this service invents is a request nothing answers — which surfaces as a
@@ -46,19 +50,36 @@ const (
 	ProjectListProjectsSubject = "lfx.projects-api.list_projects"
 )
 
-// The subject this service publishes to, consumed by lfx-v2-indexer-service.
+// formationObjectType and formationItemObjectType are this service's own
+// object types, as the indexer derives them from the subject suffix below.
+//
+// The subject suffix alone decides the indexer's object type — there is no
+// registration step and no allowlist on the indexer side to add one — which
+// makes the object type the primary value and the subject its derivation, not
+// the other way around. There is deliberately no upstream
+// indexerConstants.ObjectTypeFormation to import: the indexer's own object-type
+// block enumerates project/committee/meeting only, so these two literals are
+// this service's own to define.
+const (
+	formationObjectType     = "formation"
+	formationItemObjectType = "formation_item"
+)
+
+// The subjects this service publishes to, consumed by lfx-v2-indexer-service.
 const (
 	// IndexFormationSubject carries one checklist's search projection.
-	//
-	// The indexer subscribes to lfx.index.> and takes the object type from
-	// whatever follows that prefix, so this constant alone decides that these
-	// documents are searchable as type "formation". There is no registration
-	// step and no allowlist on the indexer side to add this type to.
 	//
 	// Publish only. Nothing subscribes to this subject in this service, and
 	// nothing here reads back what it published: the projection is derived from
 	// Postgres, which stays the source of truth.
-	IndexFormationSubject = "lfx.index.formation"
+	IndexFormationSubject = indexerConstants.IndexPrefix + formationObjectType
+
+	// IndexItemSubject carries one checklist item's own search projection,
+	// separate from the checklist's.
+	//
+	// Publish only, for the same reason IndexFormationSubject is: the
+	// projection is derived from Postgres, which stays the source of truth.
+	IndexItemSubject = indexerConstants.IndexPrefix + formationItemObjectType
 )
 
 // The subjects this service consumes, published by lfx-v2-indexer-service after
@@ -137,3 +158,18 @@ func serviceAccountHeaders() map[string]string {
 // quietly: a wrong prefix on a publish is a document nobody can read, while a
 // wrong prefix on a parse leaves an empty parent UID and no error at all.
 const projectRefPrefix = projectObjectType + ":"
+
+// formationRefPrefix is how a formation UID is named in a parent reference,
+// mirroring projectRefPrefix. Used only by the item document's parent_refs,
+// which is the first thing this service publishes that references its own
+// object type rather than only the project's.
+const formationRefPrefix = formationObjectType + ":"
+
+// Tag prefixes shared by itemTags and projectionTags, for the same reason
+// projectRefPrefix has one spelling: a wrong prefix on a publish is a tag
+// nobody's query matches, silently.
+const (
+	tagProjectUID   = "project_uid:"
+	tagFormationUID = "formation_uid:"
+	tagAssignee     = "assignee:"
+)
