@@ -1266,6 +1266,33 @@ func TestReconcileOverdueReminderSentWhenAnnouncementPassed(t *testing.T) {
 	}
 }
 
+// TestReconcileOverdueReminderSentOnAnnouncementDate guards the date-boundary
+// fix: without truncating both sides to midnight UTC, a float daysUntil of
+// e.g. -0.625 (mid-afternoon on the announcement date) trips daysUntil<=0
+// before the calendar date has passed. Truncating means daysUntil==0 exactly
+// on the announcement date, which should also fire the overdue branch.
+func TestReconcileOverdueReminderSentOnAnnouncementDate(t *testing.T) {
+	ctx := context.Background()
+	// Today is the announcement date — daysUntil == 0 after truncation.
+	todayDate := time.Now().UTC().Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, todayDate)
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("sweep = %v, want no error", err)
+	}
+
+	found := false
+	for _, m := range mailer.Sent() {
+		if m.To == "formation@linuxfoundation.org" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no overdue reminder sent when announcement date is today; sent = %v", mailer.Sent())
+	}
+}
+
 func TestReconcileOverdueReminderSentAtMostOnce(t *testing.T) {
 	ctx := context.Background()
 	pastDate := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")

@@ -260,7 +260,7 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		GroupID: "formation.item_assigned",
 	}); sendErr != nil {
 		slog.WarnContext(ctx, "item-assigned email: send failed",
-			"item_key", item.ItemKey, "assignee", item.Assignee, "to", to, "error", sendErr)
+			"item_key", item.ItemKey, "assignee", item.Assignee, "error", sendErr)
 	}
 }
 

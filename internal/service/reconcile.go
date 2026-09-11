@@ -614,7 +614,13 @@ func (r *Reconciler) finishProject(
 	// (for IsActivating and the announcement date). Only attempted when a
 	// projection was just published — meaning this project has a live checklist
 	// — and when the emailer is wired.
-	if published && r.emailer != nil && r.emailCfg.Enabled {
+	//
+	// Skipped when lifecycleMoved: the Active email was already dispatched
+	// above for a project that just completed, and sending "Activating" or
+	// a reminder in the same sweep would be confusing (the project is no
+	// longer in formation). The at-most-once column guards against a
+	// subsequent sweep re-sending, but not against this sweep firing both.
+	if published && !lifecycleMoved && r.emailer != nil && r.emailCfg.Enabled {
 		r.dispatchProjectNotifications(ctx, project)
 	}
 }
@@ -715,13 +721,20 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 
 	projectURL := r.emailCfg.AdminBaseURL + "/manage/projects/" + project.Slug
 
+	// Build a deduplicated recipient list: a person holding both writer and
+	// auditor grants would otherwise receive two copies of the Active email.
+	seen := make(map[string]struct{}, len(settings.Writers)+len(settings.Auditors))
 	recipients := make([]string, 0, len(settings.Writers)+len(settings.Auditors))
-	recipients = append(recipients, settings.Writers...)
-	recipients = append(recipients, settings.Auditors...)
-	for _, username := range recipients {
-		if username == "" {
+	for _, u := range append(settings.Writers, settings.Auditors...) {
+		if u == "" {
 			continue
 		}
+		if _, dup := seen[u]; !dup {
+			seen[u] = struct{}{}
+			recipients = append(recipients, u)
+		}
+	}
+	for _, username := range recipients {
 		// Resolve the username to an email address. The roster stores
 		// usernames; addresses are carried in the UserEmails map populated
 		// from the same settings reply. A username with no email entry is
@@ -748,7 +761,7 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 			GroupID: "formation.active." + project.UID,
 		}); sendErr != nil {
 			slog.WarnContext(ctx, "active email: send failed",
-				"project_uid", project.UID, "to", to, "error", sendErr)
+				"project_uid", project.UID, "recipient", username, "error", sendErr)
 		}
 	}
 }
@@ -829,8 +842,12 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 	if parseErr != nil {
 		return
 	}
-	now := time.Now().UTC()
-	daysUntil := ad.Sub(now).Hours() / 24
+	// Truncate both sides to midnight UTC before computing the delta.
+	// Without truncation, daysUntil is a float that includes time-of-day:
+	// at 3pm UTC on the announcement date itself daysUntil = -0.625, which
+	// trips the overdue branch before the calendar date has actually passed.
+	todayUTC := time.Now().UTC().Truncate(24 * time.Hour)
+	daysUntil := int(ad.Sub(todayUTC).Hours() / 24)
 
 	// 3-day warning: announcement is within 3 days and project is not yet Active.
 	if daysUntil <= 3 && daysUntil > 0 && formation.NotifiedReminderThreeDayAt == nil {

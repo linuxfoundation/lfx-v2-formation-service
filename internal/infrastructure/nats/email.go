@@ -38,7 +38,7 @@ func NewEmailDispatcher(client *Client) *EmailDispatcher {
 func (d *EmailDispatcher) Send(ctx context.Context, msg port.EmailMessage) error {
 	if d.client == nil {
 		slog.WarnContext(ctx, "email dispatcher: NATS client not available; email not sent",
-			"to", msg.To, "subject", msg.Subject)
+			"subject", msg.Subject, "group_id", msg.GroupID)
 		return nil
 	}
 

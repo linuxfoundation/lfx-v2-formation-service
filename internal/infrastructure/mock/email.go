@@ -10,6 +10,9 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
+// Compile-time check that mock satisfies the port.
+var _ port.EmailDispatcher = (*EmailDispatcher)(nil)
+
 // EmailDispatcher is an in-memory port.EmailDispatcher double. It captures
 // every send so tests can assert which emails were dispatched without
 // standing up a real NATS broker.
