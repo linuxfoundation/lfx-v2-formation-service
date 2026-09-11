@@ -20,9 +20,10 @@ import (
 // design rather than a simplification. A projection published only on change has
 // to be repaired when a publish is lost, which means either a tool nobody runs
 // or a backfill nobody remembers; republishing every checklist on every sweep
-// makes the repair path and the ordinary path the same code. The cost is a write
-// per checklist per tick for checklists that did not change, against an index
-// that is small — one document per project being formed.
+// makes the repair path and the ordinary path the same code. The cost is one
+// checklist write plus one item write per item per tick for checklists that did
+// not change — not the single document per project this cost the sweep before
+// item documents existed.
 type Projector struct {
 	formations port.FormationRepository
 	items      port.ItemRepository
@@ -78,6 +79,22 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 		formation, items, project, name, announcementDate,
 	)); err != nil {
 		return false, err
+	}
+
+	// One item document per item, alongside the checklist document above, in
+	// a single batch so a checklist of N items costs one flush rather than N.
+	// Best-effort like the checklist publish: a failed item is repaired by
+	// the next sweep, and must not fail the checklist publish that already
+	// succeeded or the projects after this one in the sweep — unless every
+	// item in this checklist failed, which the caller cannot tell from a
+	// bare "true" without this reflecting it.
+	itemDocs := buildItemProjections(formation, items)
+	if len(itemDocs) > 0 {
+		if err := p.publisher.PublishItems(ctx, itemDocs); err != nil {
+			slog.WarnContext(ctx, "could not publish this checklist's item rows; the next sweep will retry",
+				"formation_uid", formation.UID.String(), "error", err)
+			return false, nil
+		}
 	}
 	return true, nil
 }
@@ -226,6 +243,55 @@ func blockedItemTitles(items []*model.Item) []string {
 	}
 	sort.Strings(titles)
 	return titles
+}
+
+// buildItemProjections turns a checklist's items into the per-item documents
+// the Pending Actions query reads, one per item.
+//
+// AccessRelation is set to formationAccessRelation for every item, explicitly
+// and unconditionally — never viewer, regardless of the item's own status,
+// gate, or any other content — matching the checklist projection's own
+// relation exactly: an item is indexed the same way the checklist is.
+func buildItemProjections(
+	formation *model.Formation,
+	items []*model.Item,
+) []*port.ItemProjection {
+	out := make([]*port.ItemProjection, 0, len(items))
+	for _, item := range items {
+		var dueDate string
+		if item.DueDate != nil {
+			// Matches checklist_reader.go's own wire conversion, so the same
+			// date reads identically on the checklist response and in this
+			// index.
+			dueDate = item.DueDate.Format(dueDateLayout)
+		}
+
+		subItems := make([]port.ItemProjectionSubItem, 0, len(item.SubItems))
+		for _, s := range item.SubItems {
+			subItems = append(subItems, port.ItemProjectionSubItem{
+				Key:    s.Key,
+				Title:  s.Title,
+				Status: string(s.Status),
+			})
+		}
+
+		out = append(out, &port.ItemProjection{
+			ItemUID:        item.UID.String(),
+			FormationUID:   formation.UID.String(),
+			ProjectUID:     formation.ProjectUID,
+			ItemKey:        item.ItemKey,
+			Title:          item.Title,
+			Status:         string(item.Status),
+			Gate:           item.Gate,
+			DueDate:        dueDate,
+			OwnerTeam:      item.OwnerTeam,
+			ActionLink:     item.ActionLink,
+			SubItems:       subItems,
+			Assignee:       item.Assignee,
+			AccessRelation: formationAccessRelation,
+		})
+	}
+	return out
 }
 
 // assigneesOf collects the distinct assignees across the checklist, which is

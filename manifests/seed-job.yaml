@@ -1,0 +1,114 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+#
+# Job to publish the embedded checklist template — `formation-cli seed`.
+#
+# This is a required one-time step per environment. Until it has run, neither
+# the project listener nor the daily sweep creates anything, because no template
+# is published; the sweep reports that once per sweep and names the command
+# rather than failing per project. See README.md#operator-commands.
+#
+# Idempotent: the first publication's timestamp is preserved across re-runs, so
+# re-running after a template content change is safe and is how a new template
+# version reaches an environment.
+#
+# The CLI opens the same Postgres as the API and applies the embedded schema on
+# connect, so it needs no migration step of its own. It reads PG* from the same
+# Secret the Deployment does; sslmode defaults to require.
+#
+# Apply manually via kubectl create — NOT managed by ArgoCD. The chart ships no
+# Job for this on purpose.
+#
+# Each run gets a unique auto-generated name (e.g. formation-seed-x7k9p) via
+# generateName, so previous runs are preserved for historical record with no
+# manual name editing required. Old jobs can be deleted at any time with:
+#   kubectl -n formation-service delete job <job-name>
+#
+# Preview the template content without touching a database — run this first,
+# locally, to see what `seed` would publish:
+#   make build-cli && ./bin/formation-cli validate
+#
+# Find the current image tag for the environment with:
+#   kubectl -n formation-service get deployment \
+#     lfx-v2-formation-service \
+#     -o jsonpath='{.spec.template.spec.containers[0].image}'
+# Then replace the tag below with that version. The api and cli images are built
+# from the same commit and share a tag; only the package name differs.
+#
+# Deploy with (use create, not apply — generateName requires it):
+#   kubectl -n formation-service create -f manifests/seed-job.yaml
+#
+# Find the generated job name after creation:
+#   kubectl -n formation-service get jobs -l app.kubernetes.io/component=seed
+#
+# Monitor (replace <job-name> with the generated name from the command above):
+#   kubectl -n formation-service logs -f --timestamps=true job/<job-name>
+#
+# Abort:
+#   kubectl -n formation-service delete job <job-name>
+#
+# No ttlSecondsAfterFinished — jobs persist after completion for audit purposes.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: formation-seed-
+  namespace: formation-service
+  labels:
+    app.kubernetes.io/name: lfx-v2-formation-service
+    app.kubernetes.io/component: seed
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lfx-v2-formation-service
+        app.kubernetes.io/component: seed
+    spec:
+      restartPolicy: Never
+      serviceAccountName: lfx-v2-formation-service
+      containers:
+        - name: seed
+          image: ghcr.io/linuxfoundation/lfx-v2-formation-service/formation-cli:REPLACE_WITH_RUNNING_TAG
+          imagePullPolicy: IfNotPresent
+          args:
+            - seed
+          # PGPASSWORD is read from the Secret rather than set as a plain value
+          # so it stays out of `kubectl describe pod`, matching the Deployment.
+          # The Secret is materialised by the chart's ExternalSecret from
+          # /cloudops/rds-managed/lfx-v2/formation.
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: lfx-v2-formation-service
+                  key: host
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: lfx-v2-formation-service
+                  key: port
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: lfx-v2-formation-service
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lfx-v2-formation-service
+                  key: password
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: lfx-v2-formation-service
+                  key: dbname
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            allowPrivilegeEscalation: false

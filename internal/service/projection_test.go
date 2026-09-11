@@ -6,7 +6,11 @@ package service
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
@@ -275,6 +279,318 @@ func TestALostRowIsRepublishedByTheNextSweep(t *testing.T) {
 	}
 	if publisher.Latest("project-1") == nil {
 		t.Error("the row is still missing after a sweep that could publish")
+	}
+}
+
+// Every ItemProjection field maps to its Item counterpart, and AccessRelation
+// is set unconditionally to the checklist's own relation — never viewer,
+// regardless of the item's own status, gate, or content: an item is indexed
+// the same way the checklist is.
+func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
+	itemUID := uuid.New()
+	formationUID := uuid.New()
+	due := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+
+	formation := &model.Formation{UID: formationUID, ProjectUID: "project-1"}
+	items := []*model.Item{
+		{
+			UID:          itemUID,
+			FormationUID: formationUID,
+			ItemKey:      "create_mailing_list",
+			Title:        "Create mailing list",
+			Status:       model.StatusInProgress,
+			Gate:         true,
+			DueDate:      &due,
+			OwnerTeam:    "it",
+			ActionLink:   "https://groups.io/g/create",
+			Assignee:     "jdoe",
+			SubItems: []model.SubItem{
+				{Key: "groupsio-request", Title: "Request Groups.io space", Status: model.StatusDone},
+			},
+		},
+	}
+
+	got := buildItemProjections(formation, items)
+	if len(got) != 1 {
+		t.Fatalf("buildItemProjections() = %d projections, want 1", len(got))
+	}
+	doc := got[0]
+
+	if doc.ItemUID != itemUID.String() {
+		t.Errorf("item_uid = %q, want %q", doc.ItemUID, itemUID.String())
+	}
+	if doc.FormationUID != formationUID.String() {
+		t.Errorf("formation_uid = %q, want %q", doc.FormationUID, formationUID.String())
+	}
+	if doc.ProjectUID != "project-1" {
+		t.Errorf("project_uid = %q, want project-1 — resolved through the formation", doc.ProjectUID)
+	}
+	if doc.ItemKey != "create_mailing_list" {
+		t.Errorf("item_key = %q, want create_mailing_list", doc.ItemKey)
+	}
+	if doc.Title != "Create mailing list" {
+		t.Errorf("title = %q, want Create mailing list", doc.Title)
+	}
+	if doc.Status != string(model.StatusInProgress) {
+		t.Errorf("status = %q, want %q", doc.Status, model.StatusInProgress)
+	}
+	if !doc.Gate {
+		t.Error("gate = false, want true")
+	}
+	if doc.DueDate != "2026-10-01" {
+		t.Errorf("due_date = %q, want 2026-10-01", doc.DueDate)
+	}
+	if doc.OwnerTeam != "it" {
+		t.Errorf("owner_team = %q, want it", doc.OwnerTeam)
+	}
+	if doc.ActionLink != "https://groups.io/g/create" {
+		t.Errorf("action_link = %q, want the template's link", doc.ActionLink)
+	}
+	if doc.Assignee != "jdoe" {
+		t.Errorf("assignee = %q, want jdoe", doc.Assignee)
+	}
+	if len(doc.SubItems) != 1 || doc.SubItems[0].Key != "groupsio-request" ||
+		doc.SubItems[0].Status != string(model.StatusDone) {
+		t.Errorf("sub_items = %+v, want the one sub-item carried through", doc.SubItems)
+	}
+	if doc.AccessRelation != formationAccessRelation {
+		t.Errorf("access_relation = %q, want %q — never viewer", doc.AccessRelation, formationAccessRelation)
+	}
+}
+
+// due_date, owner_team and action_link are omitted (empty string on the
+// projection, which PublishItem later omits from the wire document) rather
+// than carrying a zero value, matching the checklist projection's own
+// omitEmpty convention.
+func TestBuildItemProjectionsOmitsUnsetOptionalFields(t *testing.T) {
+	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
+	items := []*model.Item{{UID: uuid.New(), FormationUID: formation.UID, Title: "Bare item"}}
+
+	doc := buildItemProjections(formation, items)[0]
+
+	if doc.DueDate != "" {
+		t.Errorf("due_date = %q, want empty when unset", doc.DueDate)
+	}
+	if doc.OwnerTeam != "" {
+		t.Errorf("owner_team = %q, want empty when unset", doc.OwnerTeam)
+	}
+	if doc.ActionLink != "" {
+		t.Errorf("action_link = %q, want empty when unset", doc.ActionLink)
+	}
+}
+
+// An item's Assignee attribute is absent, not empty-stringed, when the item
+// carries no assignee — and reassigning an item changes which projection
+// carries its assignee, with no residue on the previous holder's side.
+func TestBuildItemProjectionsAssigneePresenceTracksTheItem(t *testing.T) {
+	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
+	unassigned := &model.Item{UID: uuid.New(), FormationUID: formation.UID, Title: "Unassigned"}
+	assigned := &model.Item{UID: uuid.New(), FormationUID: formation.UID, Title: "Assigned", Assignee: "jdoe"}
+
+	docs := buildItemProjections(formation, []*model.Item{unassigned, assigned})
+
+	if docs[0].Assignee != "" {
+		t.Errorf("assignee = %q, want empty for an unassigned item", docs[0].Assignee)
+	}
+	if docs[1].Assignee != "jdoe" {
+		t.Errorf("assignee = %q, want jdoe", docs[1].Assignee)
+	}
+
+	// Reassign: the same item, a different holder.
+	assigned.Assignee = "asmith"
+	reassigned := buildItemProjections(formation, []*model.Item{assigned})[0]
+	if reassigned.Assignee != "asmith" {
+		t.Errorf("assignee after reassignment = %q, want asmith", reassigned.Assignee)
+	}
+}
+
+// A Pending Actions row's "N of M" summary and owner-team label need the
+// item's own owner_team, full sub_items list, and action_link on the
+// projection — not just a count or a boolean — so the row can render without
+// a second read against the checklist.
+func TestBuildItemProjectionsCarriesEveryRowFieldTheDrawerDoesNotOwn(t *testing.T) {
+	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
+	items := []*model.Item{{
+		UID:          uuid.New(),
+		FormationUID: formation.UID,
+		Title:        "Create mailing list",
+		OwnerTeam:    "it",
+		ActionLink:   "https://groups.io/g/create",
+		SubItems: []model.SubItem{
+			{Key: "groupsio-request", Title: "Request Groups.io space", Status: model.StatusDone},
+			{Key: "groupsio-configure", Title: "Configure lists", Status: model.StatusNotStarted},
+		},
+	}}
+
+	doc := buildItemProjections(formation, items)[0]
+
+	if doc.OwnerTeam != "it" {
+		t.Errorf("owner_team = %q, want it — the row's \"handled by IT\" label needs it", doc.OwnerTeam)
+	}
+	if doc.ActionLink != "https://groups.io/g/create" {
+		t.Errorf("action_link = %q, want the item's own link — the row's \"open link\" CTA needs it",
+			doc.ActionLink)
+	}
+	if len(doc.SubItems) != 2 {
+		t.Fatalf("sub_items = %d entries, want 2 — the row's \"N of M\" summary needs the full "+
+			"list, not a count", len(doc.SubItems))
+	}
+	for i, want := range []port.ItemProjectionSubItem{
+		{Key: "groupsio-request", Title: "Request Groups.io space", Status: string(model.StatusDone)},
+		{Key: "groupsio-configure", Title: "Configure lists", Status: string(model.StatusNotStarted)},
+	} {
+		if doc.SubItems[i] != want {
+			t.Errorf("sub_items[%d] = %+v, want %+v", i, doc.SubItems[i], want)
+		}
+	}
+}
+
+// ItemProjection must never gain a field for notes, skip reason, or resolved
+// ref — those are drawer-only detail, read from the checklist directly, never
+// from this index. Enumerated by reflection rather than by field access,
+// because there is no field to read yet: if one is ever added, this test
+// fails and forces the addition to be a conscious decision rather than a
+// silent leak.
+func TestItemProjectionNeverGainsADrawerOnlyField(t *testing.T) {
+	forbidden := map[string]bool{"Note": true, "SkipReason": true, "ResolvedRef": true, "EvidenceLink": true}
+
+	fields := reflect.TypeOf(port.ItemProjection{})
+	for i := 0; i < fields.NumField(); i++ {
+		name := fields.Field(i).Name
+		if forbidden[name] {
+			t.Errorf("ItemProjection carries a %q field; notes/skip-reason/resolved-ref/evidence-link "+
+				"are drawer-only detail and must never reach this index", name)
+		}
+	}
+}
+
+// AccessRelation is auditor for every item, unconditionally — regardless of
+// status, gate, or any other content. There is no code path that produces
+// viewer or an empty value.
+func TestBuildItemProjectionsAccessRelationIsAlwaysAuditor(t *testing.T) {
+	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
+	items := []*model.Item{
+		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusNotStarted, Gate: false},
+		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusBlocked, Gate: true},
+		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusDone, Gate: true, Assignee: "jdoe"},
+		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusSkipped, Gate: false},
+	}
+
+	for _, doc := range buildItemProjections(formation, items) {
+		if doc.AccessRelation != formationAccessRelation {
+			t.Errorf("access_relation = %q for status %q, gate %v; want %q unconditionally",
+				doc.AccessRelation, doc.Status, doc.Gate, formationAccessRelation)
+		}
+	}
+}
+
+// Refresh publishes one item document per item, alongside the checklist
+// document it already publishes — not a fan-out per project, a fan-out per
+// item within the one project this call already read.
+func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
+	ctx := context.Background()
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	publisher := mock.NewIndexerPublisher()
+	projector := NewProjector(formations, items, mock.NewProjectReader(), publisher)
+
+	formation, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"})
+	if err != nil {
+		t.Fatalf("seeding formation = %v", err)
+	}
+	if _, err := items.InsertMany(ctx, []*model.Item{
+		{FormationUID: formation.UID, ItemKey: "a", Title: "Item A"},
+		{FormationUID: formation.UID, ItemKey: "b", Title: "Item B"},
+		{FormationUID: formation.UID, ItemKey: "c", Title: "Item C"},
+	}); err != nil {
+		t.Fatalf("seeding items = %v", err)
+	}
+
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"})
+	if err != nil {
+		t.Fatalf("Refresh() = %v, want no error", err)
+	}
+	if !published {
+		t.Fatal("published = false, want true")
+	}
+	if got := publisher.ItemCount(); got != 3 {
+		t.Errorf("published %d item documents for 3 items, want 3", got)
+	}
+	if got := publisher.Count(); got != 1 {
+		t.Errorf("published %d checklist documents, want 1 — the checklist document is unchanged",
+			got)
+	}
+}
+
+// Refresh's return value is what a sweep's "projected" count is built from
+// (see its own doc comment). Before this checklist had item documents, a
+// successful checklist publish was the whole story; now a checklist whose row
+// published but whose item rows all failed is not what "true" used to mean,
+// so it must not report true unqualified.
+func TestRefreshReportsFalseWhenNoItemDocumentLands(t *testing.T) {
+	ctx := context.Background()
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	publisher := mock.NewIndexerPublisher()
+	projector := NewProjector(formations, items, mock.NewProjectReader(), publisher)
+
+	formation, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"})
+	if err != nil {
+		t.Fatalf("seeding formation = %v", err)
+	}
+	if _, err := items.InsertMany(ctx, []*model.Item{
+		{FormationUID: formation.UID, ItemKey: "a", Title: "Item A"},
+	}); err != nil {
+		t.Fatalf("seeding items = %v", err)
+	}
+
+	// The checklist publish still succeeds; only the item batch fails.
+	publisher.SetItemsError(errors.New("indexer unreachable for items"))
+
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"})
+	if err != nil {
+		t.Fatalf("Refresh() = %v, want no error — item failures are best-effort, not fatal", err)
+	}
+	if published {
+		t.Error("published = true, want false — no item document landed for this checklist")
+	}
+	// The checklist row itself still published: best-effort item publishing
+	// must not undo a publish that already succeeded.
+	if got := publisher.Count(); got != 1 {
+		t.Errorf("published %d checklist documents, want 1 despite the item failure", got)
+	}
+}
+
+// An item's document is repaired by the ordinary sweep, with no bespoke
+// tooling — the same guarantee TestALostRowIsRepublishedByTheNextSweep makes
+// for the checklist document, applied to the per-item documents this sweep
+// now also publishes.
+func TestALostItemRowIsRepublishedByTheNextSweep(t *testing.T) {
+	ctx := context.Background()
+	projects := mock.NewProjectReader()
+	projects.SetFormingProjects([]port.ProjectRef{
+		{UID: "project-1", SubStage: model.StageFormationEngaged},
+	})
+	r, _, publisher := newReconcilerWithIndex(t, projects)
+
+	// The first sweep's publishes fail, standing in for a lost message.
+	publisher.SetError(errors.New("indexer unreachable"))
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("sweep with a failing publisher = %v, want no error", err)
+	}
+	if got := publisher.ItemCount(); got != 0 {
+		t.Fatalf("published %d item rows, want 0", got)
+	}
+
+	// The next sweep republishes anyway, which is what makes the repair path
+	// the ordinary path.
+	publisher.SetError(nil)
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	// The fixture's template carries three items (twoItemSections).
+	if got := publisher.ItemCount(); got != 3 {
+		t.Errorf("published %d item rows on the second sweep, want 3", got)
 	}
 }
 
