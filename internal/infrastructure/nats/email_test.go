@@ -126,11 +126,11 @@ func TestEmailDispatcherReturnsErrorOnTransportFailure(t *testing.T) {
 	}
 }
 
-// TestEmailDispatcherDegradesPollitelyWhenClientIsNil ensures the dispatcher
+// TestEmailDispatcherDegradesPolitelyWhenClientIsNil ensures the dispatcher
 // does not panic or return an error when the NATS client is nil (the
 // service's degraded start-up state). A nil client means NATS was not
 // available at startup; emails are dropped and logged, not propagated.
-func TestEmailDispatcherDegradesPollitelyWhenClientIsNil(t *testing.T) {
+func TestEmailDispatcherDegradesPolitelyWhenClientIsNil(t *testing.T) {
 	d := &EmailDispatcher{client: nil}
 
 	if err := d.Send(context.Background(), sampleEmailMessage()); err != nil {

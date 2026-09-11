@@ -861,7 +861,10 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 		}, r.emailCfg.FormationInbox, "formation.reminder_3d."+project.UID)
 	}
 
-	// Overdue: announcement date has passed and project is still live (not yet Active).
+	// Overdue: the announcement date has been reached or passed and the project
+	// is still live (not yet Active). daysUntil == 0 means today is the
+	// announcement date; we fire on the day itself because the 3-day warning
+	// covers only daysUntil > 0, which would leave the deadline day silent.
 	if daysUntil <= 0 && formation.NotifiedReminderOverdueAt == nil {
 		r.sendOneShot(ctx, formation, "notified_reminder_overdue_at", func() (string, string, string, error) {
 			return email.RenderAnnouncementReminder(email.AnnouncementReminderData{
