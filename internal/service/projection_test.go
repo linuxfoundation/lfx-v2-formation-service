@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -603,12 +604,12 @@ func TestRefreshCarriesProjectNameAndSlugOntoItemDocuments(t *testing.T) {
 	}
 }
 
-// Refresh's return value is what a sweep's "projected" count is built from
-// (see its own doc comment). Before this checklist had item documents, a
-// successful checklist publish was the whole story; now a checklist whose row
-// published but whose item rows all failed is not what "true" used to mean,
-// so it must not report true unqualified.
-func TestRefreshReportsFalseWhenNoItemDocumentLands(t *testing.T) {
+// Refresh's two return values feed two different sweep counters: an error is
+// a failed projection, a false is a project holding no checklist to publish.
+// A checklist whose row published but whose item rows all failed belongs to
+// the first, not the second — reporting it as a bare false would count a
+// stale index as neither a success nor a failure.
+func TestRefreshReturnsAnErrorWhenNoItemDocumentLands(t *testing.T) {
 	ctx := context.Background()
 	formations := mock.NewFormationRepository()
 	items := mock.NewItemRepository()
@@ -629,8 +630,11 @@ func TestRefreshReportsFalseWhenNoItemDocumentLands(t *testing.T) {
 	publisher.SetItemsError(errors.New("indexer unreachable for items"))
 
 	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"})
-	if err != nil {
-		t.Fatalf("Refresh() = %v, want no error — item failures are best-effort, not fatal", err)
+	if err == nil {
+		t.Fatal("Refresh() = nil error, want one — the sweep counts a stale index only when told")
+	}
+	if !strings.Contains(err.Error(), "indexer unreachable for items") {
+		t.Errorf("Refresh() = %v, want the underlying publish failure wrapped", err)
 	}
 	if published {
 		t.Error("published = true, want false — no item document landed for this checklist")

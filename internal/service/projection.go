@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sort"
 
@@ -85,9 +86,14 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 	// a single batch so a checklist of N items costs one flush rather than N.
 	// Best-effort like the checklist publish: a failed item is repaired by
 	// the next sweep, and must not fail the checklist publish that already
-	// succeeded or the projects after this one in the sweep — unless every
-	// item in this checklist failed, which the caller cannot tell from a
-	// bare "true" without this reflecting it.
+	// succeeded or the projects after this one in the sweep.
+	//
+	// A total failure is returned as an error rather than as a false, even
+	// though the checklist document itself landed. The caller reads an error
+	// as a failed projection and a false as a project holding no checklist
+	// to publish, so a false here would leave a stale index counted as
+	// neither. Returning it stays non-fatal to the sweep: the caller logs,
+	// counts, and moves on to the next project.
 	//
 	// project and name are already resolved above for the checklist
 	// document; reusing them here costs nothing further, no second project
@@ -95,9 +101,7 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 	itemDocs := buildItemProjections(formation, items, project, name)
 	if len(itemDocs) > 0 {
 		if err := p.publisher.PublishItems(ctx, itemDocs); err != nil {
-			slog.WarnContext(ctx, "could not publish this checklist's item rows; the next sweep will retry",
-				"formation_uid", formation.UID.String(), "error", err)
-			return false, nil
+			return false, fmt.Errorf("publishing this checklist's item rows: %w", err)
 		}
 	}
 	return true, nil
