@@ -542,6 +542,30 @@ func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
 // transition left them, and Lifecycle.Mutable() means they can never move
 // again. The item documents have to carry that lifecycle for a consumer to
 // tell "still outstanding" from "outstanding when the music stopped".
+// Both values, because false is the one that carries information: it marks an
+// item an auditor-only assignee can act on, so a row reading only the item's
+// half of the question still gets a usable answer.
+func TestBuildItemProjectionsCarriesEachItemsRequiresWriter(t *testing.T) {
+	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
+	items := []*model.Item{
+		{UID: uuid.New(), FormationUID: formation.UID, ItemKey: "needs-writer", RequiresWriter: true},
+		{UID: uuid.New(), FormationUID: formation.UID, ItemKey: "auditor-can-do", RequiresWriter: false},
+	}
+
+	docs := buildItemProjections(formation, items, port.ProjectRef{}, "")
+
+	byKey := map[string]bool{}
+	for _, doc := range docs {
+		byKey[doc.ItemKey] = doc.RequiresWriter
+	}
+	if !byKey["needs-writer"] {
+		t.Error("requires_writer = false for the item that needs writer")
+	}
+	if byKey["auditor-can-do"] {
+		t.Error("requires_writer = true for the item an auditor can act on")
+	}
+}
+
 func TestBuildItemProjectionsCarriesANonLiveLifecycle(t *testing.T) {
 	for _, lifecycle := range []model.Lifecycle{model.LifecycleCompleted, model.LifecycleFrozen} {
 		formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1", Lifecycle: lifecycle}

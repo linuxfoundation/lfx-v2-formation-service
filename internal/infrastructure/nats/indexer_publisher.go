@@ -227,12 +227,19 @@ func (p *IndexerPublisher) PublishItem(ctx context.Context, doc *port.ItemProjec
 // holds every item at once; a caller with a single document should still use
 // PublishItem.
 //
-// Best-effort per item, matching the sweep's own contract: one malformed item
-// on an otherwise-healthy checklist does not stop its siblings from
-// publishing, and a failed item is repaired by the next sweep regardless. Only
-// when every item in the batch fails is that surfaced as an error — see
-// Projector.Refresh, which uses this to decide whether the checklist's item
-// rows published at all, not whether every one of them did.
+// Best-effort in what it publishes, total in what it reports: one malformed
+// item on an otherwise-healthy checklist never stops its siblings from being
+// queued, but it is still returned as an error once the whole batch has been
+// attempted. Publishing continues past a failure; only the reporting is
+// all-or-nothing.
+//
+// Reporting a partial batch as success would reopen the stale-index hole the
+// all-failed case had. A per-item envelope failure is deterministic — the same
+// item fails identically on every sweep — so "the next sweep repairs it" does
+// not hold for that case, and the item would stay absent from the index
+// indefinitely with nothing logged and nothing counted. Projector.Refresh
+// turns this into a counted failed projection and moves on to the next
+// project, so the sweep stays non-fatal either way.
 //
 // The final Flush is checked before that landed-count decision, not folded
 // into it: PublishNoFlush only queues a message locally, and Flush is what
@@ -266,8 +273,8 @@ func (p *IndexerPublisher) PublishItems(ctx context.Context, docs []*port.ItemPr
 		return fmt.Errorf("flushing %d queued item documents out of %d: %w", landed, len(docs), errors.Join(errs...))
 	}
 
-	if landed == 0 {
-		return fmt.Errorf("no item document published out of %d: %w", len(docs), errors.Join(errs...))
+	if len(errs) > 0 {
+		return fmt.Errorf("published %d item documents out of %d: %w", landed, len(docs), errors.Join(errs...))
 	}
 	return nil
 }
@@ -391,22 +398,24 @@ func parentRefs(doc *port.FormationProjection) []string {
 // Notes, skip reason and resolved-ref are deliberately absent — drawer-only
 // detail, read from the checklist directly, never from this document.
 type itemProjectionWire struct {
-	ObjectID     string                      `json:"object_id"`
-	FormationUID string                      `json:"formation_uid"`
-	ProjectUID   string                      `json:"project_uid"`
-	ProjectName  string                      `json:"project_name"`
-	ProjectSlug  string                      `json:"project_slug"`
-	Lifecycle    string                      `json:"lifecycle"`
-	ItemKey      string                      `json:"item_key"`
-	Title        string                      `json:"title"`
-	StatusSource string                      `json:"status_source"`
-	Status       string                      `json:"status"`
-	Gate         bool                        `json:"gate"`
-	DueDate      string                      `json:"due_date,omitempty"`
-	OwnerTeam    string                      `json:"owner_team,omitempty"`
-	ActionLink   string                      `json:"action_link,omitempty"`
-	Assignee     string                      `json:"assignee,omitempty"`
-	SubItems     []itemProjectionSubItemWire `json:"sub_items"`
+	ObjectID     string `json:"object_id"`
+	FormationUID string `json:"formation_uid"`
+	ProjectUID   string `json:"project_uid"`
+	ProjectName  string `json:"project_name"`
+	ProjectSlug  string `json:"project_slug"`
+	Lifecycle    string `json:"lifecycle"`
+	ItemKey      string `json:"item_key"`
+	Title        string `json:"title"`
+	StatusSource string `json:"status_source"`
+	Status       string `json:"status"`
+	Gate         bool   `json:"gate"`
+	// No omitempty: false is a meaningful value here, not an absent one.
+	RequiresWriter bool                        `json:"requires_writer"`
+	DueDate        string                      `json:"due_date,omitempty"`
+	OwnerTeam      string                      `json:"owner_team,omitempty"`
+	ActionLink     string                      `json:"action_link,omitempty"`
+	Assignee       string                      `json:"assignee,omitempty"`
+	SubItems       []itemProjectionSubItemWire `json:"sub_items"`
 }
 
 // itemProjectionSubItemWire is one entry of itemProjectionWire's nested,
@@ -428,22 +437,23 @@ func newItemProjectionWire(doc *port.ItemProjection) *itemProjectionWire {
 		})
 	}
 	return &itemProjectionWire{
-		ObjectID:     doc.ItemUID,
-		FormationUID: doc.FormationUID,
-		ProjectUID:   doc.ProjectUID,
-		ProjectName:  doc.ProjectName,
-		ProjectSlug:  doc.ProjectSlug,
-		Lifecycle:    doc.Lifecycle,
-		ItemKey:      doc.ItemKey,
-		Title:        doc.Title,
-		StatusSource: doc.StatusSource,
-		Status:       doc.Status,
-		Gate:         doc.Gate,
-		DueDate:      doc.DueDate,
-		OwnerTeam:    doc.OwnerTeam,
-		ActionLink:   doc.ActionLink,
-		Assignee:     doc.Assignee,
-		SubItems:     subItems,
+		ObjectID:       doc.ItemUID,
+		FormationUID:   doc.FormationUID,
+		ProjectUID:     doc.ProjectUID,
+		ProjectName:    doc.ProjectName,
+		ProjectSlug:    doc.ProjectSlug,
+		Lifecycle:      doc.Lifecycle,
+		ItemKey:        doc.ItemKey,
+		Title:          doc.Title,
+		StatusSource:   doc.StatusSource,
+		Status:         doc.Status,
+		Gate:           doc.Gate,
+		RequiresWriter: doc.RequiresWriter,
+		DueDate:        doc.DueDate,
+		OwnerTeam:      doc.OwnerTeam,
+		ActionLink:     doc.ActionLink,
+		Assignee:       doc.Assignee,
+		SubItems:       subItems,
 	}
 }
 

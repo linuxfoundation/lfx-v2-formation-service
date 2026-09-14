@@ -310,10 +310,19 @@ type ItemProjection struct {
 	StatusSource string
 	Status       string
 	Gate         bool
-	DueDate      string // ISO date; empty when unset.
-	OwnerTeam    string // Empty when unset.
-	ActionLink   string // Empty when unset.
-	SubItems     []ItemProjectionSubItem
+
+	// RequiresWriter says whether acting on this item needs writer on the
+	// project. A fact about the item, so it belongs here; whether the
+	// caller holds writer is a fact about the caller, which a document
+	// every reader of the project shares cannot carry. A row decides
+	// whether its action is actionable from the two together — an item
+	// this is false for is one an auditor-only assignee can act on.
+	RequiresWriter bool
+
+	DueDate    string // ISO date; empty when unset.
+	OwnerTeam  string // Empty when unset.
+	ActionLink string // Empty when unset.
+	SubItems   []ItemProjectionSubItem
 
 	// Assignee is the sole attribute the Pending Actions query filters on.
 	// Empty when the item is unassigned — never published as an empty-string

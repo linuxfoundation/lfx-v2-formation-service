@@ -6,6 +6,7 @@ package nats
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -458,6 +459,42 @@ func TestPublishItemCarriesProjectFactsAndStatusSourceOnTheWire(t *testing.T) {
 // narrowing on status alone would surface it as outstanding work forever.
 // The lifecycle has to be both a body field and a tag: the tag is what the
 // search filters on exactly, so the exclusion stays inside the one query.
+// requires_writer is a fact about the item, unlike whether the caller holds
+// writer, which a document shared by every reader of the project cannot carry.
+// Both values are asserted because false is the meaningful one: it marks the
+// items an auditor-only assignee can act on, and an omitempty tag would have
+// dropped it off the wire as though it were unset.
+func TestPublishItemCarriesRequiresWriterIncludingWhenFalse(t *testing.T) {
+	for _, requiresWriter := range []bool{true, false} {
+		t.Run(fmt.Sprintf("requires_writer=%t", requiresWriter), func(t *testing.T) {
+			url := startTestNATSServer(t)
+			await := captureOn(t, url, IndexItemSubject)
+			publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+			doc := sampleItemProjection()
+			doc.RequiresWriter = requiresWriter
+
+			if err := publisher.PublishItem(context.Background(), doc); err != nil {
+				t.Fatalf("PublishItem() = %v, want no error", err)
+			}
+
+			var envelope map[string]any
+			if err := json.Unmarshal(await(), &envelope); err != nil {
+				t.Fatalf("decoding the envelope = %v", err)
+			}
+
+			data, _ := envelope["data"].(map[string]any)
+			got, present := data["requires_writer"]
+			if !present {
+				t.Fatalf("data carries no requires_writer key; false must travel, not vanish")
+			}
+			if got != requiresWriter {
+				t.Errorf("data[\"requires_writer\"] = %v, want %t", got, requiresWriter)
+			}
+		})
+	}
+}
+
 func TestPublishItemCarriesLifecycleAsAFieldAndATag(t *testing.T) {
 	url := startTestNATSServer(t)
 	await := captureOn(t, url, IndexItemSubject)
@@ -655,8 +692,8 @@ func TestPublishedItemDataExcludesDrawerOnlyFields(t *testing.T) {
 		"object_id": true, "formation_uid": true, "project_uid": true,
 		"project_name": true, "project_slug": true, "lifecycle": true,
 		"item_key": true, "title": true, "status_source": true, "status": true,
-		"gate": true, "due_date": true, "owner_team": true, "action_link": true,
-		"assignee": true, "sub_items": true,
+		"gate": true, "requires_writer": true, "due_date": true, "owner_team": true,
+		"action_link": true, "assignee": true, "sub_items": true,
 	}
 	for key := range data {
 		if !want[key] {
@@ -814,11 +851,13 @@ func TestPublishItemsSendsOneMessagePerDocument(t *testing.T) {
 	}
 }
 
-// A batch where every document is invalid publishes nothing and is worth the
-// caller knowing about; a batch where only some are is the ordinary
-// best-effort case the sweep already tolerates per item, and reports no error
-// so the valid documents' publish is not treated as a failure.
-func TestPublishItemsToleratesSomeInvalidDocuments(t *testing.T) {
+// A bad document must not stop its siblings from publishing, and must not be
+// swallowed either. Both halves are asserted together because they are easy to
+// trade against each other: continuing past the failure is what makes the
+// batch best-effort, and returning it is what keeps a permanently absent item
+// from being reported as a complete projection. An invalid document fails its
+// envelope the same way on every sweep, so nothing would ever repair it.
+func TestPublishItemsPublishesTheValidDocumentsAndStillReportsTheFailure(t *testing.T) {
 	url := startTestNATSServer(t)
 	await := captureN(t, url, IndexItemSubject, 1)
 	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
@@ -827,10 +866,14 @@ func TestPublishItemsToleratesSomeInvalidDocuments(t *testing.T) {
 	invalid := sampleItemProjection()
 	invalid.ItemUID = ""
 
-	if err := publisher.PublishItems(context.Background(), []*port.ItemProjection{invalid, valid}); err != nil {
-		t.Fatalf("PublishItems() with one invalid document among two = %v, want no error "+
-			"— the valid one still landed", err)
+	err := publisher.PublishItems(context.Background(), []*port.ItemProjection{invalid, valid})
+	if err == nil {
+		t.Fatal("PublishItems() with one invalid document among two = nil, want an error — " +
+			"that item's document never landed and no later sweep will change that")
 	}
+
+	// The valid sibling was still queued and flushed, so the error reports an
+	// incomplete batch rather than an abandoned one.
 	await()
 }
 

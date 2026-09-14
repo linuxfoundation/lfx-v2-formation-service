@@ -303,6 +303,7 @@ func buildItemProjections(
 			StatusSource:   string(item.StatusSource),
 			Status:         string(item.Status),
 			Gate:           item.Gate,
+			RequiresWriter: item.RequiresWriter,
 			DueDate:        dueDate,
 			OwnerTeam:      item.OwnerTeam,
 			ActionLink:     item.ActionLink,

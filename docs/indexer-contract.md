@@ -49,6 +49,7 @@ service.
 | `status_source` | string enum | `manual \| platform` — whether the status is hand-set or driven by a platform check. Drives the row's action affordance |
 | `status` | string enum | `not_started \| in_progress \| blocked \| awaiting_acceptance \| done \| skipped` |
 | `gate` | bool | Whether this item blocks the project's Active transition |
+| `requires_writer` | bool | Whether acting on this item needs `writer` on the project. A fact about the item; whether the caller holds `writer` is a fact about the caller, which a shared document cannot carry. A row decides actionability from the two together |
 | `due_date` | string (ISO date, optional) | Omitted when unset |
 | `owner_team` | string (optional) | Omitted when unset |
 | `action_link` | string (optional) | Omitted when unset. Says whether a link exists; says nothing about who may use it — the per-caller capability to act is a live check on the action itself, outside this document's scope |
@@ -73,7 +74,11 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 
 > The `assignee:` tag is only emitted when the item has an assignee.
 
-> A Pending Actions query sends both: `assignee:<username>` and `lifecycle:live`.
+> A Pending Actions query sends both, as `tags_all` — `tags_all=assignee:<username>&tags_all=lifecycle:live`.
+> Not `tags`: that parameter is OR (`should` with `minimum_should_match: 1`), so it would ask for
+> items assigned to the caller *or* items on any live checklist, which for a caller with broad read
+> access is most of the index. It still returns the caller's own rows, so the mistake looks like it
+> works.
 
 ### Access Control (IndexingConfig)
 
