@@ -187,7 +187,7 @@ paths:
                                 code: "401"
                                 message: Consectetur cupiditate quis et.
                 "404":
-                    description: 'NotFound: No formation exists for this project'
+                    description: 'NotFound: The requested resource does not exist'
                     content:
                         application/json:
                             schema:
@@ -294,7 +294,7 @@ paths:
                                 code: "401"
                                 message: Sit omnis earum laudantium nobis et.
                 "404":
-                    description: 'NotFound: Either no formation exists for this project, or item_uid names no item in it. The two are distinguished by message: "no formation exists for this project" and "no such item in this formation". The item case is deliberately uniform — an item in a project the caller cannot see reads exactly like an item that exists nowhere, so this route is not an existence oracle for other projects'' items.'
+                    description: 'NotFound: The requested resource does not exist'
                     content:
                         application/json:
                             schema:

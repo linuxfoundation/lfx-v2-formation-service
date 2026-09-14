@@ -1512,7 +1512,7 @@ definitions:
                 type: string
                 description: Error message
                 example: Officia quisquam dolores.
-        description: No formation exists for this project
+        description: The requested resource does not exist
         example:
             code: "404"
             message: Quidem qui id.

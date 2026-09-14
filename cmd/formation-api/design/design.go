@@ -66,7 +66,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationChecklist)
-		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
+		dsl.Error("NotFound", NotFoundError, "The requested resource does not exist")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}")
@@ -126,18 +126,24 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationActivityPage)
-		// One error type for both not-found cases, told apart by message
-		// alone. Goa needs an attribute tagged Meta("struct:error:name") to
-		// disambiguate two custom errors on one method, and NotFoundError
-		// carries only code and message — so adding a second error, or a
-		// discriminator field, would change the 404 body for the existing
-		// formation case, which a caller that sends no item_uid must not see.
-		dsl.Error("NotFound", NotFoundError,
-			"Either no formation exists for this project, or item_uid names no item in it. "+
-				"The two are distinguished by message: \"no formation exists for this project\" and "+
-				"\"no such item in this formation\". The item case is deliberately uniform — an item in "+
-				"a project the caller cannot see reads exactly like an item that exists nowhere, so this "+
-				"route is not an existence oracle for other projects' items.")
+		// One error type for both not-found cases, told apart by the
+		// response body's message field alone, at runtime — never by this
+		// description, which Goa renders once into the OpenAPI document for
+		// every method sharing NotFoundError. A per-method description here
+		// would make one method's text win for all of them (as it did before
+		// this was aligned to get_formation's), silently misdocumenting
+		// whichever method didn't win. Goa also needs an attribute tagged
+		// Meta("struct:error:name") to disambiguate two custom errors on one
+		// method, and NotFoundError carries only code and message — so
+		// adding a second error, or a discriminator field, would change the
+		// 404 body for the existing formation case, which a caller that
+		// sends no item_uid must not see. The two messages are: "no
+		// formation exists for this project" and "no such item in this
+		// formation". The item case is deliberately uniform — an item in a
+		// project the caller cannot see reads exactly like an item that
+		// exists nowhere, so this route is not an existence oracle for other
+		// projects' items.
+		dsl.Error("NotFound", NotFoundError, "The requested resource does not exist")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}/activity")
