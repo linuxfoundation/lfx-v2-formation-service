@@ -103,7 +103,25 @@ type ActivityRepository interface {
 
 	// List returns entries newest first. cursor is the ULID of the last
 	// entry from the previous page, or empty for the first page.
-	List(ctx context.Context, formationUID uuid.UUID, cursor string, limit int) ([]*model.ActivityEntry, string, error)
+	//
+	// itemUID narrows the read to one item's own history. A nil pointer
+	// means no filter, which is not the same request as a filter on
+	// uuid.Nil — a sentinel would conflate "the whole feed" with "entries
+	// belonging to nothing", and the second of those is a real row shape
+	// here, since item_uid is nullable.
+	//
+	// The formation predicate applies whether or not this is set. It is the
+	// whole of the enforcement on this query: the gateway authorized the
+	// request against the project, and dropping the formation predicate once
+	// an item is named would turn this into a read of any item's history in
+	// any project.
+	//
+	// A cursor belongs to the sequence that produced it. Replaying a cursor
+	// from a filtered read without the same itemUID is not rejected and does
+	// not error; it returns a correct page of a different sequence.
+	List(
+		ctx context.Context, formationUID uuid.UUID, itemUID *uuid.UUID, cursor string, limit int,
+	) ([]*model.ActivityEntry, string, error)
 }
 
 // TemplateRepository reads and seeds templates.

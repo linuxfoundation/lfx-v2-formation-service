@@ -498,7 +498,11 @@ type FormationProgressResponseBody struct {
 type FormationActivityEntryResponseBody struct {
 	// Time-ordered; doubles as the paging cursor.
 	Ulid string `form:"ulid" json:"ulid" xml:"ulid"`
-	// Nullable — absent for a formation-level entry.
+	// Nullable. Absent means either a formation-level entry — template expansion
+	// or upgrade, which concern no single item — or an entry whose item has since
+	// been removed, since the reference is cleared rather than the row deleted.
+	// The two are indistinguishable here. Neither is ever returned by a read
+	// filtered on item_uid.
 	ItemUID *string `form:"item_uid,omitempty" json:"item_uid,omitempty" xml:"item_uid,omitempty"`
 	Actor   string  `form:"actor" json:"actor" xml:"actor"`
 	SetBy   string  `form:"set_by" json:"set_by" xml:"set_by"`
@@ -1070,11 +1074,12 @@ func NewGetFormationPayload(projectUID string, version string, bearerToken *stri
 
 // NewGetFormationActivityPayload builds a lfx_v2_formation_service service
 // get_formation_activity endpoint payload.
-func NewGetFormationActivityPayload(projectUID string, version string, cursor *string, limit int, bearerToken *string) *lfxv2formationservice.GetFormationActivityPayload {
+func NewGetFormationActivityPayload(projectUID string, version string, cursor *string, itemUID *string, limit int, bearerToken *string) *lfxv2formationservice.GetFormationActivityPayload {
 	v := &lfxv2formationservice.GetFormationActivityPayload{}
 	v.ProjectUID = projectUID
 	v.Version = version
 	v.Cursor = cursor
+	v.ItemUID = itemUID
 	v.Limit = limit
 	v.BearerToken = bearerToken
 

@@ -193,6 +193,9 @@ func EncodeGetFormationActivityRequest(encoder func(*http.Request) goahttp.Encod
 		if p.Cursor != nil {
 			values.Add("cursor", *p.Cursor)
 		}
+		if p.ItemUID != nil {
+			values.Add("item_uid", *p.ItemUID)
+		}
 		values.Add("limit", fmt.Sprintf("%v", p.Limit))
 		req.URL.RawQuery = values.Encode()
 		return nil

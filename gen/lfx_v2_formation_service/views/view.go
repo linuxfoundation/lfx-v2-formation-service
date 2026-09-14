@@ -132,7 +132,11 @@ type FormationActivityPageView struct {
 type FormationActivityEntryView struct {
 	// Time-ordered; doubles as the paging cursor.
 	Ulid *string
-	// Nullable — absent for a formation-level entry.
+	// Nullable. Absent means either a formation-level entry — template expansion
+	// or upgrade, which concern no single item — or an entry whose item has since
+	// been removed, since the reference is cleared rather than the row deleted.
+	// The two are indistinguishable here. Neither is ever returned by a read
+	// filtered on item_uid.
 	ItemUID *string
 	Actor   *string
 	SetBy   *string

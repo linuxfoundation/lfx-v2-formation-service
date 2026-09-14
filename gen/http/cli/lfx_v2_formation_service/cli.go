@@ -30,7 +30,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Aperiam maxime quia dolorem et quia.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Labore voluptatem tempora sunt architecto quaerat ut.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -55,6 +55,7 @@ func ParseEndpoint(
 		lfxV2FormationServiceGetFormationActivityProjectUIDFlag  = lfxV2FormationServiceGetFormationActivityFlags.String("project-uid", "REQUIRED", "The project's UID.")
 		lfxV2FormationServiceGetFormationActivityVersionFlag     = lfxV2FormationServiceGetFormationActivityFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceGetFormationActivityCursorFlag      = lfxV2FormationServiceGetFormationActivityFlags.String("cursor", "", "")
+		lfxV2FormationServiceGetFormationActivityItemUIDFlag     = lfxV2FormationServiceGetFormationActivityFlags.String("item-uid", "", "")
 		lfxV2FormationServiceGetFormationActivityLimitFlag       = lfxV2FormationServiceGetFormationActivityFlags.String("limit", "20", "")
 		lfxV2FormationServiceGetFormationActivityBearerTokenFlag = lfxV2FormationServiceGetFormationActivityFlags.String("bearer-token", "", "")
 
@@ -192,7 +193,7 @@ func ParseEndpoint(
 				data, err = lfxv2formationservicec.BuildGetFormationPayload(*lfxV2FormationServiceGetFormationProjectUIDFlag, *lfxV2FormationServiceGetFormationVersionFlag, *lfxV2FormationServiceGetFormationBearerTokenFlag)
 			case "get-formation-activity":
 				endpoint = c.GetFormationActivity()
-				data, err = lfxv2formationservicec.BuildGetFormationActivityPayload(*lfxV2FormationServiceGetFormationActivityProjectUIDFlag, *lfxV2FormationServiceGetFormationActivityVersionFlag, *lfxV2FormationServiceGetFormationActivityCursorFlag, *lfxV2FormationServiceGetFormationActivityLimitFlag, *lfxV2FormationServiceGetFormationActivityBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildGetFormationActivityPayload(*lfxV2FormationServiceGetFormationActivityProjectUIDFlag, *lfxV2FormationServiceGetFormationActivityVersionFlag, *lfxV2FormationServiceGetFormationActivityCursorFlag, *lfxV2FormationServiceGetFormationActivityItemUIDFlag, *lfxV2FormationServiceGetFormationActivityLimitFlag, *lfxV2FormationServiceGetFormationActivityBearerTokenFlag)
 			case "update-item":
 				endpoint = c.UpdateItem()
 				data, err = lfxv2formationservicec.BuildUpdateItemPayload(*lfxV2FormationServiceUpdateItemBodyFlag, *lfxV2FormationServiceUpdateItemProjectUIDFlag, *lfxV2FormationServiceUpdateItemItemKeyFlag, *lfxV2FormationServiceUpdateItemVersionFlag, *lfxV2FormationServiceUpdateItemBearerTokenFlag, *lfxV2FormationServiceUpdateItemIfMatchFlag)
@@ -226,7 +227,7 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] lfx-v2-formation-service COMMAND [flags]\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "COMMAND:")
 	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
-	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
+	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state. Pass item_uid to narrow the feed to one item's history. A cursor belongs to the sequence that produced it, not to the feed generally: a next_cursor from a filtered read is only valid when replayed with the same item_uid, and one from an unfiltered read only without one. Mixing them is not rejected and does not error — it returns a correct page of a different sequence, which is the dangerous outcome, so a caller must carry the filter alongside the cursor.`)
 	fmt.Fprintln(os.Stderr, `    update-item: Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag, so consecutive writes need no re-read. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
 	fmt.Fprintln(os.Stderr, `    accept-item: Accept an item's completion claim, moving awaiting_acceptance to done. Restricted to the formation team at the gateway, and refused by the service when the caller is the item's own assignee. If-Match is required.`)
 	fmt.Fprintln(os.Stderr, `    reject-item: Reject an item's completion claim, returning it to in_progress with a note the assignee can read. The note is required: a rejection with no reason leaves the assignee nothing to act on. Restricted to the formation team at the gateway.`)
@@ -256,7 +257,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Aperiam maxime quia dolorem et quia.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Labore voluptatem tempora sunt architecto quaerat ut.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -265,24 +266,26 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 	fmt.Fprint(os.Stderr, " -project-uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -cursor STRING")
+	fmt.Fprint(os.Stderr, " -item-uid STRING")
 	fmt.Fprint(os.Stderr, " -limit INT")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, `Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
+	fmt.Fprintln(os.Stderr, `Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state. Pass item_uid to narrow the feed to one item's history. A cursor belongs to the sequence that produced it, not to the feed generally: a next_cursor from a filtered read is only valid when replayed with the same item_uid, and one from an unfiltered read only without one. Mixing them is not rejected and does not error — it returns a correct page of a different sequence, which is the dangerous outcome, so a caller must carry the filter alongside the cursor.`)
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -project-uid STRING: The project's UID.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -cursor STRING: `)
+	fmt.Fprintln(os.Stderr, `    -item-uid STRING: `)
 	fmt.Fprintln(os.Stderr, `    -limit INT: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Tempora cumque quisquam et iure quo.\" --version \"1\" --cursor \"Enim et aut est nihil id sit.\" --limit 52 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Debitis voluptas.\" --version \"1\" --cursor \"Possimus enim in saepe facere commodi.\" --item-uid \"abf49a8c-e94d-48d1-8989-1c26bd0569ee\" --limit 64 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -310,7 +313,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Consequatur et earum et nam.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusantium minima dolorum asperiores.\",\n      \"skip_reason\": \"Cum tempore quia autem vel labore magnam.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }' --project-uid \"Quisquam aliquid optio.\" --item-key \"Quaerat architecto nihil assumenda praesentium ea eum.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2359207140783546021")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"assignee\": \"Ab nemo.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"At id labore ducimus perspiciatis sed.\",\n      \"skip_reason\": \"Ipsam id cum qui odit quidem dolor.\",\n      \"status\": \"in_progress\",\n      \"sub_items\": [\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }' --project-uid \"Modi in modi magnam impedit corrupti.\" --item-key \"Recusandae dolorem repudiandae eum et.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 468557681645816421")
 }
 
 func lfxV2FormationServiceAcceptItemUsage() {
@@ -338,7 +341,7 @@ func lfxV2FormationServiceAcceptItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-item --body '{\n      \"note\": \"Cum qui.\"\n   }' --project-uid \"Quidem dolor molestiae consequuntur.\" --item-key \"Autem voluptatem dolor ut sed.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6719366625049131614")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-item --body '{\n      \"note\": \"Et temporibus laborum.\"\n   }' --project-uid \"Aliquid dolore ipsam.\" --item-key \"Possimus molestiae sed rem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5812827903502170570")
 }
 
 func lfxV2FormationServiceRejectItemUsage() {
@@ -366,7 +369,7 @@ func lfxV2FormationServiceRejectItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reject-item --body '{\n      \"note\": \"yuu\"\n   }' --project-uid \"Illum doloribus aut eligendi dolore non.\" --item-key \"Deleniti a praesentium porro esse.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6312734960171893981")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reject-item --body '{\n      \"note\": \"w1\"\n   }' --project-uid \"A temporibus.\" --item-key \"In fuga.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5212858795784144418")
 }
 
 func lfxV2FormationServiceReopenItemUsage() {
@@ -394,7 +397,7 @@ func lfxV2FormationServiceReopenItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reopen-item --body '{\n      \"note\": \"Laboriosam vel ut ad quibusdam.\"\n   }' --project-uid \"Enim maxime ullam iure voluptatum ad.\" --item-key \"Ipsa nesciunt dolor magnam.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2595153672639640544")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reopen-item --body '{\n      \"note\": \"Minima doloremque molestiae aut adipisci.\"\n   }' --project-uid \"Fuga ipsam minus consequatur in sapiente.\" --item-key \"Sapiente nihil dignissimos quo.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6681164373141952606")
 }
 
 func lfxV2FormationServiceLivezUsage() {

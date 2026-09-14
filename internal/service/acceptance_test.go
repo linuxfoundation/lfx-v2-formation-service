@@ -427,7 +427,7 @@ func TestTheClaimAndTheAcceptanceAreSeparateEntriesNamingDifferentActors(t *test
 	})
 	require.NoError(t, err)
 
-	entries, _, err := s.activity.List(context.Background(), formation.UID, "", 50)
+	entries, _, err := s.activity.List(context.Background(), formation.UID, nil, "", 50)
 	require.NoError(t, err)
 
 	var claimActor, acceptActor string

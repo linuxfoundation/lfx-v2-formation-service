@@ -66,7 +66,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationChecklist)
-		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
+		dsl.Error("NotFound", NotFoundError, "The requested resource does not exist")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}")
@@ -82,7 +82,13 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Description("Return the formation's activity feed, newest first, with ULID cursor paging. " +
 			"The feed covers checklist changes only — status changes, assignment, notes, links, skip " +
 			"reasons and template work. Permission changes never appear here: nothing keeps a history of " +
-			"them, since each save overwrites the previous state.")
+			"them, since each save overwrites the previous state. " +
+			"Pass item_uid to narrow the feed to one item's history. A cursor belongs to the sequence " +
+			"that produced it, not to the feed generally: a next_cursor from a filtered read is only " +
+			"valid when replayed with the same item_uid, and one from an unfiltered read only without " +
+			"one. Mixing them is not rejected and does not error — it returns a correct page of a " +
+			"different sequence, which is the dangerous outcome, so a caller must carry the filter " +
+			"alongside the cursor.")
 
 		dsl.Security(JWTAuth)
 
@@ -91,6 +97,24 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			VersionAttribute()
 			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
 			dsl.Attribute("cursor", dsl.String, "Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.")
+			// The item's UID, not its stable item_key, which is what every
+			// route that mutates an item takes. Deliberate and stated here
+			// rather than left to be inferred: an activity row stores the
+			// item's UID as a foreign key and does not store the key at all,
+			// so a consumer filtering the feed already holds the UID from the
+			// entries it is reading, and requiring the key would mean
+			// resolving an identity the row already carries. A consumer that
+			// guesses wrong gets a silent empty feed rather than an error,
+			// which is why the identifier is named in the description.
+			//
+			// Format is what makes a malformed value a decode-time 400 rather
+			// than reaching a UUID column and surfacing as a 500 — the same
+			// reasoning as the limit minimum below.
+			dsl.Attribute("item_uid", dsl.String,
+				"Narrow the feed to one checklist item's history. This is the item's UID (as carried on "+
+					"each entry's item_uid), not the stable item_key the mutation routes take. Omit for "+
+					"the whole checklist's feed.",
+				func() { dsl.Format(dsl.FormatUUID) })
 			dsl.Attribute("limit", dsl.Int, "Page size. Defaults to 20, capped at 100.", func() {
 				dsl.Default(20)
 				// Without a minimum, limit=-1 passes decode and the service
@@ -102,13 +126,31 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Required("version", "project_uid")
 		})
 		dsl.Result(FormationActivityPage)
-		dsl.Error("NotFound", NotFoundError, "No formation exists for this project")
+		// One error type for both not-found cases, told apart by the
+		// response body's message field alone, at runtime — never by this
+		// description, which Goa renders once into the OpenAPI document for
+		// every method sharing NotFoundError. A per-method description here
+		// would make one method's text win for all of them (as it did before
+		// this was aligned to get_formation's), silently misdocumenting
+		// whichever method didn't win. Goa also needs an attribute tagged
+		// Meta("struct:error:name") to disambiguate two custom errors on one
+		// method, and NotFoundError carries only code and message — so
+		// adding a second error, or a discriminator field, would change the
+		// 404 body for the existing formation case, which a caller that
+		// sends no item_uid must not see. The two messages are: "no
+		// formation exists for this project" and "no such item in this
+		// formation". The item case is deliberately uniform — an item in a
+		// project the caller cannot see reads exactly like an item that
+		// exists nowhere, so this route is not an existence oracle for other
+		// projects' items.
+		dsl.Error("NotFound", NotFoundError, "The requested resource does not exist")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.GET("/formations/{project_uid}/activity")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Param("cursor")
+			dsl.Param("item_uid")
 			dsl.Param("limit")
 			dsl.Response(dsl.StatusOK)
 			dsl.Response("NotFound", dsl.StatusNotFound)
@@ -532,7 +574,14 @@ var FormationChecklist = dsl.ResultType("application/vnd.formation.checklist+jso
 // FormationActivityEntry is one immutable record in the checklist's feed.
 var FormationActivityEntry = dsl.Type("FormationActivityEntry", func() {
 	dsl.Attribute("ulid", dsl.String, "Time-ordered; doubles as the paging cursor.")
-	dsl.Attribute("item_uid", dsl.String, "Nullable — absent for a formation-level entry.")
+	// Absent has two meanings and a consumer must not read it as only the
+	// first: the second case is not reachable today (nothing deletes an item)
+	// but the column is ON DELETE SET NULL, so an entry can outlive its item.
+	dsl.Attribute("item_uid", dsl.String,
+		"Nullable. Absent means either a formation-level entry — template expansion or upgrade, which "+
+			"concern no single item — or an entry whose item has since been removed, since the reference "+
+			"is cleared rather than the row deleted. The two are indistinguishable here. Neither is ever "+
+			"returned by a read filtered on item_uid.")
 	dsl.Attribute("actor", dsl.String)
 	dsl.Attribute("set_by", dsl.String, func() { dsl.Enum("user", "system") })
 	dsl.Attribute("action", dsl.String)

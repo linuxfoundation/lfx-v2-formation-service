@@ -8,6 +8,9 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/google/uuid"
+	goa "goa.design/goa/v3/pkg"
+
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
@@ -17,6 +20,21 @@ import (
 // default, applied here too so a caller that sends limit=0 (Goa's zero value
 // when the query param is omitted) gets a page rather than an empty result.
 const defaultActivityPageLimit = 20
+
+// The activity route's two not-found messages. Both are 404 with the same
+// body shape, so the message is the only thing that tells a caller which of
+// the two it got — which makes these part of the wire contract rather than
+// log text, and is why they are constants asserted by tests rather than
+// literals written at each return.
+//
+// Adding a discriminator field to NotFoundError instead would have changed
+// the 404 body for the formation case, which the unchanged consumer must not
+// see; and Goa needs an attribute tagged Meta("struct:error:name") to tell
+// two custom errors on one method apart, which that type does not carry.
+const (
+	formationNotFoundMessage = "no formation exists for this project"
+	itemNotFoundMessage      = "no such item in this formation"
+)
 
 // GetFormation assembles the whole checklist in one response: sections,
 // items, progress and readiness. Items are carried with only functional
@@ -72,12 +90,21 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 // appear here — nothing keeps a history of them, since each save overwrites
 // the previous state — and that absence is conveyed by the method's own doc
 // comment in the design rather than left for the browser to guess at.
+//
+// An item_uid narrows the feed to one item's own history. Absent, this is
+// byte-identical to what it has always returned: the parameter is optional
+// and the consumer that pages the whole feed keeps working untouched.
 func (s *Service) GetFormationActivity(ctx context.Context, p *svc.GetFormationActivityPayload) (*svc.FormationActivityPage, error) {
 	formation, err := s.formations.GetByProject(ctx, p.ProjectUID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil, &svc.NotFoundError{Code: "404", Message: "no formation exists for this project"}
+			return nil, &svc.NotFoundError{Code: "404", Message: formationNotFoundMessage}
 		}
+		return nil, err
+	}
+
+	itemUID, err := s.resolveActivityItemFilter(ctx, formation.UID, p.ItemUID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -90,7 +117,7 @@ func (s *Service) GetFormationActivity(ctx context.Context, p *svc.GetFormationA
 		limit = defaultActivityPageLimit
 	}
 
-	entries, nextCursor, err := s.activity.List(ctx, formation.UID, cursor, limit)
+	entries, nextCursor, err := s.activity.List(ctx, formation.UID, itemUID, cursor, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +126,53 @@ func (s *Service) GetFormationActivity(ctx context.Context, p *svc.GetFormationA
 		Entries:    activityToWire(entries),
 		NextCursor: &nextCursor,
 	}, nil
+}
+
+// resolveActivityItemFilter turns the optional item reference on the payload
+// into the filter the repository takes, having first established that the item
+// is one this formation actually has.
+//
+// The existence check is what keeps an empty page meaning exactly "no
+// history". Without it an unknown identifier reads as an empty feed, which
+// reintroduces the ambiguity the filter exists to remove — moved from
+// truncation to identity.
+//
+// One branch reports both "no such item anywhere" and "an item, but another
+// formation's". Deliberately one, and deliberately the same error: two
+// distinguishable responses would make this route an existence oracle for
+// items in projects the caller cannot see. The caller learns only that the
+// item is not in the project it named, which it was already authorized to
+// know.
+func (s *Service) resolveActivityItemFilter(
+	ctx context.Context, formationUID uuid.UUID, raw *string,
+) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	itemUID, err := uuid.Parse(*raw)
+	if err != nil {
+		// Unreachable over HTTP: the design declares item_uid as a UUID, so a
+		// malformed value is refused at decode and never arrives here. Kept
+		// because the two cases it must never become are a 500 and a silent
+		// fall back to the unfiltered feed, and a direct caller of this method
+		// would otherwise reach the second. goa.InvalidFormatError encodes as
+		// 400, the same status decode gives.
+		return nil, goa.InvalidFormatError("item_uid", *raw, goa.FormatUUID, err)
+	}
+
+	item, err := s.items.Get(ctx, itemUID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, &svc.NotFoundError{Code: "404", Message: itemNotFoundMessage}
+		}
+		return nil, err
+	}
+	if item.FormationUID != formationUID {
+		return nil, &svc.NotFoundError{Code: "404", Message: itemNotFoundMessage}
+	}
+
+	return &itemUID, nil
 }
 
 // sectionsFromFormation reads section key, title and position from the

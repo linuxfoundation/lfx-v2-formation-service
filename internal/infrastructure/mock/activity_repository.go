@@ -56,9 +56,17 @@ const (
 	maxActivityLimit     = 100
 )
 
-// List returns entries newest-first for a formation, honoring cursor and
-// limit. cursor is the ULID of the last entry from the previous page.
-func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cursor string, limit int) ([]*model.ActivityEntry, string, error) {
+// List returns entries newest-first for a formation, honoring itemUID,
+// cursor and limit. cursor is the ULID of the last entry from the previous
+// page.
+//
+// The item filter is implemented here rather than ignored, which is the
+// whole reason this double is worth having: a double that accepts the
+// parameter and drops it makes every service-level test of the filter pass
+// against no filter at all.
+func (r *ActivityRepository) List(
+	_ context.Context, formationUID uuid.UUID, itemUID *uuid.UUID, cursor string, limit int,
+) ([]*model.ActivityEntry, string, error) {
 	r.record("activity.List")
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,9 +83,15 @@ func (r *ActivityRepository) List(_ context.Context, formationUID uuid.UUID, cur
 	// entries happen to be appended in ULID order.
 	matching := make([]*model.ActivityEntry, 0)
 	for _, e := range r.entries {
-		if e.FormationUID == formationUID {
-			matching = append(matching, e)
+		if e.FormationUID != formationUID {
+			continue
 		}
+		// An entry with no item is never returned by a filtered read, so a
+		// nil ItemUID fails the predicate rather than matching anything.
+		if itemUID != nil && (e.ItemUID == nil || *e.ItemUID != *itemUID) {
+			continue
+		}
+		matching = append(matching, e)
 	}
 	sort.Slice(matching, func(i, j int) bool {
 		return matching[i].ULID > matching[j].ULID

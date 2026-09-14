@@ -346,7 +346,7 @@ func TestTheCreatingPathIsRecordedWithoutChangingTheActor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByProject() = %v, want no error", err)
 	}
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 50)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 50)
 	if err != nil {
 		t.Fatalf("List() = %v, want no error", err)
 	}
@@ -389,7 +389,7 @@ func TestTheSweepRecordsItselfAsTheTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByProject() = %v, want no error", err)
 	}
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 50)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 50)
 	if err != nil {
 		t.Fatalf("List() = %v, want no error", err)
 	}

@@ -319,7 +319,7 @@ func TestUpgradeRecordsWhatItAdded(t *testing.T) {
 		t.Fatalf("added keys = %v, want one", report.AddedKeys)
 	}
 
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("List() = %v", err)
 	}
@@ -390,7 +390,7 @@ func TestAnUpgradeThatLosesTheRaceRecordsNothing(t *testing.T) {
 		t.Errorf("added keys = %v, want none — the other upgrade added them", report.AddedKeys)
 	}
 
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("List() = %v", err)
 	}
@@ -584,7 +584,7 @@ func TestUpgradeWithNothingToAddRecordsNothing(t *testing.T) {
 		t.Fatalf("UpgradeFor() = %v, want no error", err)
 	}
 
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("List() = %v", err)
 	}
