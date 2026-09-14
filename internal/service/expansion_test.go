@@ -77,7 +77,7 @@ func TestExpansionRecordsItselfInTheActivityFeed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByProject() = %v", err)
 	}
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("List() = %v", err)
 	}
@@ -119,7 +119,7 @@ func TestASecondExpansionRecordsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByProject() = %v", err)
 	}
-	entries, _, err := f.activity.List(ctx, formation.UID, "", 10)
+	entries, _, err := f.activity.List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("List() = %v", err)
 	}

@@ -52,7 +52,15 @@ func (r *ActivityRepo) Append(ctx context.Context, e *model.ActivityEntry) error
 // List returns entries newest first. ULID primary keys are time-ordered, so
 // paging is a plain "less than the last cursor" predicate on an indexed
 // column rather than a separate offset or timestamp scheme.
-func (r *ActivityRepo) List(ctx context.Context, formationUID uuid.UUID, cursor string, limit int) ([]*model.ActivityEntry, string, error) {
+//
+// A non-nil itemUID narrows the read to that item's own history, served by
+// formation_activity_item_idx. The formation predicate stays either way:
+// it is the whole of the enforcement on this query, since the gateway
+// authorized the request against the project and nothing here re-checks it
+// per item.
+func (r *ActivityRepo) List(
+	ctx context.Context, formationUID uuid.UUID, itemUID *uuid.UUID, cursor string, limit int,
+) ([]*model.ActivityEntry, string, error) {
 	if limit <= 0 {
 		limit = defaultActivityLimit
 	}
@@ -66,6 +74,9 @@ func (r *ActivityRepo) List(ctx context.Context, formationUID uuid.UUID, cursor 
 		Where("formation_uid = ?", formationUID).
 		OrderExpr("ulid DESC").
 		Limit(limit + 1)
+	if itemUID != nil {
+		q = q.Where("item_uid = ?", *itemUID)
+	}
 	if cursor != "" {
 		q = q.Where("ulid < ?", cursor)
 	}

@@ -346,7 +346,13 @@ func (s *Service) isSelfAcceptance(
 
 	cursor := ""
 	for range claimSearchMaxPages {
-		entries, next, err := tx.Activity().List(ctx, formationUID, cursor, claimSearchPageSize)
+		// Deliberately unfiltered, though this loop discards every entry that
+		// is not the item's. Narrowing the read to item.UID would remove the
+		// interleaving the page bound exists to cross, and so change what
+		// claimSearchMaxPages reaches — a behaviour change in the guard that
+		// keeps a person from accepting their own claim. That belongs to work
+		// scoped to this guard, not to the read filter.
+		entries, next, err := tx.Activity().List(ctx, formationUID, nil, cursor, claimSearchPageSize)
 		if err != nil {
 			return false, err
 		}

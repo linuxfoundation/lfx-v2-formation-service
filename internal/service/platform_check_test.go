@@ -159,7 +159,7 @@ func TestAnAdvancedItemIsAttributedToTheSystem(t *testing.T) {
 	_, err := checker.ResolveFor(context.Background(), "project-1")
 	require.NoError(t, err)
 
-	entries, _, err := repos.activity.List(context.Background(), formation.UID, "", 50)
+	entries, _, err := repos.activity.List(context.Background(), formation.UID, nil, "", 50)
 	require.NoError(t, err)
 
 	var found bool

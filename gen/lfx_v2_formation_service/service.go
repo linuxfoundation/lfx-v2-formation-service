@@ -24,7 +24,13 @@ type Service interface {
 	// The feed covers checklist changes only — status changes, assignment, notes,
 	// links, skip reasons and template work. Permission changes never appear here:
 	// nothing keeps a history of them, since each save overwrites the previous
-	// state.
+	// state. Pass item_uid to narrow the feed to one item's history. A cursor
+	// belongs to the sequence that produced it, not to the feed generally: a
+	// next_cursor from a filtered read is only valid when replayed with the same
+	// item_uid, and one from an unfiltered read only without one. Mixing them is
+	// not rejected and does not error — it returns a correct page of a different
+	// sequence, which is the dangerous outcome, so a caller must carry the filter
+	// alongside the cursor.
 	GetFormationActivity(context.Context, *GetFormationActivityPayload) (res *FormationActivityPage, err error)
 	// Change one checklist item: status, note, due date, skip reason, evidence
 	// link, assignee, or sub-items. Send only the fields being changed. If-Match
@@ -106,7 +112,11 @@ type AcceptItemResult struct {
 type FormationActivityEntry struct {
 	// Time-ordered; doubles as the paging cursor.
 	Ulid string
-	// Nullable — absent for a formation-level entry.
+	// Nullable. Absent means either a formation-level entry — template expansion
+	// or upgrade, which concern no single item — or an entry whose item has since
+	// been removed, since the reference is cleared rather than the row deleted.
+	// The two are indistinguishable here. Neither is ever returned by a read
+	// filtered on item_uid.
 	ItemUID *string
 	Actor   string
 	SetBy   string
@@ -237,6 +247,10 @@ type GetFormationActivityPayload struct {
 	// Opaque ULID cursor from a previous page's next_cursor. Omit for the first
 	// page.
 	Cursor *string
+	// Narrow the feed to one checklist item's history. This is the item's UID (as
+	// carried on each entry's item_uid), not the stable item_key the mutation
+	// routes take. Omit for the whole checklist's feed.
+	ItemUID *string
 	// Page size. Defaults to 20, capped at 100.
 	Limit int
 }

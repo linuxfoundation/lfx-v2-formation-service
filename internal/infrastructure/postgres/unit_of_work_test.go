@@ -252,7 +252,7 @@ func TestUnitOfWorkCommitsBothTogether(t *testing.T) {
 		t.Errorf("item status: got %q, want %q", got.Status, model.StatusInProgress)
 	}
 
-	entries, _, err := NewActivityRepo(db).List(ctx, formation.UID, "", 10)
+	entries, _, err := NewActivityRepo(db).List(ctx, formation.UID, nil, "", 10)
 	if err != nil {
 		t.Fatalf("list activity: %v", err)
 	}

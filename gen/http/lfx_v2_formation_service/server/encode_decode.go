@@ -138,6 +138,7 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 			projectUID  string
 			version     string
 			cursor      *string
+			itemUID     *string
 			limit       int
 			bearerToken *string
 			err         error
@@ -156,6 +157,13 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 		cursorRaw := qp.Get("cursor")
 		if cursorRaw != "" {
 			cursor = &cursorRaw
+		}
+		itemUIDRaw := qp.Get("item_uid")
+		if itemUIDRaw != "" {
+			itemUID = &itemUIDRaw
+		}
+		if itemUID != nil {
+			err = goa.MergeErrors(err, goa.ValidateFormat("item_uid", *itemUID, goa.FormatUUID))
 		}
 		{
 			limitRaw := qp.Get("limit")
@@ -182,7 +190,7 @@ func DecodeGetFormationActivityRequest(mux goahttp.Muxer, decoder func(*http.Req
 		if err != nil {
 			return payload, err
 		}
-		payload = NewGetFormationActivityPayload(projectUID, version, cursor, limit, bearerToken)
+		payload = NewGetFormationActivityPayload(projectUID, version, cursor, itemUID, limit, bearerToken)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")

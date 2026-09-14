@@ -128,6 +128,16 @@ CREATE TABLE IF NOT EXISTS formation_activity (
 
 CREATE INDEX IF NOT EXISTS formation_activity_feed_idx ON formation_activity (formation_uid, ulid DESC);
 
+-- One item's own history, for a feed read narrowed to a single item. Column
+-- order is the requirement rather than a detail: formation first so the index
+-- stays compatible with the unfiltered read's leading predicate, item second
+-- as the equality match, and ulid DESC last so the cursor's ordering is served
+-- by the index rather than by a sort node. Without this the narrowed query
+-- still walks the formation's whole feed discarding non-matching rows to fill
+-- a page -- the consumer's page-and-discard relocated into Postgres, where
+-- nobody is measuring it.
+CREATE INDEX IF NOT EXISTS formation_activity_item_idx ON formation_activity (formation_uid, item_uid, ulid DESC);
+
 -- Additive migrations, for a database that already went through an earlier
 -- version of this file.
 --

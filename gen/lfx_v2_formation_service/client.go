@@ -59,7 +59,7 @@ func (c *Client) GetFormation(ctx context.Context, p *GetFormationPayload) (res 
 // GetFormationActivity calls the "get_formation_activity" endpoint of the
 // "lfx_v2_formation_service" service.
 // GetFormationActivity may return the following errors:
-//   - "NotFound" (type *NotFoundError): No formation exists for this project
+//   - "NotFound" (type *NotFoundError): Either no formation exists for this project, or item_uid names no item in it. The two are distinguished by message: "no formation exists for this project" and "no such item in this formation". The item case is deliberately uniform — an item in a project the caller cannot see reads exactly like an item that exists nowhere, so this route is not an existence oracle for other projects' items.
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
 func (c *Client) GetFormationActivity(ctx context.Context, p *GetFormationActivityPayload) (res *FormationActivityPage, err error) {

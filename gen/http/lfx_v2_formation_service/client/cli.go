@@ -52,7 +52,7 @@ func BuildGetFormationPayload(lfxV2FormationServiceGetFormationProjectUID string
 
 // BuildGetFormationActivityPayload builds the payload for the
 // lfx_v2_formation_service get_formation_activity endpoint from CLI flags.
-func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityProjectUID string, lfxV2FormationServiceGetFormationActivityVersion string, lfxV2FormationServiceGetFormationActivityCursor string, lfxV2FormationServiceGetFormationActivityLimit string, lfxV2FormationServiceGetFormationActivityBearerToken string) (*lfxv2formationservice.GetFormationActivityPayload, error) {
+func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityProjectUID string, lfxV2FormationServiceGetFormationActivityVersion string, lfxV2FormationServiceGetFormationActivityCursor string, lfxV2FormationServiceGetFormationActivityItemUID string, lfxV2FormationServiceGetFormationActivityLimit string, lfxV2FormationServiceGetFormationActivityBearerToken string) (*lfxv2formationservice.GetFormationActivityPayload, error) {
 	var err error
 	var projectUID string
 	{
@@ -72,6 +72,16 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 	{
 		if lfxV2FormationServiceGetFormationActivityCursor != "" {
 			cursor = &lfxV2FormationServiceGetFormationActivityCursor
+		}
+	}
+	var itemUID *string
+	{
+		if lfxV2FormationServiceGetFormationActivityItemUID != "" {
+			itemUID = &lfxV2FormationServiceGetFormationActivityItemUID
+			err = goa.MergeErrors(err, goa.ValidateFormat("item_uid", *itemUID, goa.FormatUUID))
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	var limit int
@@ -104,6 +114,7 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 	v.ProjectUID = projectUID
 	v.Version = version
 	v.Cursor = cursor
+	v.ItemUID = itemUID
 	v.Limit = limit
 	v.BearerToken = bearerToken
 
@@ -118,7 +129,7 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Consequatur et earum et nam.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusantium minima dolorum asperiores.\",\n      \"skip_reason\": \"Cum tempore quia autem vel labore magnam.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Aut et sit velit.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Ab nemo.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"At id labore ducimus perspiciatis sed.\",\n      \"skip_reason\": \"Ipsam id cum qui odit quidem dolor.\",\n      \"status\": \"in_progress\",\n      \"sub_items\": [\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }'")
 		}
 		if body.Status != nil {
 			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
@@ -202,7 +213,7 @@ func BuildAcceptItemPayload(lfxV2FormationServiceAcceptItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceAcceptItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Cum qui.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Et temporibus laborum.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -256,7 +267,7 @@ func BuildRejectItemPayload(lfxV2FormationServiceRejectItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceRejectItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"yuu\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"w1\"\n   }'")
 		}
 		if utf8.RuneCountInString(body.Note) < 1 {
 			err = goa.MergeErrors(err, goa.InvalidLengthError("body.note", body.Note, utf8.RuneCountInString(body.Note), 1, true))
@@ -316,7 +327,7 @@ func BuildReopenItemPayload(lfxV2FormationServiceReopenItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceReopenItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Laboriosam vel ut ad quibusdam.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Minima doloremque molestiae aut adipisci.\"\n   }'")
 		}
 	}
 	var projectUID string
