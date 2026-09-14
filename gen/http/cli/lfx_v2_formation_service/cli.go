@@ -227,7 +227,7 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, "COMMAND:")
 	fmt.Fprintln(os.Stderr, `    get-formation: Return the whole checklist for a project in one response — sections, items, progress and readiness. Items are never fetched individually.`)
 	fmt.Fprintln(os.Stderr, `    get-formation-activity: Return the formation's activity feed, newest first, with ULID cursor paging. The feed covers checklist changes only — status changes, assignment, notes, links, skip reasons and template work. Permission changes never appear here: nothing keeps a history of them, since each save overwrites the previous state.`)
-	fmt.Fprintln(os.Stderr, `    update-item: Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
+	fmt.Fprintln(os.Stderr, `    update-item: Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag, so consecutive writes need no re-read. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
 	fmt.Fprintln(os.Stderr, `    accept-item: Accept an item's completion claim, moving awaiting_acceptance to done. Restricted to the formation team at the gateway, and refused by the service when the caller is the item's own assignee. If-Match is required.`)
 	fmt.Fprintln(os.Stderr, `    reject-item: Reject an item's completion claim, returning it to in_progress with a note the assignee can read. The note is required: a rejection with no reason leaves the assignee nothing to act on. Restricted to the formation team at the gateway.`)
 	fmt.Fprintln(os.Stderr, `    reopen-item: Reopen a done item, returning it to in_progress. Behind the same guard as acceptance rather than the ordinary write guard: reopening is the reversal of an acceptance, and a weaker check here would make the acceptance control bypassable from the other side. Reopening a gating item withdraws readiness.`)
@@ -298,7 +298,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	// Description
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, `Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
+	fmt.Fprintln(os.Stderr, `Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag, so consecutive writes need no re-read. This route also carries the assignee's own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route's writer guard and a Heimdall rule cannot express that on a shared route.`)
 
 	// Flags list
 	fmt.Fprintln(os.Stderr, `    -body JSON: `)
@@ -338,7 +338,7 @@ func lfxV2FormationServiceAcceptItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-item --body '{\n      \"note\": \"Temporibus laborum.\"\n   }' --project-uid \"Aliquid dolore ipsam.\" --item-key \"Possimus molestiae sed rem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5812827903502170570")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-item --body '{\n      \"note\": \"Cum qui.\"\n   }' --project-uid \"Quidem dolor molestiae consequuntur.\" --item-key \"Autem voluptatem dolor ut sed.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6719366625049131614")
 }
 
 func lfxV2FormationServiceRejectItemUsage() {
@@ -366,7 +366,7 @@ func lfxV2FormationServiceRejectItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reject-item --body '{\n      \"note\": \"4\"\n   }' --project-uid \"Tenetur et repellat sequi vel incidunt perferendis.\" --item-key \"Magni commodi.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 859709540658951365")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reject-item --body '{\n      \"note\": \"yuu\"\n   }' --project-uid \"Illum doloribus aut eligendi dolore non.\" --item-key \"Deleniti a praesentium porro esse.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6312734960171893981")
 }
 
 func lfxV2FormationServiceReopenItemUsage() {
@@ -394,7 +394,7 @@ func lfxV2FormationServiceReopenItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reopen-item --body '{\n      \"note\": \"Hic quaerat labore qui.\"\n   }' --project-uid \"Quia officiis perspiciatis.\" --item-key \"Ex iusto ut at tempore.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8404755036982492659")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service reopen-item --body '{\n      \"note\": \"Laboriosam vel ut ad quibusdam.\"\n   }' --project-uid \"Enim maxime ullam iure voluptatum ad.\" --item-key \"Ipsa nesciunt dolor magnam.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2595153672639640544")
 }
 
 func lfxV2FormationServiceLivezUsage() {

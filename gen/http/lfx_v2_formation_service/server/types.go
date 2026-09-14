@@ -80,159 +80,19 @@ type GetFormationActivityResponseBody struct {
 
 // UpdateItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "update_item" endpoint HTTP response body.
-type UpdateItemResponseBody struct {
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
-	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
-	Position   int     `form:"position" json:"position" xml:"position"`
-	Title      string  `form:"title" json:"title" xml:"title"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
-	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
-	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status string `form:"status" json:"status" xml:"status"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version int64 `form:"version" json:"version" xml:"version"`
-}
+type UpdateItemResponseBody FormationItemResponseBody
 
 // AcceptItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "accept_item" endpoint HTTP response body.
-type AcceptItemResponseBody struct {
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
-	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
-	Position   int     `form:"position" json:"position" xml:"position"`
-	Title      string  `form:"title" json:"title" xml:"title"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
-	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
-	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status string `form:"status" json:"status" xml:"status"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version int64 `form:"version" json:"version" xml:"version"`
-}
+type AcceptItemResponseBody FormationItemResponseBody
 
 // RejectItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "reject_item" endpoint HTTP response body.
-type RejectItemResponseBody struct {
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
-	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
-	Position   int     `form:"position" json:"position" xml:"position"`
-	Title      string  `form:"title" json:"title" xml:"title"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
-	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
-	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status string `form:"status" json:"status" xml:"status"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version int64 `form:"version" json:"version" xml:"version"`
-}
+type RejectItemResponseBody FormationItemResponseBody
 
 // ReopenItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "reopen_item" endpoint HTTP response body.
-type ReopenItemResponseBody struct {
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    string  `form:"item_key" json:"item_key" xml:"item_key"`
-	SectionKey string  `form:"section_key" json:"section_key" xml:"section_key"`
-	Position   int     `form:"position" json:"position" xml:"position"`
-	Title      string  `form:"title" json:"title" xml:"title"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           bool   `form:"gate" json:"gate" xml:"gate"`
-	RequiresWriter bool   `form:"requires_writer" json:"requires_writer" xml:"requires_writer"`
-	StatusSource   string `form:"status_source" json:"status_source" xml:"status_source"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired bool `form:"is_required" json:"is_required" xml:"is_required"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType string                              `form:"checklist_type" json:"checklist_type" xml:"checklist_type"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status string `form:"status" json:"status" xml:"status"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version int64 `form:"version" json:"version" xml:"version"`
-}
+type ReopenItemResponseBody FormationItemResponseBody
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -720,37 +580,37 @@ func NewGetFormationActivityResponseBody(res *lfxv2formationserviceviews.Formati
 
 // NewUpdateItemResponseBody builds the HTTP response body from the result of
 // the "update_item" endpoint of the "lfx_v2_formation_service" service.
-func NewUpdateItemResponseBody(res *lfxv2formationservice.FormationItem) *UpdateItemResponseBody {
+func NewUpdateItemResponseBody(res *lfxv2formationservice.UpdateItemResult) *UpdateItemResponseBody {
 	body := &UpdateItemResponseBody{
-		UID:            res.UID,
-		ItemKey:        res.ItemKey,
-		SectionKey:     res.SectionKey,
-		Position:       res.Position,
-		Title:          res.Title,
-		OwnerTeam:      res.OwnerTeam,
-		Gate:           res.Gate,
-		RequiresWriter: res.RequiresWriter,
-		StatusSource:   res.StatusSource,
-		IsRequired:     res.IsRequired,
-		ChecklistType:  res.ChecklistType,
-		ActionLink:     res.ActionLink,
-		EvidenceLink:   res.EvidenceLink,
-		Status:         res.Status,
-		Assignee:       res.Assignee,
-		DueDate:        res.DueDate,
-		Note:           res.Note,
-		SkipReason:     res.SkipReason,
-		Version:        res.Version,
+		UID:            res.Item.UID,
+		ItemKey:        res.Item.ItemKey,
+		SectionKey:     res.Item.SectionKey,
+		Position:       res.Item.Position,
+		Title:          res.Item.Title,
+		OwnerTeam:      res.Item.OwnerTeam,
+		Gate:           res.Item.Gate,
+		RequiresWriter: res.Item.RequiresWriter,
+		StatusSource:   res.Item.StatusSource,
+		IsRequired:     res.Item.IsRequired,
+		ChecklistType:  res.Item.ChecklistType,
+		ActionLink:     res.Item.ActionLink,
+		EvidenceLink:   res.Item.EvidenceLink,
+		Status:         res.Item.Status,
+		Assignee:       res.Item.Assignee,
+		DueDate:        res.Item.DueDate,
+		Note:           res.Item.Note,
+		SkipReason:     res.Item.SkipReason,
+		Version:        res.Item.Version,
 	}
-	if res.PlatformCheck != nil {
-		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	if res.Item.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.Item.PlatformCheck)
 	}
-	if res.ResolvedRef != nil {
-		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	if res.Item.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.Item.ResolvedRef)
 	}
-	if res.SubItems != nil {
-		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
-		for i, val := range res.SubItems {
+	if res.Item.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.Item.SubItems))
+		for i, val := range res.Item.SubItems {
 			if val == nil {
 				body.SubItems[i] = nil
 				continue
@@ -763,37 +623,37 @@ func NewUpdateItemResponseBody(res *lfxv2formationservice.FormationItem) *Update
 
 // NewAcceptItemResponseBody builds the HTTP response body from the result of
 // the "accept_item" endpoint of the "lfx_v2_formation_service" service.
-func NewAcceptItemResponseBody(res *lfxv2formationservice.FormationItem) *AcceptItemResponseBody {
+func NewAcceptItemResponseBody(res *lfxv2formationservice.AcceptItemResult) *AcceptItemResponseBody {
 	body := &AcceptItemResponseBody{
-		UID:            res.UID,
-		ItemKey:        res.ItemKey,
-		SectionKey:     res.SectionKey,
-		Position:       res.Position,
-		Title:          res.Title,
-		OwnerTeam:      res.OwnerTeam,
-		Gate:           res.Gate,
-		RequiresWriter: res.RequiresWriter,
-		StatusSource:   res.StatusSource,
-		IsRequired:     res.IsRequired,
-		ChecklistType:  res.ChecklistType,
-		ActionLink:     res.ActionLink,
-		EvidenceLink:   res.EvidenceLink,
-		Status:         res.Status,
-		Assignee:       res.Assignee,
-		DueDate:        res.DueDate,
-		Note:           res.Note,
-		SkipReason:     res.SkipReason,
-		Version:        res.Version,
+		UID:            res.Item.UID,
+		ItemKey:        res.Item.ItemKey,
+		SectionKey:     res.Item.SectionKey,
+		Position:       res.Item.Position,
+		Title:          res.Item.Title,
+		OwnerTeam:      res.Item.OwnerTeam,
+		Gate:           res.Item.Gate,
+		RequiresWriter: res.Item.RequiresWriter,
+		StatusSource:   res.Item.StatusSource,
+		IsRequired:     res.Item.IsRequired,
+		ChecklistType:  res.Item.ChecklistType,
+		ActionLink:     res.Item.ActionLink,
+		EvidenceLink:   res.Item.EvidenceLink,
+		Status:         res.Item.Status,
+		Assignee:       res.Item.Assignee,
+		DueDate:        res.Item.DueDate,
+		Note:           res.Item.Note,
+		SkipReason:     res.Item.SkipReason,
+		Version:        res.Item.Version,
 	}
-	if res.PlatformCheck != nil {
-		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	if res.Item.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.Item.PlatformCheck)
 	}
-	if res.ResolvedRef != nil {
-		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	if res.Item.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.Item.ResolvedRef)
 	}
-	if res.SubItems != nil {
-		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
-		for i, val := range res.SubItems {
+	if res.Item.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.Item.SubItems))
+		for i, val := range res.Item.SubItems {
 			if val == nil {
 				body.SubItems[i] = nil
 				continue
@@ -806,37 +666,37 @@ func NewAcceptItemResponseBody(res *lfxv2formationservice.FormationItem) *Accept
 
 // NewRejectItemResponseBody builds the HTTP response body from the result of
 // the "reject_item" endpoint of the "lfx_v2_formation_service" service.
-func NewRejectItemResponseBody(res *lfxv2formationservice.FormationItem) *RejectItemResponseBody {
+func NewRejectItemResponseBody(res *lfxv2formationservice.RejectItemResult) *RejectItemResponseBody {
 	body := &RejectItemResponseBody{
-		UID:            res.UID,
-		ItemKey:        res.ItemKey,
-		SectionKey:     res.SectionKey,
-		Position:       res.Position,
-		Title:          res.Title,
-		OwnerTeam:      res.OwnerTeam,
-		Gate:           res.Gate,
-		RequiresWriter: res.RequiresWriter,
-		StatusSource:   res.StatusSource,
-		IsRequired:     res.IsRequired,
-		ChecklistType:  res.ChecklistType,
-		ActionLink:     res.ActionLink,
-		EvidenceLink:   res.EvidenceLink,
-		Status:         res.Status,
-		Assignee:       res.Assignee,
-		DueDate:        res.DueDate,
-		Note:           res.Note,
-		SkipReason:     res.SkipReason,
-		Version:        res.Version,
+		UID:            res.Item.UID,
+		ItemKey:        res.Item.ItemKey,
+		SectionKey:     res.Item.SectionKey,
+		Position:       res.Item.Position,
+		Title:          res.Item.Title,
+		OwnerTeam:      res.Item.OwnerTeam,
+		Gate:           res.Item.Gate,
+		RequiresWriter: res.Item.RequiresWriter,
+		StatusSource:   res.Item.StatusSource,
+		IsRequired:     res.Item.IsRequired,
+		ChecklistType:  res.Item.ChecklistType,
+		ActionLink:     res.Item.ActionLink,
+		EvidenceLink:   res.Item.EvidenceLink,
+		Status:         res.Item.Status,
+		Assignee:       res.Item.Assignee,
+		DueDate:        res.Item.DueDate,
+		Note:           res.Item.Note,
+		SkipReason:     res.Item.SkipReason,
+		Version:        res.Item.Version,
 	}
-	if res.PlatformCheck != nil {
-		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	if res.Item.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.Item.PlatformCheck)
 	}
-	if res.ResolvedRef != nil {
-		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	if res.Item.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.Item.ResolvedRef)
 	}
-	if res.SubItems != nil {
-		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
-		for i, val := range res.SubItems {
+	if res.Item.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.Item.SubItems))
+		for i, val := range res.Item.SubItems {
 			if val == nil {
 				body.SubItems[i] = nil
 				continue
@@ -849,37 +709,37 @@ func NewRejectItemResponseBody(res *lfxv2formationservice.FormationItem) *Reject
 
 // NewReopenItemResponseBody builds the HTTP response body from the result of
 // the "reopen_item" endpoint of the "lfx_v2_formation_service" service.
-func NewReopenItemResponseBody(res *lfxv2formationservice.FormationItem) *ReopenItemResponseBody {
+func NewReopenItemResponseBody(res *lfxv2formationservice.ReopenItemResult) *ReopenItemResponseBody {
 	body := &ReopenItemResponseBody{
-		UID:            res.UID,
-		ItemKey:        res.ItemKey,
-		SectionKey:     res.SectionKey,
-		Position:       res.Position,
-		Title:          res.Title,
-		OwnerTeam:      res.OwnerTeam,
-		Gate:           res.Gate,
-		RequiresWriter: res.RequiresWriter,
-		StatusSource:   res.StatusSource,
-		IsRequired:     res.IsRequired,
-		ChecklistType:  res.ChecklistType,
-		ActionLink:     res.ActionLink,
-		EvidenceLink:   res.EvidenceLink,
-		Status:         res.Status,
-		Assignee:       res.Assignee,
-		DueDate:        res.DueDate,
-		Note:           res.Note,
-		SkipReason:     res.SkipReason,
-		Version:        res.Version,
+		UID:            res.Item.UID,
+		ItemKey:        res.Item.ItemKey,
+		SectionKey:     res.Item.SectionKey,
+		Position:       res.Item.Position,
+		Title:          res.Item.Title,
+		OwnerTeam:      res.Item.OwnerTeam,
+		Gate:           res.Item.Gate,
+		RequiresWriter: res.Item.RequiresWriter,
+		StatusSource:   res.Item.StatusSource,
+		IsRequired:     res.Item.IsRequired,
+		ChecklistType:  res.Item.ChecklistType,
+		ActionLink:     res.Item.ActionLink,
+		EvidenceLink:   res.Item.EvidenceLink,
+		Status:         res.Item.Status,
+		Assignee:       res.Item.Assignee,
+		DueDate:        res.Item.DueDate,
+		Note:           res.Item.Note,
+		SkipReason:     res.Item.SkipReason,
+		Version:        res.Item.Version,
 	}
-	if res.PlatformCheck != nil {
-		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.PlatformCheck)
+	if res.Item.PlatformCheck != nil {
+		body.PlatformCheck = marshalLfxv2formationserviceFormationPlatformCheckToFormationPlatformCheckResponseBody(res.Item.PlatformCheck)
 	}
-	if res.ResolvedRef != nil {
-		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.ResolvedRef)
+	if res.Item.ResolvedRef != nil {
+		body.ResolvedRef = marshalLfxv2formationserviceFormationResolvedRefToFormationResolvedRefResponseBody(res.Item.ResolvedRef)
 	}
-	if res.SubItems != nil {
-		body.SubItems = make([]*FormationSubItemResponseBody, len(res.SubItems))
-		for i, val := range res.SubItems {
+	if res.Item.SubItems != nil {
+		body.SubItems = make([]*FormationSubItemResponseBody, len(res.Item.SubItems))
+		for i, val := range res.Item.SubItems {
 			if val == nil {
 				body.SubItems[i] = nil
 				continue

@@ -371,7 +371,14 @@ func DecodeUpdateItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 			if err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_item", err)
 			}
-			res := NewUpdateItemFormationItemOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			res := NewUpdateItemResultOK(&body, etag)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -548,7 +555,14 @@ func DecodeAcceptItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 			if err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_item", err)
 			}
-			res := NewAcceptItemFormationItemOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			res := NewAcceptItemResultOK(&body, etag)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -725,7 +739,14 @@ func DecodeRejectItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 			if err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reject_item", err)
 			}
-			res := NewRejectItemFormationItemOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			res := NewRejectItemResultOK(&body, etag)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -902,7 +923,14 @@ func DecodeReopenItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 			if err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "reopen_item", err)
 			}
-			res := NewReopenItemFormationItemOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			res := NewReopenItemResultOK(&body, etag)
 			return res, nil
 		case http.StatusNotFound:
 			var (

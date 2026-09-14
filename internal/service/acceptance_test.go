@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,27 +33,132 @@ func asPrincipal(username string) context.Context {
 func claim(t *testing.T, s *Service, item *model.Item, assignee string) *svc.FormationItem {
 	t.Helper()
 
-	assigned, err := s.UpdateItem(asPrincipal(assignee), &svc.UpdateItemPayload{
+	assigned, err := updateItem(s, asPrincipal(assignee), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey,
 		IfMatch: item.Revision, Assignee: &assignee,
 	})
 	require.NoError(t, err)
 
 	inProgress := string(model.StatusInProgress)
-	moved, err := s.UpdateItem(asPrincipal(assignee), &svc.UpdateItemPayload{
+	moved, err := updateItem(s, asPrincipal(assignee), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey,
 		IfMatch: assigned.Version, Status: &inProgress,
 	})
 	require.NoError(t, err)
 
 	awaiting := string(model.StatusAwaitingAcceptance)
-	claimed, err := s.UpdateItem(asPrincipal(assignee), &svc.UpdateItemPayload{
+	claimed, err := updateItem(s, asPrincipal(assignee), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey,
 		IfMatch: moved.Version, Status: &awaiting,
 	})
 	require.NoError(t, err)
 	require.Equal(t, string(model.StatusAwaitingAcceptance), claimed.Status)
 	return claimed
+}
+
+// The four item-mutation routes return a Goa result wrapping the row next to
+// its ETag header value. These unwrap it, so a test that asserts on the row
+// reads the row rather than repeating the unwrap at every call site. A test
+// that cares about the ETag itself calls the method directly.
+func updateItem(s *Service, ctx context.Context, p *svc.UpdateItemPayload) (*svc.FormationItem, error) {
+	res, err := s.UpdateItem(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return res.Item, nil
+}
+
+func acceptItem(s *Service, ctx context.Context, p *svc.AcceptItemPayload) (*svc.FormationItem, error) {
+	res, err := s.AcceptItem(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return res.Item, nil
+}
+
+func rejectItem(s *Service, ctx context.Context, p *svc.RejectItemPayload) (*svc.FormationItem, error) {
+	res, err := s.RejectItem(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return res.Item, nil
+}
+
+func reopenItem(s *Service, ctx context.Context, p *svc.ReopenItemPayload) (*svc.FormationItem, error) {
+	res, err := s.ReopenItem(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return res.Item, nil
+}
+
+// Each route builds its own result type, three of them near-identical, so a
+// slip in one — the wrong item, or no ETag at all — would otherwise only show
+// up against a real client. These call the methods directly rather than the
+// unwrapping helpers, since the wrapper is the thing under test.
+func TestEveryMutationRouteReturnsTheNewVersionAsItsETag(t *testing.T) {
+	assertETag := func(t *testing.T, etag *string, item *svc.FormationItem) {
+		t.Helper()
+		require.NotNil(t, etag, "a mutation must hand back the token for the next write")
+		assert.Equal(t, strconv.FormatInt(item.Version, 10), *etag)
+		parsed, err := strconv.ParseInt(*etag, 10, 64)
+		require.NoError(t, err, "the ETag must parse as the Int64 that If-Match demands")
+		assert.Equal(t, item.Version, parsed)
+	}
+
+	t.Run("update_item", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		inProgress := string(model.StatusInProgress)
+
+		res, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
+			IfMatch: itemOne.Revision, Status: &inProgress,
+		})
+
+		require.NoError(t, err)
+		assertETag(t, res.Etag, res.Item)
+	})
+
+	t.Run("accept_item", func(t *testing.T) {
+		s, _, itemOne, _ := newItemMutatorTestService(t)
+		claimed := claim(t, s, itemOne, "assignee-one")
+
+		res, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+			ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
+		})
+
+		require.NoError(t, err)
+		assertETag(t, res.Etag, res.Item)
+	})
+
+	t.Run("reject_item", func(t *testing.T) {
+		s, _, itemOne, _ := newItemMutatorTestService(t)
+		claimed := claim(t, s, itemOne, "assignee-one")
+
+		res, err := s.RejectItem(asPrincipal("reviewer-one"), &svc.RejectItemPayload{
+			ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
+			Note: "needs a signed copy attached",
+		})
+
+		require.NoError(t, err)
+		assertETag(t, res.Etag, res.Item)
+	})
+
+	t.Run("reopen_item", func(t *testing.T) {
+		s, _, itemOne, _ := newItemMutatorTestService(t)
+		claimed := claim(t, s, itemOne, "assignee-one")
+		accepted, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+			ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
+		})
+		require.NoError(t, err)
+
+		res, err := s.ReopenItem(asPrincipal("reviewer-one"), &svc.ReopenItemPayload{
+			ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: accepted.Version,
+		})
+
+		require.NoError(t, err)
+		assertETag(t, res.Etag, res.Item)
+	})
 }
 
 // formationError unwraps the declared error so a test can assert on the
@@ -82,7 +188,7 @@ func TestAClaimDoesNotReachDoneAndDoesNotSatisfyAGate(t *testing.T) {
 	// A PATCH straight to done must stay unreachable, or acceptance's guard is
 	// bypassable by not using the accept route.
 	done := string(model.StatusDone)
-	_, err = s.UpdateItem(asPrincipal("assignee-one"), &svc.UpdateItemPayload{
+	_, err = updateItem(s, asPrincipal("assignee-one"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: claimed.Version, Status: &done,
 	})
@@ -106,14 +212,14 @@ func TestTheClaimantIsFoundBehindAFeedFullOfOtherItems(t *testing.T) {
 	// the claimant lookup is what has to hold. That is also the only case the
 	// truncated read could reach.
 	inProgress := string(model.StatusInProgress)
-	moved, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	moved, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: itemOne.Revision, Status: &inProgress,
 	})
 	require.NoError(t, err)
 
 	awaiting := string(model.StatusAwaitingAcceptance)
-	claimed, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	claimed, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: moved.Version, Status: &awaiting,
 	})
@@ -124,7 +230,7 @@ func TestTheClaimantIsFoundBehindAFeedFullOfOtherItems(t *testing.T) {
 	current := itemTwo.Revision
 	for i := range 140 {
 		note := "working" + string(rune('a'+i%26))
-		updated, updateErr := s.UpdateItem(asPrincipal("assignee-two"), &svc.UpdateItemPayload{
+		updated, updateErr := updateItem(s, asPrincipal("assignee-two"), &svc.UpdateItemPayload{
 			ProjectUID: "project-1", ItemKey: itemTwo.ItemKey,
 			IfMatch: current, Note: &note,
 		})
@@ -132,7 +238,7 @@ func TestTheClaimantIsFoundBehindAFeedFullOfOtherItems(t *testing.T) {
 		current = updated.Version
 	}
 
-	_, err = s.AcceptItem(asPrincipal("one-person"), &svc.AcceptItemPayload{
+	_, err = acceptItem(s, asPrincipal("one-person"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	fe := formationError(t, err)
@@ -151,7 +257,7 @@ func TestAcceptingAfterARejectionClearsTheRejectionReason(t *testing.T) {
 	s, formation, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	rejected, err := s.RejectItem(asPrincipal("reviewer-one"), &svc.RejectItemPayload{
+	rejected, err := rejectItem(s, asPrincipal("reviewer-one"), &svc.RejectItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: claimed.Version, Note: "the charter is missing an appendix",
 	})
@@ -159,13 +265,13 @@ func TestAcceptingAfterARejectionClearsTheRejectionReason(t *testing.T) {
 	require.Equal(t, string(model.StatusInProgress), rejected.Status)
 
 	reclaimed := string(model.StatusAwaitingAcceptance)
-	again, err := s.UpdateItem(asPrincipal("assignee-one"), &svc.UpdateItemPayload{
+	again, err := updateItem(s, asPrincipal("assignee-one"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: rejected.Version, Status: &reclaimed,
 	})
 	require.NoError(t, err)
 
-	accepted, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: again.Version,
 	})
 	require.NoError(t, err)
@@ -181,7 +287,7 @@ func TestAcceptanceMovesTheItemToDone(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	accepted, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	require.NoError(t, err)
@@ -194,7 +300,7 @@ func TestAnAssigneeCannotAcceptTheirOwnItem(t *testing.T) {
 	s, formation, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	_, err := s.AcceptItem(asPrincipal("assignee-one"), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, asPrincipal("assignee-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	fe := formationError(t, err)
@@ -225,14 +331,14 @@ func TestOnePersonCannotClaimAndAcceptAnUnassignedItem(t *testing.T) {
 
 	// Claimed with no assignee ever set.
 	inProgress := string(model.StatusInProgress)
-	moved, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	moved, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: itemOne.Revision, Status: &inProgress,
 	})
 	require.NoError(t, err)
 
 	awaiting := string(model.StatusAwaitingAcceptance)
-	claimed, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	claimed, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: moved.Version, Status: &awaiting,
 	})
@@ -242,7 +348,7 @@ func TestOnePersonCannotClaimAndAcceptAnUnassignedItem(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, stored.Assignee, "the fixture must leave the item unassigned for this to test anything")
 
-	_, err = s.AcceptItem(asPrincipal("one-person"), &svc.AcceptItemPayload{
+	_, err = acceptItem(s, asPrincipal("one-person"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	fe := formationError(t, err)
@@ -251,7 +357,7 @@ func TestOnePersonCannotClaimAndAcceptAnUnassignedItem(t *testing.T) {
 
 	// A different person accepting it is fine, which is the point: the guard
 	// refuses the claimant, not everyone.
-	accepted, err := s.AcceptItem(asPrincipal("someone-else"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("someone-else"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	require.NoError(t, err)
@@ -273,14 +379,14 @@ func TestANoteEditByAnotherPersonIsNotMistakenForTheClaim(t *testing.T) {
 	// Unassigned, so the claimant comparison is the only thing standing between
 	// one person and their own acceptance.
 	inProgress := string(model.StatusInProgress)
-	moved, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	moved, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: itemOne.Revision, Status: &inProgress,
 	})
 	require.NoError(t, err)
 
 	awaiting := string(model.StatusAwaitingAcceptance)
-	claimed, err := s.UpdateItem(asPrincipal("one-person"), &svc.UpdateItemPayload{
+	claimed, err := updateItem(s, asPrincipal("one-person"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: moved.Version, Status: &awaiting,
 	})
@@ -288,14 +394,14 @@ func TestANoteEditByAnotherPersonIsNotMistakenForTheClaim(t *testing.T) {
 
 	// Somebody else adds a note while the item waits. The status does not move.
 	note := "the appendix is with legal"
-	edited, err := s.UpdateItem(asPrincipal("someone-else"), &svc.UpdateItemPayload{
+	edited, err := updateItem(s, asPrincipal("someone-else"), &svc.UpdateItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey,
 		IfMatch: claimed.Version, Note: &note,
 	})
 	require.NoError(t, err)
 	require.Equal(t, string(model.StatusAwaitingAcceptance), edited.Status)
 
-	_, err = s.AcceptItem(asPrincipal("one-person"), &svc.AcceptItemPayload{
+	_, err = acceptItem(s, asPrincipal("one-person"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: edited.Version,
 	})
 	fe := formationError(t, err)
@@ -303,7 +409,7 @@ func TestANoteEditByAnotherPersonIsNotMistakenForTheClaim(t *testing.T) {
 		"a note edit displaced the claim, so the claimant accepted their own item")
 
 	// The person who wrote the note did not make the claim, so they may accept.
-	accepted, err := s.AcceptItem(asPrincipal("someone-else"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("someone-else"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: edited.Version,
 	})
 	require.NoError(t, err)
@@ -316,7 +422,7 @@ func TestTheClaimAndTheAcceptanceAreSeparateEntriesNamingDifferentActors(t *test
 	s, formation, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	_, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	require.NoError(t, err)
@@ -347,7 +453,7 @@ func TestRejectionReturnsTheItemToInProgressWithItsNote(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	rejected, err := s.RejectItem(asPrincipal("reviewer-one"), &svc.RejectItemPayload{
+	rejected, err := rejectItem(s, asPrincipal("reviewer-one"), &svc.RejectItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 		Note: "The charter is missing the trademark clause",
 	})
@@ -365,7 +471,7 @@ func TestRejectionRequiresANoteWithSomethingInIt(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	_, err := s.RejectItem(asPrincipal("reviewer-one"), &svc.RejectItemPayload{
+	_, err := rejectItem(s, asPrincipal("reviewer-one"), &svc.RejectItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 		Note: "   ",
 	})
@@ -379,7 +485,7 @@ func TestAnAssigneeMayRejectTheirOwnClaim(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	rejected, err := s.RejectItem(asPrincipal("assignee-one"), &svc.RejectItemPayload{
+	rejected, err := rejectItem(s, asPrincipal("assignee-one"), &svc.RejectItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 		Note: "Withdrawing this — not finished after all",
 	})
@@ -391,12 +497,12 @@ func TestReopeningADoneItemReturnsItToInProgress(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	accepted, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	require.NoError(t, err)
 
-	reopened, err := s.ReopenItem(asPrincipal("reviewer-one"), &svc.ReopenItemPayload{
+	reopened, err := reopenItem(s, asPrincipal("reviewer-one"), &svc.ReopenItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: accepted.Version,
 	})
 	require.NoError(t, err)
@@ -410,12 +516,12 @@ func TestAnAssigneeCannotReopenTheirOwnItem(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	accepted, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	accepted, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	require.NoError(t, err)
 
-	_, err = s.ReopenItem(asPrincipal("assignee-one"), &svc.ReopenItemPayload{
+	_, err = reopenItem(s, asPrincipal("assignee-one"), &svc.ReopenItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: accepted.Version,
 	})
 	fe := formationError(t, err)
@@ -427,7 +533,7 @@ func TestAnAssigneeCannotReopenTheirOwnItem(t *testing.T) {
 func TestAcceptingAnItemThatIsNotAwaitingAcceptanceIsRefused(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 
-	_, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
 	})
 	fe := formationError(t, err)
@@ -438,7 +544,7 @@ func TestAcceptingAnItemThatIsNotAwaitingAcceptanceIsRefused(t *testing.T) {
 func TestReopeningAnItemThatIsNotDoneIsRefused(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 
-	_, err := s.ReopenItem(asPrincipal("reviewer-one"), &svc.ReopenItemPayload{
+	_, err := reopenItem(s, asPrincipal("reviewer-one"), &svc.ReopenItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
 	})
 	fe := formationError(t, err)
@@ -452,7 +558,7 @@ func TestAStalePreconditionIsRefusedBeforeTheItemsState(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	_, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version - 1,
 	})
 	fe := formationError(t, err)
@@ -466,7 +572,7 @@ func TestAnAcceptanceWithNoCallerIdentityIsRefused(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 	claimed := claim(t, s, itemOne, "assignee-one")
 
-	_, err := s.AcceptItem(context.Background(), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, context.Background(), &svc.AcceptItemPayload{
 		ProjectUID: "project-1", ItemKey: itemOne.ItemKey, IfMatch: claimed.Version,
 	})
 	fe := formationError(t, err)
@@ -476,7 +582,7 @@ func TestAnAcceptanceWithNoCallerIdentityIsRefused(t *testing.T) {
 func TestAcceptanceOnAMissingChecklistIsNotFound(t *testing.T) {
 	s, _, itemOne, _ := newItemMutatorTestService(t)
 
-	_, err := s.AcceptItem(asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
+	_, err := acceptItem(s, asPrincipal("reviewer-one"), &svc.AcceptItemPayload{
 		ProjectUID: "no-such-project", ItemKey: itemOne.ItemKey, IfMatch: 1,
 	})
 	fe := formationError(t, err)

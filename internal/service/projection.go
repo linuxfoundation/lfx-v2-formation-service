@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sort"
 
@@ -20,9 +21,10 @@ import (
 // design rather than a simplification. A projection published only on change has
 // to be repaired when a publish is lost, which means either a tool nobody runs
 // or a backfill nobody remembers; republishing every checklist on every sweep
-// makes the repair path and the ordinary path the same code. The cost is a write
-// per checklist per tick for checklists that did not change, against an index
-// that is small — one document per project being formed.
+// makes the repair path and the ordinary path the same code. The cost is one
+// checklist write plus one item write per item per tick for checklists that did
+// not change — not the single document per project this cost the sweep before
+// item documents existed.
 type Projector struct {
 	formations port.FormationRepository
 	items      port.ItemRepository
@@ -78,6 +80,29 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 		formation, items, project, name, announcementDate,
 	)); err != nil {
 		return false, err
+	}
+
+	// One item document per item, alongside the checklist document above, in
+	// a single batch so a checklist of N items costs one flush rather than N.
+	// Best-effort like the checklist publish: a failed item is repaired by
+	// the next sweep, and must not fail the checklist publish that already
+	// succeeded or the projects after this one in the sweep.
+	//
+	// A total failure is returned as an error rather than as a false, even
+	// though the checklist document itself landed. The caller reads an error
+	// as a failed projection and a false as a project holding no checklist
+	// to publish, so a false here would leave a stale index counted as
+	// neither. Returning it stays non-fatal to the sweep: the caller logs,
+	// counts, and moves on to the next project.
+	//
+	// project and name are already resolved above for the checklist
+	// document; reusing them here costs nothing further, no second project
+	// lookup.
+	itemDocs := buildItemProjections(formation, items, project, name)
+	if len(itemDocs) > 0 {
+		if err := p.publisher.PublishItems(ctx, itemDocs); err != nil {
+			return false, fmt.Errorf("publishing this checklist's item rows: %w", err)
+		}
 	}
 	return true, nil
 }
@@ -226,6 +251,68 @@ func blockedItemTitles(items []*model.Item) []string {
 	}
 	sort.Strings(titles)
 	return titles
+}
+
+// buildItemProjections turns a checklist's items into the per-item documents
+// the Pending Actions query reads, one per item.
+//
+// project and projectName are the same two arguments buildProjection takes for
+// the same reason: project.Slug is a list-reply fact, projectName is the one
+// extra resolved fact the list reply does not carry (see projectFacts) — so
+// this mirrors that signature rather than inventing its own shape for the
+// same two facts.
+//
+// AccessRelation is set to formationAccessRelation for every item, explicitly
+// and unconditionally — never viewer, regardless of the item's own status,
+// gate, or any other content — matching the checklist projection's own
+// relation exactly: an item is indexed the same way the checklist is.
+func buildItemProjections(
+	formation *model.Formation,
+	items []*model.Item,
+	project port.ProjectRef,
+	projectName string,
+) []*port.ItemProjection {
+	out := make([]*port.ItemProjection, 0, len(items))
+	for _, item := range items {
+		var dueDate string
+		if item.DueDate != nil {
+			// Matches checklist_reader.go's own wire conversion, so the same
+			// date reads identically on the checklist response and in this
+			// index.
+			dueDate = item.DueDate.Format(dueDateLayout)
+		}
+
+		subItems := make([]port.ItemProjectionSubItem, 0, len(item.SubItems))
+		for _, s := range item.SubItems {
+			subItems = append(subItems, port.ItemProjectionSubItem{
+				Key:    s.Key,
+				Title:  s.Title,
+				Status: string(s.Status),
+			})
+		}
+
+		out = append(out, &port.ItemProjection{
+			ItemUID:        item.UID.String(),
+			FormationUID:   formation.UID.String(),
+			ProjectUID:     formation.ProjectUID,
+			ProjectName:    projectName,
+			ProjectSlug:    project.Slug,
+			Lifecycle:      string(formation.Lifecycle),
+			ItemKey:        item.ItemKey,
+			Title:          item.Title,
+			StatusSource:   string(item.StatusSource),
+			Status:         string(item.Status),
+			Gate:           item.Gate,
+			RequiresWriter: item.RequiresWriter,
+			DueDate:        dueDate,
+			OwnerTeam:      item.OwnerTeam,
+			ActionLink:     item.ActionLink,
+			SubItems:       subItems,
+			Assignee:       item.Assignee,
+			AccessRelation: formationAccessRelation,
+		})
+	}
+	return out
 }
 
 // assigneesOf collects the distinct assignees across the checklist, which is

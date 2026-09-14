@@ -39,6 +39,18 @@ func VersionAttribute() {
 	})
 }
 
+// ETagAttribute carries an item's new version back in the response, so a
+// caller holding the result already holds the If-Match for its next write.
+//
+// Bare digits, not a quoted entity-tag: if_match is an Int64, so a caller
+// echoing a quoted value straight back would be refused at decode time.
+// Matching what the platform's other Goa services emit.
+func ETagAttribute() {
+	dsl.Attribute("etag", dsl.String, "The item's new version. Send as If-Match on the next write.", func() {
+		dsl.Example("8")
+	})
+}
+
 var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Description("LFX V2 Formation Service")
 
@@ -107,7 +119,8 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Method("update_item", func() {
 		dsl.Description("Change one checklist item: status, note, due date, skip reason, evidence link, " +
 			"assignee, or sub-items. Send only the fields being changed. If-Match is required and must " +
-			"equal the item's current version — a stale value means re-read and retry. This route also " +
+			"equal the item's current version — a stale value means re-read and retry. The response " +
+			"returns the new version as ETag, so consecutive writes need no re-read. This route also " +
 			"carries the assignee's own completion claim (status: awaiting_acceptance), but never " +
 			"acceptance, rejection or reopening, which are their own routes because the formation-team " +
 			"guard on those is narrower than this route's writer guard and a Heimdall rule cannot express " +
@@ -147,7 +160,11 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItemUpdate))
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
-		dsl.Result(FormationItem)
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
 		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
 		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
 		dsl.Error("Conflict", FormationError, "The checklist, or this item's current state, refuses the change")
@@ -158,7 +175,10 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK)
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
 			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Conflict", dsl.StatusConflict)
@@ -178,7 +198,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 	//
 	// Each takes If-Match on the item's version, like the PATCH: an acceptance
 	// decided against a status somebody has since changed is exactly the write
-	// that must be refused.
+	// that must be refused. Each returns the new version as ETag, likewise.
 	//
 	// None of them declares a 403. The self-acceptance refusal answers 409 with
 	// reason self_acceptance_forbidden, because 403 is what the gateway returns
@@ -202,7 +222,11 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("note", dsl.String, "Replaces the item's note. Omit to clear it.")
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
-		dsl.Result(FormationItem)
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
 		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
 		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
 		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
@@ -213,7 +237,10 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK)
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
 			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Conflict", dsl.StatusConflict)
@@ -240,7 +267,11 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			})
 			dsl.Required("version", "project_uid", "item_key", "if_match", "note")
 		})
-		dsl.Result(FormationItem)
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
 		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
 		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
 		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
@@ -251,7 +282,10 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK)
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
 			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Conflict", dsl.StatusConflict)
@@ -277,7 +311,11 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("note", dsl.String, "Why it was reopened.")
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
-		dsl.Result(FormationItem)
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
 		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
 		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
 		dsl.Error("Conflict", FormationError, "The item is not done, or the checklist is read-only")
@@ -288,7 +326,10 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK)
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
 			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Conflict", dsl.StatusConflict)

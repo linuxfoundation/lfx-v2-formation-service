@@ -29,26 +29,27 @@ type Service interface {
 	// Change one checklist item: status, note, due date, skip reason, evidence
 	// link, assignee, or sub-items. Send only the fields being changed. If-Match
 	// is required and must equal the item's current version — a stale value means
-	// re-read and retry. This route also carries the assignee's own completion
-	// claim (status: awaiting_acceptance), but never acceptance, rejection or
-	// reopening, which are their own routes because the formation-team guard on
-	// those is narrower than this route's writer guard and a Heimdall rule cannot
-	// express that on a shared route.
-	UpdateItem(context.Context, *UpdateItemPayload) (res *FormationItem, err error)
+	// re-read and retry. The response returns the new version as ETag, so
+	// consecutive writes need no re-read. This route also carries the assignee's
+	// own completion claim (status: awaiting_acceptance), but never acceptance,
+	// rejection or reopening, which are their own routes because the
+	// formation-team guard on those is narrower than this route's writer guard and
+	// a Heimdall rule cannot express that on a shared route.
+	UpdateItem(context.Context, *UpdateItemPayload) (res *UpdateItemResult, err error)
 	// Accept an item's completion claim, moving awaiting_acceptance to done.
 	// Restricted to the formation team at the gateway, and refused by the service
 	// when the caller is the item's own assignee. If-Match is required.
-	AcceptItem(context.Context, *AcceptItemPayload) (res *FormationItem, err error)
+	AcceptItem(context.Context, *AcceptItemPayload) (res *AcceptItemResult, err error)
 	// Reject an item's completion claim, returning it to in_progress with a note
 	// the assignee can read. The note is required: a rejection with no reason
 	// leaves the assignee nothing to act on. Restricted to the formation team at
 	// the gateway.
-	RejectItem(context.Context, *RejectItemPayload) (res *FormationItem, err error)
+	RejectItem(context.Context, *RejectItemPayload) (res *RejectItemResult, err error)
 	// Reopen a done item, returning it to in_progress. Behind the same guard as
 	// acceptance rather than the ordinary write guard: reopening is the reversal
 	// of an acceptance, and a weaker check here would make the acceptance control
 	// bypassable from the other side. Reopening a gating item withdraws readiness.
-	ReopenItem(context.Context, *ReopenItemPayload) (res *FormationItem, err error)
+	ReopenItem(context.Context, *ReopenItemPayload) (res *ReopenItemResult, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -92,6 +93,14 @@ type AcceptItemPayload struct {
 	IfMatch int64
 	// Replaces the item's note. Omit to clear it.
 	Note *string
+}
+
+// AcceptItemResult is the result type of the lfx_v2_formation_service service
+// accept_item method.
+type AcceptItemResult struct {
+	Item *FormationItem
+	// The item's new version. Send as If-Match on the next write.
+	Etag *string
 }
 
 type FormationActivityEntry struct {
@@ -143,8 +152,6 @@ type FormationError struct {
 	Reason string
 }
 
-// FormationItem is the result type of the lfx_v2_formation_service service
-// update_item method.
 type FormationItem struct {
 	UID string
 	// Stable identifier, e.g. charter_agreed. Never changes.
@@ -269,6 +276,14 @@ type RejectItemPayload struct {
 	Note string
 }
 
+// RejectItemResult is the result type of the lfx_v2_formation_service service
+// reject_item method.
+type RejectItemResult struct {
+	Item *FormationItem
+	// The item's new version. Send as If-Match on the next write.
+	Etag *string
+}
+
 // ReopenItemPayload is the payload type of the lfx_v2_formation_service
 // service reopen_item method.
 type ReopenItemPayload struct {
@@ -284,6 +299,14 @@ type ReopenItemPayload struct {
 	IfMatch int64
 	// Why it was reopened.
 	Note *string
+}
+
+// ReopenItemResult is the result type of the lfx_v2_formation_service service
+// reopen_item method.
+type ReopenItemResult struct {
+	Item *FormationItem
+	// The item's new version. Send as If-Match on the next write.
+	Etag *string
 }
 
 type ServiceUnavailableError struct {
@@ -325,6 +348,14 @@ type UpdateItemPayload struct {
 	// Writer-set; feeds Quick Links. http/https only.
 	EvidenceLink *string
 	SubItems     []*FormationSubItemUpdate
+}
+
+// UpdateItemResult is the result type of the lfx_v2_formation_service service
+// update_item method.
+type UpdateItemResult struct {
+	Item *FormationItem
+	// The item's new version. Send as If-Match on the next write.
+	Etag *string
 }
 
 // Error returns an error description.

@@ -91,7 +91,7 @@ func isAllowedItemTransition(from, to model.ItemStatus) bool {
 // most concretely, the activity append after the item write succeeds —
 // leaves neither change committed rather than an item mutation with no
 // audit trail.
-func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*svc.FormationItem, error) {
+func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*svc.UpdateItemResult, error) {
 	if s.uow == nil {
 		// Server misconfiguration, not a client problem: falls through
 		// Goa's default formatter as a 500, same rationale as the
@@ -184,7 +184,8 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 	if txErr != nil {
 		return nil, mapItemMutationError(txErr)
 	}
-	return itemToWire(result), nil
+	item := itemToWire(result)
+	return &svc.UpdateItemResult{Item: item, Etag: itemETag(item)}, nil
 }
 
 // buildItemPatch validates the payload's mutable fields against the item's
