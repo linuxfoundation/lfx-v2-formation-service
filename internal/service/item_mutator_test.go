@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,8 +59,57 @@ func newItemMutatorTestService(t *testing.T) (*Service, *model.Formation, *model
 		WithTemplates(templates),
 		WithActivity(activity),
 		WithUnitOfWork(uow),
+		// Wired for every test, not only the ones asserting on it. A route that
+		// stopped refreshing would otherwise keep passing everywhere the
+		// refresher was left out, which is most places.
+		WithRefresher(&recordingRefresher{}),
 	)
 	return s, formation, itemOne, itemTwo
+}
+
+// recordingRefresher records which projects a write asked to refresh.
+//
+// Synchronous, unlike the real one. What these tests are checking is that the
+// route asks at all and asks once — the asking is the route's behaviour, and
+// what happens afterwards is the refresher's, which has its own tests. Driving
+// the real refresher here would make every route test wait on a goroutine to
+// assert something that has already happened by the time the route returns.
+type recordingRefresher struct {
+	mu       sync.Mutex
+	projects []string
+}
+
+func (r *recordingRefresher) AfterItemWrite(_ context.Context, projectUID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.projects = append(r.projects, projectUID)
+}
+
+func (r *recordingRefresher) asked() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string{}, r.projects...)
+}
+
+func (r *recordingRefresher) reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.projects = nil
+}
+
+// refresherOf reads back the fixture's recorder.
+//
+// Fails rather than returning nil when the service has no recorder, so a
+// fixture that stopped wiring one is reported as the fixture problem it is
+// instead of as an assertion about refreshing.
+func refresherOf(t *testing.T, s *Service) *recordingRefresher {
+	t.Helper()
+
+	recorder, ok := s.refresher.(*recordingRefresher)
+	if !ok {
+		t.Fatalf("the fixture's refresher is %T, want *recordingRefresher", s.refresher)
+	}
+	return recorder
 }
 
 func TestUpdateItem(t *testing.T) {

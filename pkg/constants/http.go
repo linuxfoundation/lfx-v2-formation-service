@@ -31,6 +31,41 @@ const (
 	// has not finished by now is not going to be helped by the kill that
 	// arrives instead.
 	DefaultListenerDrainTimeout = 10 * time.Second
+
+	// DefaultRefreshTimeout bounds one write-path index refresh.
+	//
+	// The refresh runs on its own goroutine after the response has been
+	// written, so nothing is waiting on it and nothing would ever cancel it.
+	// That is exactly why it needs a deadline of its own: it makes five NATS
+	// round trips, and without one a wedged request holds a goroutine for the
+	// life of the process rather than for the life of a request.
+	//
+	// Fifteen seconds because it covers more than one round trip, where the
+	// listener's ten covers one. A refresh that has not finished by then has
+	// lost nothing that matters: the sweep republishes the same documents.
+	DefaultRefreshTimeout = 15 * time.Second
+
+	// DefaultRefreshDrainTimeout bounds how long shutdown waits for in-flight
+	// write-path refreshes.
+	//
+	// Spent after the HTTP server has drained, because these are started by
+	// in-flight requests — draining where the listener drains would run before
+	// the requests that spawn them — and before the database pool is released,
+	// because a refresh reads Postgres. So it adds to the sum
+	// terminationGracePeriodSeconds has to cover, alongside the listener drain
+	// and the HTTP shutdown.
+	//
+	// Shorter than one refresh's own budget, deliberately. A refresh
+	// interrupted at shutdown costs a document that is stale until the next
+	// sweep, which is the state the whole service was in before this existed,
+	// and that is not worth spending a pod's grace period on.
+	//
+	// Being shorter is what makes the cancellation on expiry necessary rather
+	// than optional: a refresh left running would hold its database connection
+	// past this point, and closing the pool waits for it, so the remaining ten
+	// seconds of its own budget would be spent during teardown instead. The
+	// sum below would then be a floor rather than a bound.
+	DefaultRefreshDrainTimeout = 5 * time.Second
 )
 
 type contextID int

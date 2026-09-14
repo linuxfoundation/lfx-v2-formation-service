@@ -163,6 +163,25 @@ type ProjectReader interface {
 	// build checklist deep links in outbound emails.
 	Slug(ctx context.Context, projectUID string) (string, error)
 
+	// GetRef returns one named project's ref, whatever stage it is at.
+	//
+	// The same answer ListFormingProjects gives, for one project asked for by
+	// name. It exists because the two have different callers with different
+	// budgets: the sweep is about every forming project at once and runs on a
+	// ticker, while a write path knows exactly which project changed and is
+	// paying for the lookup while somebody waits for something else.
+	//
+	// Asking ListFormingProjects for one project is not the same request. It
+	// carries the formation stages as well, which is what makes the owning
+	// service walk its whole store, so a single item write would have cost a
+	// full catalogue read to learn about one project.
+	//
+	// A project that does not exist is ErrNotFound rather than a zero ref. A
+	// caller building an indexed document from a zero ref would publish a
+	// document with no slug and no stage, which is worse than publishing
+	// nothing: it overwrites the correct values a previous publish established.
+	GetRef(ctx context.Context, projectUID string) (ProjectRef, error)
+
 	// Name resolves the project's display name, one project per call.
 	//
 	// TODO: fold this into the list reply. The queue needs a name for every row

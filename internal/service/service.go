@@ -69,6 +69,17 @@ type Service struct {
 	// emailCfg carries the operational email settings (inbox address,
 	// admin tool base URL). Set by WithEmailConfig during startup.
 	emailCfg EmailConfig
+
+	// refresher republishes a project's indexed documents after one of its
+	// items is written, so an assignment reaches the cross-project surfaces
+	// in seconds rather than at the next sweep.
+	//
+	// Nil is a supported state and not a degraded one in any way a caller
+	// can see: every write route still serves, and the sweep still
+	// republishes on its own interval. What is lost is only how soon. That
+	// is deliberate — a deployment with no NATS must still accept writes,
+	// and freshness is the one thing here allowed to be absent.
+	refresher ItemWriteRefresher
 }
 
 // EmailConfig carries the runtime email settings the service needs without
@@ -144,6 +155,13 @@ func WithEmailer(emailer port.EmailDispatcher) serviceOption {
 // admin tool base URL, enabled flag) into the service.
 func WithEmailConfig(cfg EmailConfig) serviceOption {
 	return func(s *Service) { s.emailCfg = cfg }
+}
+
+// WithRefresher wires the write-path index refresh. Omitting it leaves item
+// writes reaching the index at the next sweep, which is what they did before
+// this existed — slower, never wrong.
+func WithRefresher(refresher ItemWriteRefresher) serviceOption {
+	return func(s *Service) { s.refresher = refresher }
 }
 
 // WithUnitOfWork wires the transaction that UpdateItem commits an item

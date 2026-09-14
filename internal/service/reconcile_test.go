@@ -95,6 +95,23 @@ func (l *listProjects) Slug(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
+// GetRef answers for one named project out of the same set the list answers
+// from, so a double seeded once is consistent between the two reads.
+//
+// A project the test never seeded is ErrNotFound rather than a blank ref,
+// matching the adapter: a caller building an indexed document from a blank ref
+// would publish one with no slug and no stage.
+func (l *listProjects) GetRef(_ context.Context, projectUID string) (port.ProjectRef, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, ref := range l.refs {
+		if ref.UID == projectUID {
+			return ref, nil
+		}
+	}
+	return port.ProjectRef{}, domain.ErrNotFound
+}
+
 // nameCalls reports how many display-name requests were made.
 func (l *listProjects) nameCalls() int {
 	l.mu.Lock()

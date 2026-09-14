@@ -39,12 +39,14 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	// shutdown alongside everything else.
 	reconciler := diservice.StartReconcile(ctx, cfg, deps)
 	stopListener := diservice.StartProjectListener(ctx, cfg, deps, reconciler)
+	stopRefresher := diservice.StopRefresher(deps)
 
-	return handleHTTPServer(ctx, cfg, endpoints, closeFn, stopListener)
+	return handleHTTPServer(ctx, cfg, endpoints, closeFn, stopListener, stopRefresher)
 }
 
 func handleHTTPServer(
-	ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error, stopListener func(),
+	ctx context.Context, cfg *config.Config, endpoints *svc.Endpoints, closeFn func() error,
+	stopListener func(), stopRefresher func(context.Context),
 ) error {
 	mux := goahttp.NewMuxer()
 	if cfg.Debug {
@@ -78,7 +80,7 @@ func handleHTTPServer(
 		IdleTimeout:       constants.DefaultIdleTimeout,
 	}
 
-	return runServerWithContext(ctx, srv, closeFn, stopListener)
+	return runServerWithContext(ctx, srv, closeFn, stopListener, stopRefresher)
 }
 
 func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWriter, error) {
@@ -87,7 +89,10 @@ func errorHandler(logCtx context.Context) func(context.Context, http.ResponseWri
 	}
 }
 
-func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() error, stopListener func()) error {
+func runServerWithContext(
+	ctx context.Context, srv *http.Server, closeFn func() error,
+	stopListener func(), stopRefresher func(context.Context),
+) error {
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -126,6 +131,17 @@ func runServerWithContext(ctx context.Context, srv *http.Server, closeFn func() 
 			slog.ErrorContext(ctx, "HTTP server force-close error", log.ErrKey, closeErr)
 		}
 	}
+
+	// After the server, not with the listener, and before the pool. A write-path
+	// refresh is started by an in-flight request, so draining it where the
+	// listener drains would run before the requests that spawn them — and it
+	// reads Postgres, so draining after closeFn would have it read from a pool
+	// that has been released. This is the only window where both are true.
+	//
+	// Bounded by its own budget rather than the server's: what is lost by
+	// giving up is a document stale until the next sweep, which does not
+	// justify spending the grace period the kill is waiting on.
+	stopRefresher(ctx)
 
 	if err := closeFn(); err != nil {
 		slog.ErrorContext(ctx, "service close error", log.ErrKey, err)
