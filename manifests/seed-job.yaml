@@ -62,6 +62,10 @@ spec:
   template:
     metadata:
       labels:
+        # The chart's NetworkPolicy selects on `app`, so without it this pod
+        # holds the database credentials outside the egress rules the
+        # Deployment runs under.
+        app: lfx-v2-formation-service
         app.kubernetes.io/name: lfx-v2-formation-service
         app.kubernetes.io/component: seed
     spec:
