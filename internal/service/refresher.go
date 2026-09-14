@@ -70,6 +70,23 @@ type Refresher struct {
 	mu      sync.Mutex
 	stopped bool
 
+	// abandoned is what every refresh ties its own context to, so the ones
+	// still running when the drain budget expires can be cut short as a group
+	// rather than tracked one by one.
+	//
+	// Without this the budget bounds only this type's own waiting. The
+	// refreshes would carry on holding Postgres connections, and closing the
+	// pool waits for those to come back — so the wait the drain was meant to
+	// cap would reappear during teardown, where the pod's grace period is all
+	// that is left to absorb it.
+	abandoned context.Context
+	abandon   context.CancelFunc
+
+	// drainTimeout is how long Stop waits before abandoning. A field rather
+	// than the constant read inline so a test can exercise the expiry without
+	// spending the production budget waiting for it.
+	drainTimeout time.Duration
+
 	// Counted rather than only logged, for the reason the listener's counters
 	// exist: with the sweep repairing everything within a day, a refresher that
 	// has been failing for a week looks exactly like a week in which nobody
@@ -95,7 +112,14 @@ var _ ItemWriteRefresher = (*Refresher)(nil)
 // write routes — the same posture every other optional dependency in this
 // service takes.
 func NewRefresher(projects port.ProjectReader, projector *Projector) *Refresher {
-	return &Refresher{projects: projects, projector: projector}
+	abandoned, abandon := context.WithCancel(context.Background())
+	return &Refresher{
+		projects:     projects,
+		projector:    projector,
+		abandoned:    abandoned,
+		abandon:      abandon,
+		drainTimeout: constants.DefaultRefreshDrainTimeout,
+	}
 }
 
 // AfterItemWrite starts a refresh for the project and returns immediately.
@@ -158,6 +182,10 @@ func (r *Refresher) AfterItemWrite(ctx context.Context, projectUID string) {
 			context.WithoutCancel(ctx), constants.DefaultRefreshTimeout)
 		defer cancel()
 
+		// Detached from the request but not from the process: shutdown can
+		// still cut this short once it has waited as long as it agreed to.
+		defer context.AfterFunc(r.abandoned, cancel)()
+
 		r.refresh(refreshCtx, projectUID)
 	}()
 }
@@ -216,9 +244,15 @@ func (r *Refresher) refresh(ctx context.Context, projectUID string) {
 // document that stays stale until the next sweep, which is the state the
 // service was in before any of this existed.
 //
-// Nothing is cancelled when the budget runs out. Each refresh already carries
-// its own deadline, so an abandoned one ends on its own rather than outliving
-// the process it is part of.
+// When the budget runs out the remaining refreshes are cancelled rather than
+// left running, and this still does not return until they have exited. Letting
+// them run would make the budget bound nothing: they hold Postgres connections,
+// the caller closes the pool immediately after this returns, and that close
+// blocks until every connection comes back — so the wait would simply reappear
+// during teardown, past the point where anything is left to bound it.
+//
+// Cancelling costs the same thing timing out costs: a document stale until the
+// next sweep, which is the state the service was in before any of this existed.
 func (r *Refresher) Stop(ctx context.Context) {
 	if r == nil {
 		return
@@ -234,14 +268,18 @@ func (r *Refresher) Stop(ctx context.Context) {
 		r.wg.Wait()
 	}()
 
-	timeout := time.NewTimer(constants.DefaultRefreshDrainTimeout)
+	timeout := time.NewTimer(r.drainTimeout)
 	defer timeout.Stop()
 	select {
 	case <-drained:
 	case <-timeout.C:
-		slog.WarnContext(ctx, "gave up waiting for in-flight index refreshes; "+
+		slog.WarnContext(ctx, "cancelling in-flight index refreshes; "+
 			"the next sweep republishes whatever they did not",
-			"waited", constants.DefaultRefreshDrainTimeout)
+			"waited", r.drainTimeout)
+		r.abandon()
+		// Unbounded in form only: every refresh is now running on a cancelled
+		// context, so each is one failed NATS or Postgres call from returning.
+		<-drained
 	}
 
 	// Logged here rather than where the interval summary stops, because only

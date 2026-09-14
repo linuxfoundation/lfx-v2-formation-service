@@ -266,8 +266,15 @@ func (p *ProjectClient) GetRef(ctx context.Context, projectUID string) (port.Pro
 	// and is checked before unmarshalling for the same reason the other reads
 	// check it: it carries no sentinel and would otherwise arrive as a JSON
 	// syntax error.
+	//
+	// Deliberately not ErrNotFound, which the empty array below is. The two
+	// look alike and mean opposite things — one is a project that is not there,
+	// the other is an upstream that could not answer — and the refresher acts
+	// on the difference: a not-found is a project with nothing to publish and
+	// goes uncounted, while this leaves documents stale and has to be counted
+	// as the failure it is.
 	if len(bytes.TrimSpace(reply)) == 0 {
-		return port.ProjectRef{}, fmt.Errorf("project %s returned no ref reply: %w", projectUID, domain.ErrNotFound)
+		return port.ProjectRef{}, fmt.Errorf("project %s returned an empty ref reply", projectUID)
 	}
 
 	var decoded []projectRefReply

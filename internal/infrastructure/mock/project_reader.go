@@ -32,8 +32,9 @@ type ProjectReader struct {
 	// refresh against a project it has nothing to publish for.
 	refErr error
 
-	nameCalls   int
-	getRefCalls int
+	nameCalls     int
+	getRefCalls   int
+	settingsCalls int
 }
 
 // NewProjectReader constructs an empty double.
@@ -75,6 +76,15 @@ func (r *ProjectReader) NameCalls() int {
 	return r.nameCalls
 }
 
+// SettingsCalls reports how many times GetSettings was asked. Counted because
+// it is a project-service round trip like Name and GetRef, and a cost ledger
+// that omits it understates what a refresh actually spends.
+func (r *ProjectReader) SettingsCalls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.settingsCalls
+}
+
 // SetSettings seeds the settings returned for a project.
 func (r *ProjectReader) SetSettings(projectUID string, s *port.ProjectSettings) {
 	r.mu.Lock()
@@ -94,6 +104,7 @@ func (r *ProjectReader) GetSettings(_ context.Context, projectUID string) (*port
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.settingsCalls++
 	s, ok := r.settings[projectUID]
 	if !ok {
 		return nil, domain.ErrNotFound

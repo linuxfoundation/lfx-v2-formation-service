@@ -260,23 +260,40 @@ func TestOneItemWriteRefreshCostsAKnownAmountOfIO(t *testing.T) {
 	}
 	// No transaction. The write's own transaction has already committed, and
 	// the refresh reads what it left — starting a second one here would hold
-	// the pool across three NATS round trips for a read that needs no isolation.
+	// the pool across five NATS round trips for a read that needs no isolation.
 	if got := ledger["uow.Do"]; got != 0 {
 		t.Errorf("transactions = %d, want 0", got)
 	}
 
-	// The NATS side. The ref lookup is the one this feature added; the display
-	// name is the request the projector already made on every sweep.
-	if got := f.projects.GetRefCalls(); got != 1 {
-		t.Errorf("project ref lookups = %d, want 1", got)
+	// The project service side, in full: three requests, not the one this
+	// feature added. The ref lookup is new; the display name and the settings
+	// are both the projector's, made on every sweep long before this existed.
+	// Listing all three is the point of an exact ledger — the two inherited
+	// ones are the majority of the cost and counting only the new one would
+	// describe a refresh as a third of what it is.
+	projectRequests := map[string]int{
+		"projects.GetRef":      f.projects.GetRefCalls(),
+		"projects.Name":        f.projects.NameCalls(),
+		"projects.GetSettings": f.projects.SettingsCalls(),
 	}
-	if got := f.projects.NameCalls(); got != 1 {
-		t.Errorf("project name lookups = %d, want 1", got)
+	total := 0
+	for name, got := range projectRequests {
+		total += got
+		if got != 1 {
+			t.Errorf("%s called %d times, want 1", name, got)
+		}
 	}
+	if total != 3 {
+		t.Errorf("project-service requests = %d, want 3", total)
+	}
+
 	// One publish for the checklist and one batch for its items, regardless of
 	// how many items there are — not one request per item.
 	if got := f.publisher.Count(); got != 1 {
 		t.Errorf("checklist publishes = %d, want 1", got)
+	}
+	if got := f.publisher.ItemBatchCount(); got != 1 {
+		t.Errorf("item publish batches = %d, want 1 — one batch per refresh, not one request per item", got)
 	}
 }
 

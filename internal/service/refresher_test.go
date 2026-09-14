@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -271,6 +272,60 @@ func TestStopWaitsForARefreshAlreadyRunning(t *testing.T) {
 
 	if got := f.publisher.Count(); got != 1 {
 		t.Errorf("checklist publishes = %d, want 1; Stop returned before the refresh finished", got)
+	}
+}
+
+// stuckProjects holds GetRef until its context is cancelled, standing in for a
+// refresh blocked on an unreachable project service — the case the drain budget
+// exists for, and the only one in which it expires.
+type stuckProjects struct {
+	*mock.ProjectReader
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (s *stuckProjects) GetRef(ctx context.Context, _ string) (port.ProjectRef, error) {
+	s.once.Do(func() { close(s.entered) })
+	<-ctx.Done()
+	return port.ProjectRef{}, ctx.Err()
+}
+
+// When the drain budget expires the refresh is cancelled, and Stop does not
+// return until it has actually exited.
+//
+// Returning while it ran would make the budget bound nothing. The refresh holds
+// a database connection, the caller closes the pool as soon as Stop returns,
+// and that close waits for the connection to come back — so the wait would
+// reappear during teardown where the pod's grace period is all that is left to
+// absorb it, which is how a drain documented as five seconds becomes fifteen.
+func TestStopCancelsARefreshThatOutlastsTheDrainBudget(t *testing.T) {
+	f := newRefresherFixture(t)
+	stuck := &stuckProjects{ProjectReader: f.projects, entered: make(chan struct{})}
+	f.refresher.projects = stuck
+	f.refresher.drainTimeout = 10 * time.Millisecond
+
+	f.refresher.AfterItemWrite(context.Background(), "project-1")
+	<-stuck.entered
+
+	// The refresh is blocked on a context only Stop can cancel, so this
+	// returning at all is the assertion: were the cancel missing, it would sit
+	// here until the refresh's own 15-second deadline.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f.refresher.Stop(context.Background())
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop did not return; the refresh was left running rather than cancelled")
+	}
+
+	// Counted as a failure rather than passed over: the documents are stale
+	// until the next sweep, which is the thing the counters exist to show.
+	if got := f.refresher.Counts().Failed; got != 1 {
+		t.Errorf("failed refreshes = %d, want 1", got)
 	}
 }
 

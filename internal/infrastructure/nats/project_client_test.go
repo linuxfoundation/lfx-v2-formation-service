@@ -476,18 +476,23 @@ func TestProjectClientGetRefOnAnAbsentProject(t *testing.T) {
 	}
 }
 
-// A zero-byte reply is how the project service reports a handler failure, and
-// an entry naming no project is unusable. Both are not-found rather than a zero
-// ref, for the same reason.
+// Neither reply yields a ref, but they fail differently and the difference is
+// load-bearing. An entry naming no project is a successful read of a project
+// that is not there; a zero-byte reply is how the project service reports that
+// its handler failed. The refresher counts the first as nothing to publish and
+// the second as a failure that left documents stale, so folding the upstream
+// being broken into not-found would retire it into a counter meaning the
+// opposite.
 func TestProjectClientGetRefRejectsUnusableReplies(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name  string
-		reply []byte
+		name         string
+		reply        []byte
+		wantNotFound bool
 	}{
-		{"a zero-byte reply", nil},
-		{"an entry naming no project", []byte(`[{"uid":"","slug":"nameless"}]`)},
+		{"an entry naming no project", []byte(`[{"uid":"","slug":"nameless"}]`), true},
+		{"a zero-byte reply", nil, false},
 	}
 
 	for _, tc := range tests {
@@ -496,8 +501,13 @@ func TestProjectClientGetRefRejectsUnusableReplies(t *testing.T) {
 			respondOn(t, url, ProjectListProjectsSubject, func(string) []byte { return tc.reply })
 
 			p := NewProjectClient(newTestClient(t, url, 2*time.Second))
-			if _, err := p.GetRef(ctx, "p1"); !errors.Is(err, domain.ErrNotFound) {
-				t.Errorf("GetRef() = %v, want domain.ErrNotFound", err)
+			_, err := p.GetRef(ctx, "p1")
+			if err == nil {
+				t.Fatal("GetRef() = nil, want an error")
+			}
+			if got := errors.Is(err, domain.ErrNotFound); got != tc.wantNotFound {
+				t.Errorf("GetRef() errors.Is(domain.ErrNotFound) = %t, want %t (error: %v)",
+					got, tc.wantNotFound, err)
 			}
 		})
 	}

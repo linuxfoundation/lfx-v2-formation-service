@@ -133,8 +133,9 @@ path published what it is reading.
 The write-path refresh is asynchronous and best-effort by design. It runs after the response has
 been written, so it cannot fail or delay a write: the checklist in Postgres is the source of truth
 and this index is derived from it. A failure is logged and counted, never returned, and the next
-sweep repairs it. In-flight refreshes are drained at shutdown, bounded by
-`DefaultRefreshDrainTimeout`.
+sweep repairs it. In-flight refreshes are drained at shutdown for up to
+`DefaultRefreshDrainTimeout`, then cancelled — they hold database connections, so leaving them
+running would only move the wait into the pool's close.
 
 A refresh republishes the **whole project** — the checklist document and one document per item —
 rather than the single item that was written. The checklist document carries counts over every
@@ -143,9 +144,11 @@ item, so republishing one item would leave the aggregate disagreeing with the ro
 There is no separate backfill step for items that predate this feature, because the sweep already
 visits every formation project on every tick regardless of when this feature shipped.
 
-**Cost per write:** one NATS request/reply to the project service to resolve the project ref, one
-database read of the project's items, and one publish per document. Scoped to a single project, so
-it does not grow with the number of projects being formed.
+**Cost per write:** two database reads (the checklist row and its items), three NATS request/replies
+to the project service (the project ref, its display name and its settings — only the ref is new,
+the other two are what the projector has always read), one checklist publish and one batched item
+publish covering every item at once. Scoped to a single project, so it does not grow with the number
+of projects being formed. Pinned by `TestOneItemWriteRefreshCostsAKnownAmountOfIO`.
 
 ### Deletion
 
