@@ -206,6 +206,42 @@ func (r *FormationRepo) ListProjectUIDs(ctx context.Context) ([]string, error) {
 	return uids, nil
 }
 
+// allowedNotifyColumns is the set of column names MarkNotified may update.
+// A closed set prevents an injection vector on the column name, which
+// cannot be parameterised in SQL.
+var allowedNotifyColumns = map[string]struct{}{
+	"notified_activating_at":       {},
+	"notified_reminder_3d_at":      {},
+	"notified_reminder_overdue_at": {},
+}
+
+// MarkNotified sets one notification timestamp to now() where it is still
+// NULL. It returns acquired=true when this call was the one that set the
+// column (RowsAffected > 0) and acquired=false when the column was already
+// set by another caller. Only the winner should dispatch the email: checking
+// RowsAffected here rather than in sendOneShot is what prevents both replicas
+// from sending when they run the conditional UPDATE concurrently.
+func (r *FormationRepo) MarkNotified(ctx context.Context, uid uuid.UUID, column string) (bool, error) {
+	if _, ok := allowedNotifyColumns[column]; !ok {
+		return false, fmt.Errorf("MarkNotified: unknown column %q", column)
+	}
+	// Column name is safe: validated against an allowlist above.
+	//nolint:gosec // column is validated against allowedNotifyColumns above.
+	res, err := r.db.NewUpdate().
+		TableExpr("formations").
+		Set(column+" = now()").
+		Where("uid = ? AND "+column+" IS NULL", uid).
+		Exec(ctx)
+	if err != nil {
+		return false, fmt.Errorf("mark notified %s: %w", column, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("mark notified %s: rows affected: %w", column, err)
+	}
+	return n > 0, nil
+}
+
 // isUniqueViolation reports whether err is a Postgres unique constraint
 // breach, which callers treat as "someone else got there first".
 func isUniqueViolation(err error) bool {

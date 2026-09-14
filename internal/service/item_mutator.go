@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/service/email"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
@@ -121,6 +124,7 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 	}
 
 	var result *model.Item
+	var prevAssignee string // captured inside the transaction; empty means no prior assignee
 	txErr := s.uow.Do(ctx, func(tx port.Tx) error {
 		formation, err := tx.Formations().GetByProject(ctx, p.ProjectUID)
 		if err != nil {
@@ -148,6 +152,8 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		if item.Revision != p.IfMatch {
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
+
+		prevAssignee = item.Assignee // capture before the update for email dispatch
 
 		patch, err := buildItemPatch(item, p, assigneeErr)
 		if err != nil {
@@ -185,6 +191,18 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		return nil, mapItemMutationError(txErr)
 	}
 
+	// Fire the item-assigned email when the assignee was set or changed by
+	// this request. Dispatch is best-effort: a failure is logged and never
+	// blocks the write that already succeeded. The email service itself uses
+	// NATS core with no redelivery, so there is no retry contract to honour.
+	//
+	// prevAssignee was captured inside the transaction so that a PATCH
+	// repeating the current assignee alongside another field change (e.g.
+	// updating status) does not re-send the notification.
+	if p.Assignee != nil && *p.Assignee != "" && result.Assignee != prevAssignee {
+		s.dispatchItemAssigned(ctx, p.ProjectUID, result)
+	}
+
 	// After the commit, never inside it. Publishing from within the
 	// transaction would ship a state that can still roll back, and would hold
 	// the row lock across three network calls — the same hazard the assignee
@@ -198,6 +216,91 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 
 	item := itemToWire(result)
 	return &svc.UpdateItemResult{Item: item, Etag: itemETag(item)}, nil
+}
+
+// dispatchItemAssigned sends the item-assigned notification email.
+// It is a no-op when the emailer is not wired or email is disabled.
+func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, item *model.Item) {
+	if s.emailer == nil || !s.emailCfg.Enabled {
+		return
+	}
+
+	// The assignee is stored as a username. Resolve it to an email address
+	// using the project settings roster; the email field on each grantee
+	// entry is what the project service carries alongside the username.
+	// A missing or unresolvable address is logged and silently skipped —
+	// the write already succeeded and best-effort dispatch must not block it.
+	var to string
+	if s.projects != nil {
+		settings, err := s.projects.GetSettings(ctx, projectUID)
+		if err != nil {
+			slog.WarnContext(ctx, "item-assigned email: could not read project settings; not sent",
+				"item_key", item.ItemKey, "assignee", item.Assignee, "error", err)
+			return
+		}
+		to = settings.UserEmails[item.Assignee]
+	}
+	if to == "" {
+		slog.WarnContext(ctx, "item-assigned email: no email address on record for assignee; not sent",
+			"item_key", item.ItemKey, "assignee", item.Assignee)
+		return
+	}
+
+	projectName, slug := s.projectNameAndSlug(ctx, projectUID)
+	checklistURL := fmt.Sprintf("%s/manage/projects/%s/checklist?item=%s", s.emailCfg.AdminBaseURL, slug, item.ItemKey)
+	if slug == "" {
+		// Fall back to a URL keyed on the project UID when the slug is unavailable.
+		checklistURL = fmt.Sprintf("%s/manage/projects/%s/checklist?item=%s", s.emailCfg.AdminBaseURL, projectUID, item.ItemKey)
+	}
+
+	var dueDate string
+	if item.DueDate != nil {
+		dueDate = item.DueDate.Format("2006-01-02")
+	}
+
+	subject, html, text, err := email.RenderItemAssigned(email.ItemAssignedData{
+		ProjectName:  projectName,
+		ItemTitle:    item.Title,
+		IsGating:     item.Gate,
+		DueDate:      dueDate,
+		ChecklistURL: checklistURL,
+	})
+	if err != nil {
+		slog.WarnContext(ctx, "item-assigned email: render failed; not sent",
+			"item_key", item.ItemKey, "assignee", item.Assignee, "error", err)
+		return
+	}
+
+	if sendErr := s.emailer.Send(ctx, port.EmailMessage{
+		To:      to,
+		Subject: subject,
+		HTML:    html,
+		Text:    text,
+		GroupID: "formation.item_assigned." + projectUID + "." + item.ItemKey,
+	}); sendErr != nil {
+		slog.WarnContext(ctx, "item-assigned email: send failed",
+			"item_key", item.ItemKey, "assignee", item.Assignee, "error", sendErr)
+	}
+}
+
+// projectNameAndSlug returns the project's display name and slug. Both
+// degrade to empty string when the project reader is not wired or the
+// lookup fails, so an email can still be sent with a UID-based URL rather
+// than failing the whole dispatch.
+func (s *Service) projectNameAndSlug(ctx context.Context, projectUID string) (name, slug string) {
+	if s.projects == nil {
+		return "", ""
+	}
+	var err error
+	name, err = s.projects.Name(ctx, projectUID)
+	if err != nil {
+		slog.WarnContext(ctx, "email: could not resolve project name", "project_uid", projectUID, "error", err)
+	}
+	slug, err = s.projects.Slug(ctx, projectUID)
+	if err != nil {
+		slog.WarnContext(ctx, "email: could not resolve project slug", "project_uid", projectUID, "error", err)
+	}
+	return name, slug
 }
 
 // refreshIndex asks for the project's queue rows to be republished, if anything

@@ -159,3 +159,9 @@ UPDATE formations f
             WHERE t.uid = f.template_uid
        )
  WHERE f.sections = '[]'::jsonb;
+
+-- formations notification state: one nullable timestamp per one-shot email.
+-- NULL means the email has not been sent; non-NULL is a sent marker (at-most-once).
+ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_activating_at   TIMESTAMPTZ;
+ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_reminder_3d_at  TIMESTAMPTZ;
+ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_reminder_overdue_at TIMESTAMPTZ;

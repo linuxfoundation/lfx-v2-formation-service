@@ -36,6 +36,21 @@ const (
 
 	EnvReconcileInterval = "RECONCILE_INTERVAL"
 
+	// EnvFormationInboxEmail is the address that receives formation-team
+	// notifications (Activating / announcement reminders). Defaults to
+	// DefaultFormationInboxEmail.
+	EnvFormationInboxEmail = "FORMATION_INBOX_EMAIL"
+
+	// EnvFormationAdminBaseURL is the base URL for the formation admin tool
+	// (used to build deep links in outbound emails). Defaults to
+	// DefaultFormationAdminBaseURL.
+	EnvFormationAdminBaseURL = "FORMATION_ADMIN_BASE_URL"
+
+	// EnvEmailEnabled mirrors the email-service's own flag so callers can
+	// gate dispatches without standing up a real NATS broker in tests.
+	// "true" / "1" / "t" enables; anything else (including unset) disables.
+	EnvEmailEnabled = "EMAIL_ENABLED"
+
 	// EnvJWTMockBypassConfirm must be set to "true" alongside
 	// JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL for the latter to take effect
 	// under AUTH_SOURCE=jwt. Requiring two independent env vars means a
@@ -65,6 +80,14 @@ const (
 	// connection on any TLS handshake failure instead of refusing it. Local
 	// dev overrides this explicitly with PGSSLMODE=disable.
 	DefaultDBSSLMode = "require"
+
+	// DefaultFormationInboxEmail is the address that receives formation-team
+	// notifications when FORMATION_INBOX_EMAIL is not set.
+	DefaultFormationInboxEmail = "formation@linuxfoundation.org"
+
+	// DefaultFormationAdminBaseURL is the base URL used to build checklist
+	// deep links in formation emails when FORMATION_ADMIN_BASE_URL is not set.
+	DefaultFormationAdminBaseURL = "https://lfx.linuxfoundation.org"
 
 	// DefaultReconcileInterval is the period of the reconcile ticker. The
 	// loop remains the only mechanism guaranteed to run, so this bounds how

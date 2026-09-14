@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -29,10 +30,33 @@ type listProjects struct {
 	listCalls    int
 	nameRequests int
 	lastAlsoUIDs []string
+	// perProjectSettings holds optional per-project overrides. When set for a
+	// UID, GetSettings returns it directly (including its Writers, Auditors, and
+	// UserEmails). When absent the announcement-date-only fallback is returned.
+	perProjectSettings map[string]*port.ProjectSettings
 }
 
 func (l *listProjects) GetSettings(_ context.Context, projectUID string) (*port.ProjectSettings, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.perProjectSettings != nil {
+		if s, ok := l.perProjectSettings[projectUID]; ok {
+			out := *s
+			return &out, nil
+		}
+	}
 	return &port.ProjectSettings{ProjectUID: projectUID, AnnouncementDate: &l.announcement}, nil
+}
+
+// setProjectSettings seeds per-project settings for tests that need Writers,
+// Auditors, or UserEmails in addition to or instead of the announcement date.
+func (l *listProjects) setProjectSettings(uid string, s *port.ProjectSettings) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.perProjectSettings == nil {
+		l.perProjectSettings = make(map[string]*port.ProjectSettings)
+	}
+	l.perProjectSettings[uid] = s
 }
 
 // ListFormingProjects returns whatever a test set, including projects at stages
@@ -64,6 +88,10 @@ func (l *listProjects) Name(_ context.Context, _ string) (string, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.nameRequests++
+	return "", nil
+}
+
+func (l *listProjects) Slug(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
@@ -1190,6 +1218,358 @@ func TestBothSweepReadsFailingIsDegradedRatherThanBlocked(t *testing.T) {
 	}
 	if report.Created != 0 {
 		t.Errorf("created = %d, want 0 — there is no template to create from", report.Created)
+	}
+}
+
+// --- Notification email tests ---
+
+// newNotificationReconciler builds a reconciler with the emailer wired, over a
+// single project at StageFormationEngaged with a future announcement date.
+func newNotificationReconciler(t *testing.T, announcementDate string) (
+	r *Reconciler, f *expansionFixture, mailer *mock.EmailDispatcher,
+) {
+	t.Helper()
+	projects := &listProjects{
+		refs:         []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		announcement: announcementDate,
+	}
+	r, f, _ = newReconcilerWithIndex(t, projects)
+
+	mailer = mock.NewEmailDispatcher()
+	r.SetEmailer(f.items, mailer, EmailConfig{
+		Enabled:        true,
+		FormationInbox: "formation@linuxfoundation.org",
+		AdminBaseURL:   "https://lfx.linuxfoundation.org",
+	})
+	return r, f, mailer
+}
+
+// markGatingItemDone marks "charter_agreed" (the sole gating item in
+// twoItemSections) as done, so the activating condition is satisfied.
+func markGatingItemDone(t *testing.T, f *expansionFixture, projectUID string) {
+	t.Helper()
+	ctx := context.Background()
+	formation, err := f.formations.GetByProject(ctx, projectUID)
+	if err != nil {
+		t.Fatalf("GetByProject() = %v", err)
+	}
+	item, err := f.items.GetByKey(ctx, formation.UID, "charter_agreed")
+	if err != nil {
+		t.Fatalf("GetByKey(charter_agreed) = %v", err)
+	}
+	done := model.StatusDone
+	if _, err = f.items.Update(ctx, item.UID, item.Revision, port.ItemPatch{Status: &done}); err != nil {
+		t.Fatalf("Update() = %v", err)
+	}
+}
+
+func TestReconcileActivatingEmailSentWhenConditionsMet(t *testing.T) {
+	ctx := context.Background()
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	r, f, mailer := newNotificationReconciler(t, futureDate)
+
+	// First sweep: creates the formation.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+
+	markGatingItemDone(t, f, "project-1")
+	mailer.Reset()
+
+	// Second sweep: activating conditions are now met; email should fire.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+
+	if mailer.SentCount() != 1 {
+		t.Errorf("SentCount() = %d, want 1 (activating email)", mailer.SentCount())
+	}
+	sent := mailer.Sent()[0]
+	if sent.To != "formation@linuxfoundation.org" {
+		t.Errorf("To = %q, want formation inbox", sent.To)
+	}
+}
+
+func TestReconcileActivatingEmailSentOnce(t *testing.T) {
+	ctx := context.Background()
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	r, f, mailer := newNotificationReconciler(t, futureDate)
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+	markGatingItemDone(t, f, "project-1")
+
+	// Second sweep triggers the send.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	mailer.Reset()
+
+	// Third sweep: notification already marked; must not re-send.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("third sweep = %v, want no error", err)
+	}
+	if mailer.SentCount() != 0 {
+		t.Errorf("SentCount() = %d, want 0 — notification must not re-send on the next sweep", mailer.SentCount())
+	}
+}
+
+func TestReconcileOverdueReminderSentWhenAnnouncementPassed(t *testing.T) {
+	ctx := context.Background()
+	// Announcement date is yesterday — the project is overdue on the very
+	// first sweep that creates the formation, so no second sweep is needed.
+	pastDate := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, pastDate)
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+
+	// The overdue email must be sent on the first sweep.
+	sent := mailer.Sent()
+	found := false
+	for _, m := range sent {
+		if m.To == "formation@linuxfoundation.org" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no overdue reminder sent to formation inbox; sent = %v", sent)
+	}
+}
+
+// TestReconcileOverdueReminderSentOnAnnouncementDate guards the date-boundary
+// fix: without truncating both sides to midnight UTC, a float daysUntil of
+// e.g. -0.625 (mid-afternoon on the announcement date) trips daysUntil<=0
+// before the calendar date has passed. Truncating means daysUntil==0 exactly
+// on the announcement date, which should also fire the overdue branch.
+func TestReconcileOverdueReminderSentOnAnnouncementDate(t *testing.T) {
+	ctx := context.Background()
+	// Today is the announcement date — daysUntil == 0 after truncation.
+	todayDate := time.Now().UTC().Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, todayDate)
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("sweep = %v, want no error", err)
+	}
+
+	found := false
+	for _, m := range mailer.Sent() {
+		if m.To == "formation@linuxfoundation.org" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no overdue reminder sent when announcement date is today; sent = %v", mailer.Sent())
+	}
+}
+
+func TestReconcileOverdueReminderSentAtMostOnce(t *testing.T) {
+	ctx := context.Background()
+	pastDate := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, pastDate)
+
+	// First sweep: creates formation and sends the overdue reminder.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+	mailer.Reset()
+
+	// Second sweep: marker is already set; must not re-send.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	if mailer.SentCount() != 0 {
+		t.Errorf("SentCount() = %d, want 0 — overdue reminder must not re-send", mailer.SentCount())
+	}
+}
+
+func TestReconcileNotificationsSuppressedWhenEmailDisabled(t *testing.T) {
+	ctx := context.Background()
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	r, f, mailer := newNotificationReconciler(t, futureDate)
+	r.emailCfg.Enabled = false
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+	markGatingItemDone(t, f, "project-1")
+
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+
+	if mailer.SentCount() != 0 {
+		t.Errorf("SentCount() = %d, want 0 — email must be suppressed when disabled", mailer.SentCount())
+	}
+}
+
+// TestReconcileNotificationsSuppressedForCompletedFormation guards the lifecycle
+// guard introduced by the prabodhcs review: dispatchProjectNotifications must be
+// a no-op when the formation lifecycle is not Live, even though lifecycleMoved is
+// false on sweeps after the initial transition. Without the guard, a project that
+// just went Active could receive contradictory "Activating" or deadline-reminder
+// emails on every subsequent sweep.
+func TestReconcileNotificationsSuppressedForCompletedFormation(t *testing.T) {
+	ctx := context.Background()
+	// Use a future announcement date so the 3-day check is irrelevant; we only
+	// care that no notification fires after the lifecycle has been completed.
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	r, f, mailer := newNotificationReconciler(t, futureDate)
+
+	// First sweep: creates the formation (Live lifecycle).
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+
+	// Satisfy the gating item so the lifecycle moves to Completed on the next sweep.
+	markGatingItemDone(t, f, "project-1")
+
+	// Transition the project to Active in the project-list stub so the lifecycle
+	// reconciler knows to complete the formation.
+	r.projects.(*listProjects).refs[0].SubStage = model.StageActive
+
+	// Second sweep: moves lifecycle to Completed and dispatches Active email.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	countAfterTransition := mailer.SentCount()
+
+	// Third sweep: lifecycleMoved is false; notifications must still be suppressed
+	// because the formation is now Completed.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("third sweep = %v, want no error", err)
+	}
+
+	if mailer.SentCount() != countAfterTransition {
+		t.Errorf("SentCount() grew from %d to %d on third sweep — notifications must not fire for completed formations",
+			countAfterTransition, mailer.SentCount())
+	}
+}
+
+// TestReconcileActiveEmailFanOutOnTransition is the coverage the Copilot
+// review identified as missing from TestReconcileNotificationsSuppressedForCompletedFormation:
+// the Active fan-out must send one email per distinct address to writers and
+// auditors, deduplicating a recipient who holds both roles, and must not
+// re-send on the next sweep when the lifecycle is already completed.
+func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
+	ctx := context.Background()
+
+	// writer1 holds only a writer grant; writer2 holds both writer and auditor
+	// (the overlap case); auditor1 holds only an auditor grant. Three distinct
+	// addresses should produce exactly three sends, not four.
+	const (
+		writer1Addr  = "writer1@example.com"
+		writer2Addr  = "writer2@example.com" // also in auditors → must not send twice
+		auditor1Addr = "auditor1@example.com"
+	)
+
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	projects := &listProjects{
+		refs: []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		announcement: futureDate,
+	}
+	projects.setProjectSettings("project-1", &port.ProjectSettings{
+		ProjectUID:       "project-1",
+		AnnouncementDate: &futureDate,
+		Writers:          []string{"writer1", "writer2"},
+		Auditors:         []string{"writer2", "auditor1"}, // writer2 in both
+		UserEmails: map[string]string{
+			"writer1":  writer1Addr,
+			"writer2":  writer2Addr,
+			"auditor1": auditor1Addr,
+		},
+	})
+
+	r, f, _ := newReconcilerWithIndex(t, projects)
+	mailer := mock.NewEmailDispatcher()
+	r.SetEmailer(f.items, mailer, EmailConfig{
+		Enabled:      true,
+		FormationInbox: "formation@linuxfoundation.org",
+		AdminBaseURL:   "https://lfx.linuxfoundation.org",
+	})
+
+	// First sweep: create the formation.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v", err)
+	}
+
+	// Move the project to Active so the lifecycle transitions to Completed.
+	r.projects.(*listProjects).refs[0].SubStage = model.StageActive
+
+	// Second sweep: Active transition fires the fan-out.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v", err)
+	}
+
+	// Exactly three distinct addresses: writer1, writer2, auditor1.
+	// writer2 holds both roles but must receive only one email.
+	sent := mailer.Sent()
+	recipients := make(map[string]int, len(sent))
+	for _, m := range sent {
+		recipients[m.To]++
+	}
+	if got := recipients[writer1Addr]; got != 1 {
+		t.Errorf("writer1 received %d emails, want 1", got)
+	}
+	if got := recipients[writer2Addr]; got != 1 {
+		t.Errorf("writer2 (dual-role) received %d emails, want 1 (dedup)", got)
+	}
+	if got := recipients[auditor1Addr]; got != 1 {
+		t.Errorf("auditor1 received %d emails, want 1", got)
+	}
+	// Formation inbox must not appear in the Active fan-out.
+	if n := recipients["formation@linuxfoundation.org"]; n > 0 {
+		t.Errorf("formation inbox received %d Active emails, want 0", n)
+	}
+
+	countAfterTransition := mailer.SentCount()
+
+	// Third sweep: lifecycle is already Completed → dispatchActiveEmails is
+	// behind the lifecycleMoved guard and won't re-run; no new sends expected.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("third sweep = %v", err)
+	}
+
+	if mailer.SentCount() != countAfterTransition {
+		t.Errorf("SentCount() grew from %d to %d on third sweep — Active email must not re-send",
+			countAfterTransition, mailer.SentCount())
+	}
+}
+
+// TestReconcileReminderSubjectShowsActualDayCount guards the DaysUntil fix:
+// a project whose first sweep falls at 2 days remaining must receive a subject
+// saying "2 days", not the hardcoded "3 days" that predated the fix.
+func TestReconcileReminderSubjectShowsActualDayCount(t *testing.T) {
+	ctx := context.Background()
+	twoDays := time.Now().UTC().AddDate(0, 0, 2).Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, twoDays)
+
+	// First sweep: creates the formation.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v", err)
+	}
+	// Second sweep: evaluates the 2-day reminder.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v", err)
+	}
+
+	found := false
+	for _, m := range mailer.Sent() {
+		if m.To == "formation@linuxfoundation.org" {
+			// Subject must say "2 days", not "3 days".
+			if !strings.Contains(m.Subject, "2 days") {
+				t.Errorf("subject = %q, want it to contain \"2 days\" for a 2-day window", m.Subject)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no reminder sent when announcement is in 2 days; sent = %v", mailer.Sent())
 	}
 }
 

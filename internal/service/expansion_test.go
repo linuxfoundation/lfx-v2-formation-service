@@ -193,6 +193,10 @@ func (s stubProjects) Name(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
+func (s stubProjects) Slug(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 // GetRef is unread by expansion and here to satisfy the port. Not-found rather
 // than a blank ref, so a test that accidentally routed a refresh through this
 // stub fails rather than asserting against a document built from nothing.

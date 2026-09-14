@@ -205,6 +205,25 @@ func ProjectReaderImpl(ctx context.Context, cfg *config.Config) port.ProjectRead
 	return nats.NewProjectClient(client)
 }
 
+// EmailDispatcherImpl returns the NATS-backed email dispatcher, or nil when
+// email is disabled or no NATS connection is available. A nil dispatcher
+// degrades all outbound formation notifications rather than blocking startup.
+func EmailDispatcherImpl(ctx context.Context, cfg *config.Config) port.EmailDispatcher {
+	if !cfg.Email.Enabled {
+		slog.InfoContext(ctx, "email dispatcher disabled (EMAIL_ENABLED not set); formation notifications will not be sent")
+		return nil
+	}
+	client := natsImpl(ctx, cfg)
+	if client == nil {
+		slog.WarnContext(ctx, "email dispatcher not started: NATS unavailable; formation notifications degraded")
+		return nil
+	}
+	slog.InfoContext(ctx, "email dispatcher wired",
+		"formation_inbox", cfg.Email.FormationInbox,
+		"admin_base_url", cfg.Email.AdminBaseURL)
+	return nats.NewEmailDispatcher(client)
+}
+
 // IndexerPublisherImpl returns the publisher that feeds the Formations queue.
 //
 // Nil when NATS could not be reached, and the sweep treats that as "do not
@@ -307,6 +326,7 @@ type Deps struct {
 	Projects   port.ProjectReader
 	Indexer    port.IndexerPublisher
 	Subscriber port.Subscriber
+	Emailer    port.EmailDispatcher
 
 	// Projector is shared by the reconcile sweep and the write-path refresher
 	// rather than built once for each.
@@ -338,6 +358,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 	templates := TemplateRepositoryImpl(ctx, cfg)
 	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates)
 	projects := ProjectReaderImpl(ctx, cfg)
+	emailer := EmailDispatcherImpl(ctx, cfg)
 
 	// db is nil in mock mode: readiness then reports OK unconditionally,
 	// which is the documented "not wired yet" behaviour in service.go.
@@ -346,6 +367,12 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 	}
 	if repositorySource() == "postgres" {
 		db = postgresImpl(ctx, cfg)
+	}
+
+	emailCfg := usecaseSvc.EmailConfig{
+		Enabled:        cfg.Email.Enabled,
+		FormationInbox: cfg.Email.FormationInbox,
+		AdminBaseURL:   cfg.Email.AdminBaseURL,
 	}
 
 	// Built here rather than inside StartReconcile, where it used to live,
@@ -386,6 +413,8 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		usecaseSvc.WithTemplates(templates),
 		usecaseSvc.WithProjects(projects),
 		usecaseSvc.WithUnitOfWork(uow),
+		usecaseSvc.WithEmailer(emailer),
+		usecaseSvc.WithEmailConfig(emailCfg),
 		usecaseSvc.WithRefresher(refresher),
 	)
 
@@ -412,6 +441,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		Projects:   projects,
 		Indexer:    indexer,
 		Subscriber: SubscriberImpl(ctx, cfg),
+		Emailer:    emailer,
 		Projector:  projector,
 		Refresher:  refresherImpl,
 	}
@@ -468,6 +498,17 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecas
 		// the environment into a field nothing read.
 		cfg.ReconcileInterval,
 	)
+
+	// Wire the email dispatcher into the reconciler so the sweep can dispatch
+	// Activating + announcement-reminder notifications. A nil emailer (no NATS)
+	// is silently skipped — notifications degrade rather than blocking the sweep.
+	if deps.Emailer != nil {
+		reconciler.SetEmailer(deps.Items, deps.Emailer, usecaseSvc.EmailConfig{
+			Enabled:        cfg.Email.Enabled,
+			FormationInbox: cfg.Email.FormationInbox,
+			AdminBaseURL:   cfg.Email.AdminBaseURL,
+		})
+	}
 
 	go reconciler.Run(ctx)
 
