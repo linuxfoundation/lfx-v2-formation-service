@@ -226,18 +226,85 @@ func (p *ProjectClient) ListFormingProjects(ctx context.Context, alsoUIDs []stri
 			// be swept, and passing it on would have the sweep count it.
 			continue
 		}
-		refs = append(refs, port.ProjectRef{
-			UID:          entry.UID,
-			Slug:         entry.Slug,
-			IsFoundation: entry.IsFoundation,
-			ParentUID:    entry.ParentUID,
-			// The port calls this SubStage and the wire calls it stage; they are
-			// the same compound value. The name is the older one, from before it
-			// was established that no separate sub-stage field exists.
-			SubStage: entry.Stage,
-		})
+		refs = append(refs, refFromReply(entry))
 	}
 	return refs, nil
+}
+
+// GetRef returns one named project's ref, whatever stage it has reached.
+//
+// The same subject ListFormingProjects uses, asked a narrower question: the UID
+// filter alone, with no stages. That is not a detail of the encoding, it is the
+// whole reason this method exists rather than calling ListFormingProjects with
+// one UID. The owning service scans its store only when stages are requested
+// and serves each named UID with a direct read, so a stage-free request costs
+// one key lookup where the sweep's request costs a walk of the catalogue.
+//
+// So the empty Stages field below is load-bearing. Filling it in "for
+// consistency" with the sweep's request would silently turn every item write
+// into a full upstream scan, and nothing in this service's behaviour would
+// change to say so.
+//
+// A reply naming no project is ErrNotFound. That is the ordinary answer for a
+// project that has been deleted, which a caller holding a checklist for it can
+// still ask about.
+func (p *ProjectClient) GetRef(ctx context.Context, projectUID string) (port.ProjectRef, error) {
+	if projectUID == "" {
+		return port.ProjectRef{}, fmt.Errorf("project_uid is required: %w", domain.ErrInvalidRequest)
+	}
+
+	request, err := json.Marshal(projectListRequest{UIDs: []string{projectUID}})
+	if err != nil {
+		return port.ProjectRef{}, fmt.Errorf("encoding the project ref request: %w", err)
+	}
+
+	reply, err := p.client.Request(ctx, ProjectListProjectsSubject, request)
+	if err != nil {
+		return port.ProjectRef{}, err
+	}
+	// A zero-byte reply is how the project service reports a handler failure,
+	// and is checked before unmarshalling for the same reason the other reads
+	// check it: it carries no sentinel and would otherwise arrive as a JSON
+	// syntax error.
+	if len(bytes.TrimSpace(reply)) == 0 {
+		return port.ProjectRef{}, fmt.Errorf("project %s returned no ref reply: %w", projectUID, domain.ErrNotFound)
+	}
+
+	var decoded []projectRefReply
+	if err := json.Unmarshal(reply, &decoded); err != nil {
+		return port.ProjectRef{}, fmt.Errorf("decoding the ref for %s: %w", projectUID, err)
+	}
+
+	// An empty array is a successful read of a project that is not there — the
+	// upstream handler skips a UID naming no project rather than failing the
+	// request — so it is the not-found answer rather than an error to report.
+	for _, entry := range decoded {
+		if entry.UID == "" {
+			continue
+		}
+		return refFromReply(entry), nil
+	}
+	return port.ProjectRef{}, fmt.Errorf("project %s does not exist: %w", projectUID, domain.ErrNotFound)
+}
+
+// refFromReply converts one list entry into the port's ref.
+//
+// Shared by the list and the single lookup so the two cannot disagree about
+// what a ref is. They answer the same question from the same subject, and a
+// document built from one has to be indistinguishable from a document built
+// from the other — which is a property that survives exactly as long as there
+// is one conversion.
+func refFromReply(entry projectRefReply) port.ProjectRef {
+	return port.ProjectRef{
+		UID:          entry.UID,
+		Slug:         entry.Slug,
+		IsFoundation: entry.IsFoundation,
+		ParentUID:    entry.ParentUID,
+		// The port calls this SubStage and the wire calls it stage; they are
+		// the same compound value. The name is the older one, from before it
+		// was established that no separate sub-stage field exists.
+		SubStage: entry.Stage,
+	}
 }
 
 // usernames reduces a grant roster to the identifiers an assignee is recorded

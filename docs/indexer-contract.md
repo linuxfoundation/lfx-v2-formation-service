@@ -28,8 +28,8 @@ current shape until a follow-up documents it here too.
 **Source struct:** `internal/domain/model/formation.go` — `Item`, via `internal/domain/port/ports.go`
 — `ItemProjection`
 
-**Indexed on:** every reconcile sweep tick, alongside the checklist (`formation`) document for the
-same project — not on the item's own write. See [Cadence](#cadence).
+**Indexed on:** every item write, and on every reconcile sweep tick as a backstop — always alongside
+the checklist (`formation`) document for the same project. See [Cadence](#cadence).
 
 ### Data Schema
 
@@ -119,12 +119,33 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 
 ### Cadence
 
-Published from `Projector.Refresh`, on the same reconcile tick that already republishes the
-checklist document — not synchronously from the item-write path. An item write (assignment, status
-change) reaches the index within one reconcile interval, the same freshness the checklist's own
-`assignee:` tags already carry for the same kind of edit today. A failed publish is repaired by the
-next sweep tick; there is no separate backfill step for items that predate this feature, because the
-sweep already visits every formation project on every tick regardless of when this feature shipped.
+Published from `Projector.Refresh`, which two paths call:
+
+- **On the write.** `PATCH /items/{key}`, `accept`, `reject` and `reopen` each ask for a refresh
+  after their transaction commits. This is the path a person's list depends on: an item assigned to
+  somebody appears on their queue in seconds rather than at the next sweep.
+- **On the sweep.** Every reconcile tick republishes the same documents for every forming project,
+  which is what repairs a write-path refresh lost to a restart, a timeout or an unreachable index.
+
+Both produce identical documents — one projector, one document shape, so a reader cannot tell which
+path published what it is reading.
+
+The write-path refresh is asynchronous and best-effort by design. It runs after the response has
+been written, so it cannot fail or delay a write: the checklist in Postgres is the source of truth
+and this index is derived from it. A failure is logged and counted, never returned, and the next
+sweep repairs it. In-flight refreshes are drained at shutdown, bounded by
+`DefaultRefreshDrainTimeout`.
+
+A refresh republishes the **whole project** — the checklist document and one document per item —
+rather than the single item that was written. The checklist document carries counts over every
+item, so republishing one item would leave the aggregate disagreeing with the rows it aggregates.
+
+There is no separate backfill step for items that predate this feature, because the sweep already
+visits every formation project on every tick regardless of when this feature shipped.
+
+**Cost per write:** one NATS request/reply to the project service to resolve the project ref, one
+database read of the project's items, and one publish per document. Scoped to a single project, so
+it does not grow with the number of projects being formed.
 
 ### Deletion
 

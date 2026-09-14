@@ -25,7 +25,15 @@ type ProjectReader struct {
 	// still have it come back when the sweep names it.
 	byUID map[string]port.ProjectRef
 
-	nameCalls int
+	// refErr forces GetRef to fail, for the case a write-path refresh has to
+	// survive: the owning service being unreachable. Distinct from a project
+	// that is simply absent, which GetRef answers with ErrNotFound from the
+	// maps above — the two mean different things to a caller counting a failed
+	// refresh against a project it has nothing to publish for.
+	refErr error
+
+	nameCalls   int
+	getRefCalls int
 }
 
 // NewProjectReader constructs an empty double.
@@ -138,4 +146,46 @@ func (r *ProjectReader) ListFormingProjects(_ context.Context, alsoUIDs []string
 		}
 	}
 	return out, nil
+}
+
+// SetRefError forces GetRef to fail with err. Passing nil clears it.
+func (r *ProjectReader) SetRefError(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.refErr = err
+}
+
+// GetRef returns one project's ref from either seeded set, or
+// domain.ErrNotFound.
+//
+// It answers from the forming list as well as the by-UID map, because a test
+// that seeded only SetFormingProjects has still said the project exists. Making
+// it read one map would mean every test wanting a refresh had to seed the same
+// project twice, and the one that forgot would see a not-found that says
+// nothing about the code under test.
+func (r *ProjectReader) GetRef(_ context.Context, projectUID string) (port.ProjectRef, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.getRefCalls++
+	if r.refErr != nil {
+		return port.ProjectRef{}, r.refErr
+	}
+	if ref, ok := r.byUID[projectUID]; ok {
+		return ref, nil
+	}
+	for _, ref := range r.forming {
+		if ref.UID == projectUID {
+			return ref, nil
+		}
+	}
+	return port.ProjectRef{}, domain.ErrNotFound
+}
+
+// GetRefCalls reports how many times GetRef was asked, so a test can assert a
+// write triggered exactly one refresh rather than none or several.
+func (r *ProjectReader) GetRefCalls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.getRefCalls
 }

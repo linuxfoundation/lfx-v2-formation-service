@@ -209,6 +209,77 @@ func TestAProjectEventDoesNotRunThePlatformPass(t *testing.T) {
 	}
 }
 
+// What one item write's index refresh costs.
+//
+// The question this feature turns on. Publishing on every write was considered
+// and rejected once before, on the grounds that it might overload the index, so
+// the case for reversing that has to rest on a number rather than on an
+// argument — and the number has to keep being true after it is written down.
+//
+// Written as an exact ledger, like the event path's above and for the same
+// reason: a ceiling would be satisfied by the cost moving somewhere else, and
+// what matters is noticing any change at all. In particular a project lookup
+// reappearing with a stage filter would not change this count while making the
+// project service scan its whole store, which is why the lookup count is
+// asserted alongside the reads.
+//
+// The shape of the answer is what makes it affordable: every read here is
+// scoped to the one project that was written. Nothing in this ledger grows with
+// the number of projects being formed, so the load is the write rate and not
+// the catalogue size.
+func TestOneItemWriteRefreshCostsAKnownAmountOfIO(t *testing.T) {
+	f := newRefresherFixture(t)
+	recorders := []mock.CallRecorder{f.formations, f.items}
+	mock.ResetAll(recorders...)
+
+	f.refresher.AfterItemWrite(context.Background(), "project-1")
+	f.drain(t)
+
+	ledger := mock.Ledger(recorders...)
+	logLedger(t, ledger)
+
+	// One read of the checklist row and one of its items. Both are the
+	// projector's, and both are the same reads the sweep makes for this project
+	// — the refresh is the sweep's projection step and nothing else.
+	want := map[string]int{
+		"formations.GetByProject": 1,
+		"items.ListByFormation":   1,
+	}
+	for name, wantCount := range want {
+		if ledger[name] != wantCount {
+			t.Errorf("%s called %d times, want %d", name, ledger[name], wantCount)
+		}
+	}
+	for name, count := range ledger {
+		if _, expected := want[name]; !expected {
+			t.Errorf("%s called %d times, want none — an unbudgeted read is on the write path", name, count)
+		}
+	}
+	if got := mock.Total(ledger); got != 2 {
+		t.Errorf("database calls = %d, want 2", got)
+	}
+	// No transaction. The write's own transaction has already committed, and
+	// the refresh reads what it left — starting a second one here would hold
+	// the pool across three NATS round trips for a read that needs no isolation.
+	if got := ledger["uow.Do"]; got != 0 {
+		t.Errorf("transactions = %d, want 0", got)
+	}
+
+	// The NATS side. The ref lookup is the one this feature added; the display
+	// name is the request the projector already made on every sweep.
+	if got := f.projects.GetRefCalls(); got != 1 {
+		t.Errorf("project ref lookups = %d, want 1", got)
+	}
+	if got := f.projects.NameCalls(); got != 1 {
+		t.Errorf("project name lookups = %d, want 1", got)
+	}
+	// One publish for the checklist and one batch for its items, regardless of
+	// how many items there are — not one request per item.
+	if got := f.publisher.Count(); got != 1 {
+		t.Errorf("checklist publishes = %d, want 1", got)
+	}
+}
+
 // logLedger prints the ledger so a run shows what was counted, not only which
 // assertion failed. What makes the number reproducible by hand rather than
 // something to take on trust.

@@ -27,12 +27,17 @@ topologySpreadConstraints: []
 # before killing the pod.
 #
 # Set explicitly because the service's own shutdown budget adds up to more than
-# the 30s default: event handlers are drained first for up to 10s, and only then
-# does the HTTP server get its 25s to finish in-flight requests. On the default
-# the kill would arrive mid-request. 45 covers both with a small margin; raise
-# this together with DefaultListenerDrainTimeout or DefaultShutdownTimeout if
-# either changes.
-terminationGracePeriodSeconds: 45
+# the 30s default. The three stages run in sequence and their budgets add:
+# event handlers drain for up to 10s, then the HTTP server gets 25s to finish
+# in-flight requests, then in-flight index refreshes drain for up to 5s. The
+# refreshes come last because they are started by those requests and read
+# Postgres, so they cannot be drained earlier or after the pool is released.
+#
+# 50 covers the 40s sum with a 10s margin. Raise this together with
+# DefaultListenerDrainTimeout, DefaultShutdownTimeout or
+# DefaultRefreshDrainTimeout if any of them changes — the kill arriving
+# mid-drain is silent from inside the service.
+terminationGracePeriodSeconds: 50
 
 # podAnnotations are additional annotations applied to the pod template.
 # Example:

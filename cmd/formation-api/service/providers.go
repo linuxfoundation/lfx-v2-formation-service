@@ -307,6 +307,21 @@ type Deps struct {
 	Projects   port.ProjectReader
 	Indexer    port.IndexerPublisher
 	Subscriber port.Subscriber
+
+	// Projector is shared by the reconcile sweep and the write-path refresher
+	// rather than built once for each.
+	//
+	// Sharing is what makes the two paths publish the same bytes for the same
+	// state: a document's shape is decided here, so two projectors would be two
+	// places for that decision to be made and one place for it to drift. A
+	// reader is not supposed to be able to tell which path published a
+	// document, and that property is cheapest to hold by construction.
+	Projector *usecaseSvc.Projector
+
+	// Refresher republishes a project's documents when one of its items is
+	// written. Nil when nothing can publish or no project can be read, which
+	// leaves item writes reaching the index at the next sweep.
+	Refresher *usecaseSvc.Refresher
 }
 
 // New builds the wired service. Returns the dependencies so callers that need
@@ -333,6 +348,35 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		db = postgresImpl(ctx, cfg)
 	}
 
+	// Built here rather than inside StartReconcile, where it used to live,
+	// because two things need it now: the sweep and the write-path refresher.
+	// The projector itself tolerates a nil publisher — that is the deployment
+	// with no NATS, which still creates checklists and serves reads.
+	indexer := IndexerPublisherImpl(ctx, cfg)
+	projector := usecaseSvc.NewProjector(formations, items, projects, indexer)
+
+	// The refresher is only wired when it could actually publish something.
+	// With no indexer there is nothing to publish to, and with no project
+	// reader a document cannot be built at all — in either case a refresher
+	// would count every write as skipped, which is a number that says nothing.
+	// Left nil, item writes reach the index at the next sweep, exactly as they
+	// did before this existed.
+	//
+	// Two variables for one object: the interface is what the service holds,
+	// and it has to stay a genuinely nil interface when nothing is wired. A
+	// nil *Refresher assigned straight to an interface field is not nil, so the
+	// service's "refreshing is disabled" check would pass while the field held
+	// something.
+	var refresherImpl *usecaseSvc.Refresher
+	var refresher usecaseSvc.ItemWriteRefresher
+	if indexer != nil && projects != nil {
+		refresherImpl = usecaseSvc.NewRefresher(projects, projector)
+		refresher = refresherImpl
+	} else {
+		slog.WarnContext(ctx, "write-path index refresh not wired: no indexer or no project reader. "+
+			"Item writes still succeed, but reach the index at the reconcile interval rather than on the write")
+	}
+
 	svc := usecaseSvc.NewService(
 		usecaseSvc.WithDB(db),
 		usecaseSvc.WithAuth(authService),
@@ -342,6 +386,7 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		usecaseSvc.WithTemplates(templates),
 		usecaseSvc.WithProjects(projects),
 		usecaseSvc.WithUnitOfWork(uow),
+		usecaseSvc.WithRefresher(refresher),
 	)
 
 	closeFn := func() error {
@@ -365,8 +410,10 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		Templates:  templates,
 		UnitOfWork: uow,
 		Projects:   projects,
-		Indexer:    IndexerPublisherImpl(ctx, cfg),
+		Indexer:    indexer,
 		Subscriber: SubscriberImpl(ctx, cfg),
+		Projector:  projector,
+		Refresher:  refresherImpl,
 	}
 
 	slog.InfoContext(ctx, "service dependencies wired")
@@ -404,7 +451,11 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecas
 		// queue goes stale while checklists are still created and lifecycles
 		// still move. Publishing is the one part of the sweep whose failure costs
 		// only freshness, so it is the one part allowed to be absent.
-		usecaseSvc.NewProjector(deps.Formations, deps.Items, deps.Projects, deps.Indexer),
+		//
+		// Taken from deps rather than built here, so the sweep and the
+		// write-path refresher publish through one projector. Two would be two
+		// places to decide what a document looks like.
+		deps.Projector,
 		// The platform checker resolves nothing yet — no owning service answers a
 		// project-scoped existence lookup, so its registry is empty and every
 		// platform row is reported unanswerable. Wired regardless, so the count is
@@ -419,7 +470,28 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecas
 	)
 
 	go reconciler.Run(ctx)
+
+	// On the sweep's interval so the two summaries land together. Read against
+	// each other they answer a question neither answers alone: a sweep
+	// republishing rows all day beside a refresher that was asked for nothing
+	// is a write path that has stopped calling it, which no per-request log
+	// line can show.
+	if deps.Refresher != nil {
+		go deps.Refresher.ReportEvery(ctx, cfg.ReconcileInterval)
+	}
+
 	return reconciler
+}
+
+// StopRefresher returns a function that drains in-flight write-path refreshes.
+//
+// Always returns a usable function, including when nothing was wired, so the
+// shutdown path has no condition in it.
+func StopRefresher(deps *Deps) func(context.Context) {
+	if deps == nil || deps.Refresher == nil {
+		return func(context.Context) {}
+	}
+	return deps.Refresher.Stop
 }
 
 // StartProjectListener attaches the project event listener, and returns a

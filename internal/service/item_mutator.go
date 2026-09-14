@@ -184,8 +184,33 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 	if txErr != nil {
 		return nil, mapItemMutationError(txErr)
 	}
+
+	// After the commit, never inside it. Publishing from within the
+	// transaction would ship a state that can still roll back, and would hold
+	// the row lock across three network calls — the same hazard the assignee
+	// check above was moved out of the transaction to avoid.
+	//
+	// Unconditional on which field changed. The indexed item document carries
+	// the due date, the note's absence, the lifecycle and more besides, and the
+	// refresh rebuilds the whole projection either way, so narrowing this to
+	// status and assignee would save nothing and leave the rest stale.
+	s.refreshIndex(ctx, p.ProjectUID)
+
 	item := itemToWire(result)
 	return &svc.UpdateItemResult{Item: item, Etag: itemETag(item)}, nil
+}
+
+// refreshIndex asks for the project's queue rows to be republished, if anything
+// is wired to do that.
+//
+// One helper for the two places an item write commits, so the nil check and the
+// ordering rule live once. It cannot block and cannot fail: see
+// Refresher.AfterItemWrite.
+func (s *Service) refreshIndex(ctx context.Context, projectUID string) {
+	if s.refresher == nil {
+		return
+	}
+	s.refresher.AfterItemWrite(ctx, projectUID)
 }
 
 // buildItemPatch validates the payload's mutable fields against the item's
