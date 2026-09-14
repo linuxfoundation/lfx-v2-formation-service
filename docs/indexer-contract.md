@@ -41,8 +41,11 @@ service.
 | `object_id` | string (UUID) | The item's own UID — this document's primary key, distinct from `formation_uid` |
 | `formation_uid` | string (UUID) | UID of the checklist this item belongs to |
 | `project_uid` | string | UID of the owning project, resolved through the formation rather than stored on the item |
+| `project_name` | string | Owning project's display name, copied from the checklist projection's own resolved name — lets a Pending Actions row render its project badge with no second read |
+| `project_slug` | string | Owning project's slug, copied the same way as `project_name` |
 | `item_key` | string | Stable across template versions; not the document's identity, useful for debugging a specific template row across formations |
 | `title` | string | Item title |
+| `status_source` | string enum | `manual \| platform` — whether the item's status is set by hand or driven by a platform check; a consumer needs it to derive the item's action affordance (manual / link / provisionable / request / status-only) the same way the checklist read does |
 | `status` | string enum | `not_started \| in_progress \| blocked \| awaiting_acceptance \| done \| skipped` |
 | `gate` | bool | Whether this item blocks the project's Active transition |
 | `due_date` | string (ISO date, optional) | Omitted when unset |

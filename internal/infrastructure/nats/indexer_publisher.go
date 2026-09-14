@@ -233,6 +233,14 @@ func (p *IndexerPublisher) PublishItem(ctx context.Context, doc *port.ItemProjec
 // when every item in the batch fails is that surfaced as an error — see
 // Projector.Refresh, which uses this to decide whether the checklist's item
 // rows published at all, not whether every one of them did.
+//
+// The final Flush is checked before that landed-count decision, not folded
+// into it: PublishNoFlush only queues a message locally, and Flush is what
+// actually hands the batch to the server (Client.Publish's own doc comment).
+// A failed Flush means none of the queued messages were confirmed delivered,
+// regardless of how many "landed" in the local buffer — so it is returned
+// unconditionally rather than left to be masked by a landed count that no
+// longer means what it says.
 func (p *IndexerPublisher) PublishItems(ctx context.Context, docs []*port.ItemProjection) error {
 	if len(docs) == 0 {
 		return nil
@@ -255,6 +263,7 @@ func (p *IndexerPublisher) PublishItems(ctx context.Context, docs []*port.ItemPr
 
 	if err := p.client.Flush(ctx); err != nil {
 		errs = append(errs, err)
+		return fmt.Errorf("flushing %d queued item documents out of %d: %w", landed, len(docs), errors.Join(errs...))
 	}
 
 	if landed == 0 {
@@ -385,8 +394,11 @@ type itemProjectionWire struct {
 	ObjectID     string                      `json:"object_id"`
 	FormationUID string                      `json:"formation_uid"`
 	ProjectUID   string                      `json:"project_uid"`
+	ProjectName  string                      `json:"project_name"`
+	ProjectSlug  string                      `json:"project_slug"`
 	ItemKey      string                      `json:"item_key"`
 	Title        string                      `json:"title"`
+	StatusSource string                      `json:"status_source"`
 	Status       string                      `json:"status"`
 	Gate         bool                        `json:"gate"`
 	DueDate      string                      `json:"due_date,omitempty"`
@@ -418,8 +430,11 @@ func newItemProjectionWire(doc *port.ItemProjection) *itemProjectionWire {
 		ObjectID:     doc.ItemUID,
 		FormationUID: doc.FormationUID,
 		ProjectUID:   doc.ProjectUID,
+		ProjectName:  doc.ProjectName,
+		ProjectSlug:  doc.ProjectSlug,
 		ItemKey:      doc.ItemKey,
 		Title:        doc.Title,
+		StatusSource: doc.StatusSource,
 		Status:       doc.Status,
 		Gate:         doc.Gate,
 		DueDate:      doc.DueDate,

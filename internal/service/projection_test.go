@@ -298,6 +298,7 @@ func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
 			FormationUID: formationUID,
 			ItemKey:      "create_mailing_list",
 			Title:        "Create mailing list",
+			StatusSource: model.SourcePlatform,
 			Status:       model.StatusInProgress,
 			Gate:         true,
 			DueDate:      &due,
@@ -310,7 +311,7 @@ func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
 		},
 	}
 
-	got := buildItemProjections(formation, items)
+	got := buildItemProjections(formation, items, port.ProjectRef{Slug: "a-project"}, "A Project")
 	if len(got) != 1 {
 		t.Fatalf("buildItemProjections() = %d projections, want 1", len(got))
 	}
@@ -324,6 +325,15 @@ func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
 	}
 	if doc.ProjectUID != "project-1" {
 		t.Errorf("project_uid = %q, want project-1 — resolved through the formation", doc.ProjectUID)
+	}
+	if doc.ProjectName != "A Project" {
+		t.Errorf("project_name = %q, want A Project — a Pending Actions row's badge needs it without a second read", doc.ProjectName)
+	}
+	if doc.ProjectSlug != "a-project" {
+		t.Errorf("project_slug = %q, want a-project", doc.ProjectSlug)
+	}
+	if doc.StatusSource != string(model.SourcePlatform) {
+		t.Errorf("status_source = %q, want %q", doc.StatusSource, model.SourcePlatform)
 	}
 	if doc.ItemKey != "create_mailing_list" {
 		t.Errorf("item_key = %q, want create_mailing_list", doc.ItemKey)
@@ -366,7 +376,7 @@ func TestBuildItemProjectionsOmitsUnsetOptionalFields(t *testing.T) {
 	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
 	items := []*model.Item{{UID: uuid.New(), FormationUID: formation.UID, Title: "Bare item"}}
 
-	doc := buildItemProjections(formation, items)[0]
+	doc := buildItemProjections(formation, items, port.ProjectRef{}, "")[0]
 
 	if doc.DueDate != "" {
 		t.Errorf("due_date = %q, want empty when unset", doc.DueDate)
@@ -387,7 +397,7 @@ func TestBuildItemProjectionsAssigneePresenceTracksTheItem(t *testing.T) {
 	unassigned := &model.Item{UID: uuid.New(), FormationUID: formation.UID, Title: "Unassigned"}
 	assigned := &model.Item{UID: uuid.New(), FormationUID: formation.UID, Title: "Assigned", Assignee: "jdoe"}
 
-	docs := buildItemProjections(formation, []*model.Item{unassigned, assigned})
+	docs := buildItemProjections(formation, []*model.Item{unassigned, assigned}, port.ProjectRef{}, "")
 
 	if docs[0].Assignee != "" {
 		t.Errorf("assignee = %q, want empty for an unassigned item", docs[0].Assignee)
@@ -398,7 +408,7 @@ func TestBuildItemProjectionsAssigneePresenceTracksTheItem(t *testing.T) {
 
 	// Reassign: the same item, a different holder.
 	assigned.Assignee = "asmith"
-	reassigned := buildItemProjections(formation, []*model.Item{assigned})[0]
+	reassigned := buildItemProjections(formation, []*model.Item{assigned}, port.ProjectRef{}, "")[0]
 	if reassigned.Assignee != "asmith" {
 		t.Errorf("assignee after reassignment = %q, want asmith", reassigned.Assignee)
 	}
@@ -422,7 +432,7 @@ func TestBuildItemProjectionsCarriesEveryRowFieldTheDrawerDoesNotOwn(t *testing.
 		},
 	}}
 
-	doc := buildItemProjections(formation, items)[0]
+	doc := buildItemProjections(formation, items, port.ProjectRef{}, "")[0]
 
 	if doc.OwnerTeam != "it" {
 		t.Errorf("owner_team = %q, want it — the row's \"handled by IT\" label needs it", doc.OwnerTeam)
@@ -476,7 +486,7 @@ func TestBuildItemProjectionsAccessRelationIsAlwaysAuditor(t *testing.T) {
 		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusSkipped, Gate: false},
 	}
 
-	for _, doc := range buildItemProjections(formation, items) {
+	for _, doc := range buildItemProjections(formation, items, port.ProjectRef{}, "") {
 		if doc.AccessRelation != formationAccessRelation {
 			t.Errorf("access_relation = %q for status %q, gate %v; want %q unconditionally",
 				doc.AccessRelation, doc.Status, doc.Gate, formationAccessRelation)
@@ -519,6 +529,46 @@ func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
 	if got := publisher.Count(); got != 1 {
 		t.Errorf("published %d checklist documents, want 1 — the checklist document is unchanged",
 			got)
+	}
+}
+
+// Refresh resolves the project's name and slug once, for the checklist
+// document — this asserts the item documents it publishes in the same call
+// carry those same two facts, not a second, independent resolution (there is
+// none: ProjectReader.Name is stubbed to fail the test if called more than
+// the checklist publish already calls it for).
+func TestRefreshCarriesProjectNameAndSlugOntoItemDocuments(t *testing.T) {
+	ctx := context.Background()
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	publisher := mock.NewIndexerPublisher()
+	projects := mock.NewProjectReader()
+	projects.SetName("project-1", "A Project")
+	projector := NewProjector(formations, items, projects, publisher)
+
+	formation, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"})
+	if err != nil {
+		t.Fatalf("seeding formation = %v", err)
+	}
+	if _, err := items.InsertMany(ctx, []*model.Item{
+		{FormationUID: formation.UID, ItemKey: "a", Title: "Item A"},
+	}); err != nil {
+		t.Fatalf("seeding items = %v", err)
+	}
+
+	if _, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1", Slug: "a-project"}); err != nil {
+		t.Fatalf("Refresh() = %v, want no error", err)
+	}
+
+	published := publisher.ItemPublished()
+	if len(published) != 1 {
+		t.Fatalf("published %d item documents, want 1", len(published))
+	}
+	if published[0].ProjectName != "A Project" {
+		t.Errorf("item's project_name = %q, want A Project", published[0].ProjectName)
+	}
+	if published[0].ProjectSlug != "a-project" {
+		t.Errorf("item's project_slug = %q, want a-project", published[0].ProjectSlug)
 	}
 }
 

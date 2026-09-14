@@ -282,19 +282,32 @@ type ItemProjection struct {
 	FormationUID string
 	ProjectUID   string
 
+	// ProjectName and ProjectSlug are the same project facts the checklist
+	// projection already carries (FormationProjection.ProjectName/ProjectSlug),
+	// copied onto the item so a Pending Actions row can render its project
+	// badge from this document alone — the one query this feature exists to
+	// make sufficient cannot also require a project lookup per row.
+	ProjectName string
+	ProjectSlug string
+
 	// ItemKey is stable across template versions. Not the document's
 	// identity (that is ItemUID), but useful for debugging a specific
 	// template row across formations.
 	ItemKey string
 
 	// Row content, copied from the Item this projection was built from.
-	Title      string
-	Status     string
-	Gate       bool
-	DueDate    string // ISO date; empty when unset.
-	OwnerTeam  string // Empty when unset.
-	ActionLink string // Empty when unset.
-	SubItems   []ItemProjectionSubItem
+	Title string
+	// StatusSource says whether Status was set by hand or by a platform
+	// check ("manual" | "platform"), mirroring the checklist read's own
+	// field of the same name. A consumer needs it to tell a manual/link/
+	// request row from one where the row's action is display-only.
+	StatusSource string
+	Status       string
+	Gate         bool
+	DueDate      string // ISO date; empty when unset.
+	OwnerTeam    string // Empty when unset.
+	ActionLink   string // Empty when unset.
+	SubItems     []ItemProjectionSubItem
 
 	// Assignee is the sole attribute the Pending Actions query filters on.
 	// Empty when the item is unassigned — never published as an empty-string

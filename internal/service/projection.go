@@ -88,7 +88,11 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 	// succeeded or the projects after this one in the sweep — unless every
 	// item in this checklist failed, which the caller cannot tell from a
 	// bare "true" without this reflecting it.
-	itemDocs := buildItemProjections(formation, items)
+	//
+	// project and name are already resolved above for the checklist
+	// document; reusing them here costs nothing further, no second project
+	// lookup.
+	itemDocs := buildItemProjections(formation, items, project, name)
 	if len(itemDocs) > 0 {
 		if err := p.publisher.PublishItems(ctx, itemDocs); err != nil {
 			slog.WarnContext(ctx, "could not publish this checklist's item rows; the next sweep will retry",
@@ -248,6 +252,12 @@ func blockedItemTitles(items []*model.Item) []string {
 // buildItemProjections turns a checklist's items into the per-item documents
 // the Pending Actions query reads, one per item.
 //
+// project and projectName are the same two arguments buildProjection takes for
+// the same reason: project.Slug is a list-reply fact, projectName is the one
+// extra resolved fact the list reply does not carry (see projectFacts) — so
+// this mirrors that signature rather than inventing its own shape for the
+// same two facts.
+//
 // AccessRelation is set to formationAccessRelation for every item, explicitly
 // and unconditionally — never viewer, regardless of the item's own status,
 // gate, or any other content — matching the checklist projection's own
@@ -255,6 +265,8 @@ func blockedItemTitles(items []*model.Item) []string {
 func buildItemProjections(
 	formation *model.Formation,
 	items []*model.Item,
+	project port.ProjectRef,
+	projectName string,
 ) []*port.ItemProjection {
 	out := make([]*port.ItemProjection, 0, len(items))
 	for _, item := range items {
@@ -279,8 +291,11 @@ func buildItemProjections(
 			ItemUID:        item.UID.String(),
 			FormationUID:   formation.UID.String(),
 			ProjectUID:     formation.ProjectUID,
+			ProjectName:    projectName,
+			ProjectSlug:    project.Slug,
 			ItemKey:        item.ItemKey,
 			Title:          item.Title,
+			StatusSource:   string(item.StatusSource),
 			Status:         string(item.Status),
 			Gate:           item.Gate,
 			DueDate:        dueDate,

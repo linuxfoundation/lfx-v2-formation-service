@@ -55,8 +55,11 @@ func sampleItemProjection() *port.ItemProjection {
 		ItemUID:      "01JQ0000000000000000000001",
 		FormationUID: "01JQ0000000000000000000000",
 		ProjectUID:   "project-1",
+		ProjectName:  "A Project",
+		ProjectSlug:  "a-project",
 		ItemKey:      "create_mailing_list",
 		Title:        "Create mailing list",
+		StatusSource: "manual",
 		Status:       "in_progress",
 		Gate:         false,
 		DueDate:      "2026-10-01",
@@ -417,6 +420,38 @@ func TestTheSubjectNamesTheFormationItemObjectType(t *testing.T) {
 	}
 }
 
+// A Pending Actions row renders its project badge and chooses its Claim/
+// Block/Open affordance from this document alone — project_name, project_slug
+// and status_source have to be on the wire, not just on the Go struct, or a
+// consumer needing them is back to a second read per row.
+func TestPublishItemCarriesProjectFactsAndStatusSourceOnTheWire(t *testing.T) {
+	url := startTestNATSServer(t)
+	await := captureOn(t, url, IndexItemSubject)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	if err := publisher.PublishItem(context.Background(), sampleItemProjection()); err != nil {
+		t.Fatalf("PublishItem() = %v, want no error", err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(await(), &envelope); err != nil {
+		t.Fatalf("decoding the envelope = %v", err)
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("data = %#v, want an object", envelope["data"])
+	}
+	for field, want := range map[string]string{
+		"project_name":  "A Project",
+		"project_slug":  "a-project",
+		"status_source": "manual",
+	} {
+		if got := data[field]; got != want {
+			t.Errorf("data[%q] = %v, want %q", field, got, want)
+		}
+	}
+}
+
 // Always "updated", never "created" — same reasoning as PublishFormation: the
 // reconcile sweep cannot tell a genuine first publish from a republish of an
 // item that already exists.
@@ -575,8 +610,9 @@ func TestPublishedItemDataExcludesDrawerOnlyFields(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"object_id": true, "formation_uid": true, "project_uid": true, "item_key": true,
-		"title": true, "status": true, "gate": true, "due_date": true, "owner_team": true,
+		"object_id": true, "formation_uid": true, "project_uid": true, "project_name": true,
+		"project_slug": true, "item_key": true, "title": true, "status_source": true,
+		"status": true, "gate": true, "due_date": true, "owner_team": true,
 		"action_link": true, "assignee": true, "sub_items": true,
 	}
 	for key := range data {
@@ -765,6 +801,25 @@ func TestPublishItemsRefusesWhenEveryDocumentIsInvalid(t *testing.T) {
 	if err := publisher.PublishItems(context.Background(), []*port.ItemProjection{invalid, invalid}); err == nil {
 		t.Fatal("PublishItems() with every document invalid = nil, want an error — " +
 			"nothing landed for this checklist")
+	}
+}
+
+// A failed Flush must not be masked by a landed count: PublishNoFlush only
+// queues a message locally and never inspects ctx, so every item still
+// "lands" even against an already-cancelled context — but the Flush that
+// follows fails immediately, and nothing was actually confirmed delivered to
+// the server regardless. Reproduces the exact gap Client.Publish's own single-
+// document path guards against (a lost Flush error reads as success).
+func TestPublishItemsReturnsTheFlushErrorEvenWhenItemsLanded(t *testing.T) {
+	url := startTestNATSServer(t)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := publisher.PublishItems(ctx, []*port.ItemProjection{sampleItemProjection()}); err == nil {
+		t.Fatal("PublishItems() with a cancelled context = nil, want the flush error " +
+			"surfaced even though the item queued locally")
 	}
 }
 
