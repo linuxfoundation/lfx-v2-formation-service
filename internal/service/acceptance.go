@@ -293,6 +293,13 @@ func (s *Service) applyAcceptance(
 	if txErr != nil {
 		return nil, mapAcceptanceError(txErr)
 	}
+
+	// One call covers accept, reject and reopen, because all three arrive here.
+	// Accepting and reopening both move an item across the boundary the Pending
+	// Actions query filters on, so these are the writes whose staleness a person
+	// notices first: work they have finished, still listed as outstanding.
+	s.refreshIndex(ctx, req.projectUID)
+
 	return itemToWire(result), nil
 }
 

@@ -60,6 +60,17 @@ type Service struct {
 	// than an error — the read path must not depend on a dependency that
 	// does not exist yet.
 	projects port.ProjectReader
+
+	// refresher republishes a project's indexed documents after one of its
+	// items is written, so an assignment reaches the cross-project surfaces
+	// in seconds rather than at the next sweep.
+	//
+	// Nil is a supported state and not a degraded one in any way a caller
+	// can see: every write route still serves, and the sweep still
+	// republishes on its own interval. What is lost is only how soon. That
+	// is deliberate — a deployment with no NATS must still accept writes,
+	// and freshness is the one thing here allowed to be absent.
+	refresher ItemWriteRefresher
 }
 
 // Ensure Service satisfies the generated service and authorization interfaces.
@@ -109,6 +120,13 @@ func WithTemplates(templates port.TemplateRepository) serviceOption {
 // conservative answer until the NATS adapter is wired.
 func WithProjects(projects port.ProjectReader) serviceOption {
 	return func(s *Service) { s.projects = projects }
+}
+
+// WithRefresher wires the write-path index refresh. Omitting it leaves item
+// writes reaching the index at the next sweep, which is what they did before
+// this existed — slower, never wrong.
+func WithRefresher(refresher ItemWriteRefresher) serviceOption {
+	return func(s *Service) { s.refresher = refresher }
 }
 
 // WithUnitOfWork wires the transaction that UpdateItem commits an item

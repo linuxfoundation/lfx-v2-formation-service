@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
@@ -76,6 +77,11 @@ type IndexerPublisher struct {
 	deleted       capture[string]
 	itemPublished capture[*port.ItemProjection]
 	itemDeleted   capture[string]
+
+	// itemBatches counts PublishItems calls, which the captures above cannot:
+	// this double fans a batch out into one PublishItem record per document,
+	// exactly as a caller looping over items would.
+	itemBatches atomic.Int64
 }
 
 // NewIndexerPublisher constructs an empty capture.
@@ -151,6 +157,7 @@ func (p *IndexerPublisher) PublishItem(_ context.Context, doc *port.ItemProjecti
 // PublishItems records every item projection, or fails the whole batch if
 // SetError or SetItemsError armed an error.
 func (p *IndexerPublisher) PublishItems(ctx context.Context, docs []*port.ItemProjection) error {
+	p.itemBatches.Add(1)
 	if err := p.armedItemsError(); err != nil {
 		return err
 	}
@@ -198,6 +205,14 @@ func (p *IndexerPublisher) Latest(projectUID string) *port.FormationProjection {
 // sweep publishes once per checklist rather than once per item.
 func (p *IndexerPublisher) Count() int {
 	return p.published.count()
+}
+
+// ItemBatchCount reports how many PublishItems calls were made, as distinct
+// from how many documents they carried. The two only diverge the way a cost
+// ledger cares about: a caller looping over items would publish the same
+// documents at one round trip each, which ItemPublished cannot tell apart.
+func (p *IndexerPublisher) ItemBatchCount() int {
+	return int(p.itemBatches.Load())
 }
 
 // ItemDeleted returns the item UIDs removed so far, in order.

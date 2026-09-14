@@ -16,6 +16,7 @@ import (
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
 // startTestNATSServer runs an in-process NATS server, which is how both donor
@@ -404,6 +405,120 @@ func TestProjectClientListFormingProjectsEmptyReplyIsNotFound(t *testing.T) {
 	_, err := p.ListFormingProjects(ctx, nil)
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("ListFormingProjects() = %v, want domain.ErrNotFound", err)
+	}
+}
+
+// The single-project lookup, and the assertion that matters is on the request
+// rather than on the reply: it must carry the UID and *no* stages.
+//
+// The stage filter is what makes the owning service walk its whole store. A
+// stage-free request is served by a direct read of the named key, which is the
+// entire reason this method exists instead of asking ListFormingProjects for
+// one project — so a request that quietly grew a stage list would turn every
+// item write into a full upstream scan while every other test still passed.
+func TestProjectClientGetRefAsksForTheUIDWithNoStages(t *testing.T) {
+	ctx := context.Background()
+	url := startTestNATSServer(t)
+	var gotRequest string
+	respondOn(t, url, ProjectListProjectsSubject, func(request string) []byte {
+		gotRequest = request
+		return []byte(`[{"uid":"p1","slug":"one","is_foundation":true,"parent_uid":"p0","stage":"Formation - Engaged"}]`)
+	})
+
+	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+	ref, err := p.GetRef(ctx, "p1")
+	if err != nil {
+		t.Fatalf("GetRef() = %v, want no error", err)
+	}
+
+	var request projectListRequest
+	if err := json.Unmarshal([]byte(gotRequest), &request); err != nil {
+		t.Fatalf("request %q is not the JSON body this subject takes: %v", gotRequest, err)
+	}
+	if len(request.Stages) != 0 {
+		t.Errorf("stages = %v, want none: a stage filter makes the project service scan its whole store", request.Stages)
+	}
+	// omitempty, so the subject sees a uids-only request rather than one
+	// carrying an empty stage filter it has to interpret.
+	if strings.Contains(gotRequest, `"stages"`) {
+		t.Errorf("request = %s, want no stages key at all", gotRequest)
+	}
+	if len(request.UIDs) != 1 || request.UIDs[0] != "p1" {
+		t.Errorf("uids = %v, want [p1]", request.UIDs)
+	}
+
+	// Every field the ref carries is asserted, because three of them exist only
+	// on the checklist document and a lookup that dropped them would publish a
+	// row with no hierarchy and no stage — overwriting correct values rather
+	// than merely failing to add new ones.
+	want := port.ProjectRef{
+		UID: "p1", Slug: "one", IsFoundation: true,
+		ParentUID: "p0", SubStage: model.StageFormationEngaged,
+	}
+	if ref != want {
+		t.Errorf("GetRef() = %+v, want %+v", ref, want)
+	}
+}
+
+// A project that is not there is a successful read of nothing. The upstream
+// handler skips a UID naming no project rather than failing the request, so the
+// reply is an empty array — which must be not-found rather than a zero ref,
+// because a zero ref published as a document erases the slug and stage a
+// previous publish established.
+func TestProjectClientGetRefOnAnAbsentProject(t *testing.T) {
+	ctx := context.Background()
+	url := startTestNATSServer(t)
+	respondOn(t, url, ProjectListProjectsSubject, func(string) []byte { return []byte(`[]`) })
+
+	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+	if _, err := p.GetRef(ctx, "gone"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("GetRef() = %v, want domain.ErrNotFound", err)
+	}
+}
+
+// Neither reply yields a ref, but they fail differently and the difference is
+// load-bearing. An entry naming no project is a successful read of a project
+// that is not there; a zero-byte reply is how the project service reports that
+// its handler failed. The refresher counts the first as nothing to publish and
+// the second as a failure that left documents stale, so folding the upstream
+// being broken into not-found would retire it into a counter meaning the
+// opposite.
+func TestProjectClientGetRefRejectsUnusableReplies(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		reply        []byte
+		wantNotFound bool
+	}{
+		{"an entry naming no project", []byte(`[{"uid":"","slug":"nameless"}]`), true},
+		{"a zero-byte reply", nil, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			url := startTestNATSServer(t)
+			respondOn(t, url, ProjectListProjectsSubject, func(string) []byte { return tc.reply })
+
+			p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+			_, err := p.GetRef(ctx, "p1")
+			if err == nil {
+				t.Fatal("GetRef() = nil, want an error")
+			}
+			if got := errors.Is(err, domain.ErrNotFound); got != tc.wantNotFound {
+				t.Errorf("GetRef() errors.Is(domain.ErrNotFound) = %t, want %t (error: %v)",
+					got, tc.wantNotFound, err)
+			}
+		})
+	}
+}
+
+func TestProjectClientGetRefRejectsAnEmptyUID(t *testing.T) {
+	ctx := context.Background()
+	p := NewProjectClient(newTestClient(t, startTestNATSServer(t), 2*time.Second))
+
+	if _, err := p.GetRef(ctx, ""); !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Errorf("GetRef(\"\") = %v, want %v", err, domain.ErrInvalidRequest)
 	}
 }
 
