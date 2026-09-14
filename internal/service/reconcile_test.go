@@ -30,10 +30,33 @@ type listProjects struct {
 	listCalls    int
 	nameRequests int
 	lastAlsoUIDs []string
+	// perProjectSettings holds optional per-project overrides. When set for a
+	// UID, GetSettings returns it directly (including its Writers, Auditors, and
+	// UserEmails). When absent the announcement-date-only fallback is returned.
+	perProjectSettings map[string]*port.ProjectSettings
 }
 
 func (l *listProjects) GetSettings(_ context.Context, projectUID string) (*port.ProjectSettings, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.perProjectSettings != nil {
+		if s, ok := l.perProjectSettings[projectUID]; ok {
+			out := *s
+			return &out, nil
+		}
+	}
 	return &port.ProjectSettings{ProjectUID: projectUID, AnnouncementDate: &l.announcement}, nil
+}
+
+// setProjectSettings seeds per-project settings for tests that need Writers,
+// Auditors, or UserEmails in addition to or instead of the announcement date.
+func (l *listProjects) setProjectSettings(uid string, s *port.ProjectSettings) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.perProjectSettings == nil {
+		l.perProjectSettings = make(map[string]*port.ProjectSettings)
+	}
+	l.perProjectSettings[uid] = s
 }
 
 // ListFormingProjects returns whatever a test set, including projects at stages
@@ -1406,6 +1429,96 @@ func TestReconcileNotificationsSuppressedForCompletedFormation(t *testing.T) {
 
 	if mailer.SentCount() != countAfterTransition {
 		t.Errorf("SentCount() grew from %d to %d on third sweep — notifications must not fire for completed formations",
+			countAfterTransition, mailer.SentCount())
+	}
+}
+
+// TestReconcileActiveEmailFanOutOnTransition is the coverage the Copilot
+// review identified as missing from TestReconcileNotificationsSuppressedForCompletedFormation:
+// the Active fan-out must send one email per distinct address to writers and
+// auditors, deduplicating a recipient who holds both roles, and must not
+// re-send on the next sweep when the lifecycle is already completed.
+func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
+	ctx := context.Background()
+
+	// writer1 holds only a writer grant; writer2 holds both writer and auditor
+	// (the overlap case); auditor1 holds only an auditor grant. Three distinct
+	// addresses should produce exactly three sends, not four.
+	const (
+		writer1Addr  = "writer1@example.com"
+		writer2Addr  = "writer2@example.com" // also in auditors → must not send twice
+		auditor1Addr = "auditor1@example.com"
+	)
+
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	projects := &listProjects{
+		refs: []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		announcement: futureDate,
+	}
+	projects.setProjectSettings("project-1", &port.ProjectSettings{
+		ProjectUID:       "project-1",
+		AnnouncementDate: &futureDate,
+		Writers:          []string{"writer1", "writer2"},
+		Auditors:         []string{"writer2", "auditor1"}, // writer2 in both
+		UserEmails: map[string]string{
+			"writer1":  writer1Addr,
+			"writer2":  writer2Addr,
+			"auditor1": auditor1Addr,
+		},
+	})
+
+	r, f, _ := newReconcilerWithIndex(t, projects)
+	mailer := mock.NewEmailDispatcher()
+	r.SetEmailer(f.items, mailer, EmailConfig{
+		Enabled:      true,
+		FormationInbox: "formation@linuxfoundation.org",
+		AdminBaseURL:   "https://lfx.linuxfoundation.org",
+	})
+
+	// First sweep: create the formation.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v", err)
+	}
+
+	// Move the project to Active so the lifecycle transitions to Completed.
+	r.projects.(*listProjects).refs[0].SubStage = model.StageActive
+
+	// Second sweep: Active transition fires the fan-out.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v", err)
+	}
+
+	// Exactly three distinct addresses: writer1, writer2, auditor1.
+	// writer2 holds both roles but must receive only one email.
+	sent := mailer.Sent()
+	recipients := make(map[string]int, len(sent))
+	for _, m := range sent {
+		recipients[m.To]++
+	}
+	if got := recipients[writer1Addr]; got != 1 {
+		t.Errorf("writer1 received %d emails, want 1", got)
+	}
+	if got := recipients[writer2Addr]; got != 1 {
+		t.Errorf("writer2 (dual-role) received %d emails, want 1 (dedup)", got)
+	}
+	if got := recipients[auditor1Addr]; got != 1 {
+		t.Errorf("auditor1 received %d emails, want 1", got)
+	}
+	// Formation inbox must not appear in the Active fan-out.
+	if n := recipients["formation@linuxfoundation.org"]; n > 0 {
+		t.Errorf("formation inbox received %d Active emails, want 0", n)
+	}
+
+	countAfterTransition := mailer.SentCount()
+
+	// Third sweep: lifecycle is already Completed → dispatchActiveEmails is
+	// behind the lifecycleMoved guard and won't re-run; no new sends expected.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("third sweep = %v", err)
+	}
+
+	if mailer.SentCount() != countAfterTransition {
+		t.Errorf("SentCount() grew from %d to %d on third sweep — Active email must not re-send",
 			countAfterTransition, mailer.SentCount())
 	}
 }
