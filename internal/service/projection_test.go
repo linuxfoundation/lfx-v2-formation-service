@@ -291,7 +291,7 @@ func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
 	formationUID := uuid.New()
 	due := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 
-	formation := &model.Formation{UID: formationUID, ProjectUID: "project-1"}
+	formation := &model.Formation{UID: formationUID, ProjectUID: "project-1", Lifecycle: model.LifecycleLive}
 	items := []*model.Item{
 		{
 			UID:          itemUID,
@@ -334,6 +334,9 @@ func TestBuildItemProjectionsMapsEveryField(t *testing.T) {
 	}
 	if doc.StatusSource != string(model.SourcePlatform) {
 		t.Errorf("status_source = %q, want %q", doc.StatusSource, model.SourcePlatform)
+	}
+	if doc.Lifecycle != string(model.LifecycleLive) {
+		t.Errorf("lifecycle = %q, want %q", doc.Lifecycle, model.LifecycleLive)
 	}
 	if doc.ItemKey != "create_mailing_list" {
 		t.Errorf("item_key = %q, want create_mailing_list", doc.ItemKey)
@@ -529,6 +532,34 @@ func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
 	if got := publisher.Count(); got != 1 {
 		t.Errorf("published %d checklist documents, want 1 — the checklist document is unchanged",
 			got)
+	}
+}
+
+// A checklist is never deleted when its project leaves formation — it becomes
+// completed (read-only history) or frozen, and the sweep keeps republishing
+// it. So its items keep being republished too, at whatever status the
+// transition left them, and Lifecycle.Mutable() means they can never move
+// again. The item documents have to carry that lifecycle for a consumer to
+// tell "still outstanding" from "outstanding when the music stopped".
+func TestBuildItemProjectionsCarriesANonLiveLifecycle(t *testing.T) {
+	for _, lifecycle := range []model.Lifecycle{model.LifecycleCompleted, model.LifecycleFrozen} {
+		formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1", Lifecycle: lifecycle}
+		items := []*model.Item{{
+			UID:          uuid.New(),
+			FormationUID: formation.UID,
+			Title:        "Left mid-flight",
+			Status:       model.StatusInProgress,
+			Assignee:     "jdoe",
+		}}
+
+		doc := buildItemProjections(formation, items, port.ProjectRef{}, "")[0]
+
+		if doc.Lifecycle != string(lifecycle) {
+			t.Errorf("lifecycle = %q, want %q", doc.Lifecycle, lifecycle)
+		}
+		if lifecycle.Mutable() {
+			t.Errorf("%q reports mutable; this test's premise is that it is not", lifecycle)
+		}
 	}
 }
 

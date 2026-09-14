@@ -202,7 +202,7 @@ func BuildAcceptItemPayload(lfxV2FormationServiceAcceptItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceAcceptItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Temporibus laborum.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Cum qui.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -256,7 +256,7 @@ func BuildRejectItemPayload(lfxV2FormationServiceRejectItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceRejectItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"4\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"yuu\"\n   }'")
 		}
 		if utf8.RuneCountInString(body.Note) < 1 {
 			err = goa.MergeErrors(err, goa.InvalidLengthError("body.note", body.Note, utf8.RuneCountInString(body.Note), 1, true))
@@ -316,7 +316,7 @@ func BuildReopenItemPayload(lfxV2FormationServiceReopenItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceReopenItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Hic quaerat labore qui.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Laboriosam vel ut ad quibusdam.\"\n   }'")
 		}
 	}
 	var projectUID string

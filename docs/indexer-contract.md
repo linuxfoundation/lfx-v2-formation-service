@@ -41,11 +41,12 @@ service.
 | `object_id` | string (UUID) | The item's own UID — this document's primary key, distinct from `formation_uid` |
 | `formation_uid` | string (UUID) | UID of the checklist this item belongs to |
 | `project_uid` | string | UID of the owning project, resolved through the formation rather than stored on the item |
-| `project_name` | string | Owning project's display name, copied from the checklist projection's own resolved name — lets a Pending Actions row render its project badge with no second read |
-| `project_slug` | string | Owning project's slug, copied the same way as `project_name` |
+| `project_name` | string | Owning project's display name, so a row can name its project without a second read |
+| `project_slug` | string | Owning project's slug, same reason |
+| `lifecycle` | string enum | `live \| completed \| frozen` — the owning checklist's. A non-live checklist refuses mutations, so its unfinished items are history rather than open work; exclude them with the tag |
 | `item_key` | string | Stable across template versions; not the document's identity, useful for debugging a specific template row across formations |
 | `title` | string | Item title |
-| `status_source` | string enum | `manual \| platform` — whether the item's status is set by hand or driven by a platform check; a consumer needs it to derive the item's action affordance (manual / link / provisionable / request / status-only) the same way the checklist read does |
+| `status_source` | string enum | `manual \| platform` — whether the status is hand-set or driven by a platform check. Drives the row's action affordance |
 | `status` | string enum | `not_started \| in_progress \| blocked \| awaiting_acceptance \| done \| skipped` |
 | `gate` | bool | Whether this item blocks the project's Active transition |
 | `due_date` | string (ISO date, optional) | Omitted when unset |
@@ -57,6 +58,10 @@ service.
 **Deliberately excluded** (drawer-only detail, read from the checklist directly when a caller opens
 an item, never from this document): `note`, `skip_reason`, `resolved_ref`, `evidence_link`.
 
+Also excluded: `version`, the `If-Match` token the mutation endpoints require. A document this old
+could only hand out a stale one. Read the item to act on it — and once a caller has written, the
+mutation response returns the next token as `ETag`, so no re-read is needed to keep writing.
+
 ### Tags
 
 | Tag Format | Example | Purpose |
@@ -64,8 +69,11 @@ an item, never from this document): `note`, `skip_reason`, `resolved_ref`, `evid
 | `project_uid:{value}` | `project_uid:cbef1ed5-17dc-4a50-84e2-6cddd70f6878` | Find items by project, for parity with the checklist document's own tag set |
 | `formation_uid:{value}` | `formation_uid:01JQ0000000000000000000000` | Find items by checklist, for the same reason |
 | `assignee:{value}` | `assignee:jdoe` | Find items assigned to a caller across every formation project they can access — the one tag Pending Actions depends on |
+| `lifecycle:{value}` | `lifecycle:live` | Narrow to checklists that still accept changes |
 
 > The `assignee:` tag is only emitted when the item has an assignee.
+
+> A Pending Actions query sends both: `assignee:<username>` and `lifecycle:live`.
 
 ### Access Control (IndexingConfig)
 

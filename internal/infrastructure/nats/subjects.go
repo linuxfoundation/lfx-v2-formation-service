@@ -172,4 +172,5 @@ const (
 	tagProjectUID   = "project_uid:"
 	tagFormationUID = "formation_uid:"
 	tagAssignee     = "assignee:"
+	tagLifecycle    = "lifecycle:"
 )

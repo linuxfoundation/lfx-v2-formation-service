@@ -396,6 +396,7 @@ type itemProjectionWire struct {
 	ProjectUID   string                      `json:"project_uid"`
 	ProjectName  string                      `json:"project_name"`
 	ProjectSlug  string                      `json:"project_slug"`
+	Lifecycle    string                      `json:"lifecycle"`
 	ItemKey      string                      `json:"item_key"`
 	Title        string                      `json:"title"`
 	StatusSource string                      `json:"status_source"`
@@ -432,6 +433,7 @@ func newItemProjectionWire(doc *port.ItemProjection) *itemProjectionWire {
 		ProjectUID:   doc.ProjectUID,
 		ProjectName:  doc.ProjectName,
 		ProjectSlug:  doc.ProjectSlug,
+		Lifecycle:    doc.Lifecycle,
 		ItemKey:      doc.ItemKey,
 		Title:        doc.Title,
 		StatusSource: doc.StatusSource,
@@ -463,15 +465,23 @@ func itemParentRefs(projectRef, formationUID string) []string {
 //
 // assignee: is the one tag the Pending Actions query depends on — it is what
 // turns "list every project, read every checklist" into one query.
+//
+// lifecycle: is tagged, not only carried in the body, so that exclusion
+// happens inside the same query — the tag is what the search filters on
+// exactly. See ItemProjection.Lifecycle.
+//
 // project_uid: and formation_uid: are included for parity with the checklist
 // document's own tag set, not because any functional requirement here
 // depends on them.
 func itemTags(doc *port.ItemProjection) []string {
-	tags := make([]string, 0, 3)
+	tags := make([]string, 0, 4)
 	tags = append(tags,
 		tagProjectUID+doc.ProjectUID,
 		tagFormationUID+doc.FormationUID,
 	)
+	if doc.Lifecycle != "" {
+		tags = append(tags, tagLifecycle+doc.Lifecycle)
+	}
 	if doc.Assignee != "" {
 		tags = append(tags, tagAssignee+doc.Assignee)
 	}
@@ -487,7 +497,7 @@ func projectionTags(doc *port.FormationProjection) []string {
 	tags := make([]string, 0, 4+len(doc.Assignees))
 	tags = append(tags,
 		tagProjectUID+doc.ProjectUID,
-		"lifecycle:"+doc.Lifecycle,
+		tagLifecycle+doc.Lifecycle,
 	)
 	if doc.ProjectSlug != "" {
 		tags = append(tags, "project_slug:"+doc.ProjectSlug)

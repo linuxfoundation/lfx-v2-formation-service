@@ -57,6 +57,7 @@ func sampleItemProjection() *port.ItemProjection {
 		ProjectUID:   "project-1",
 		ProjectName:  "A Project",
 		ProjectSlug:  "a-project",
+		Lifecycle:    "live",
 		ItemKey:      "create_mailing_list",
 		Title:        "Create mailing list",
 		StatusSource: "manual",
@@ -452,6 +453,47 @@ func TestPublishItemCarriesProjectFactsAndStatusSourceOnTheWire(t *testing.T) {
 	}
 }
 
+// A completed or frozen checklist refuses every write, so an item it left at
+// a non-terminal status can never reach done or skipped — and a consumer
+// narrowing on status alone would surface it as outstanding work forever.
+// The lifecycle has to be both a body field and a tag: the tag is what the
+// search filters on exactly, so the exclusion stays inside the one query.
+func TestPublishItemCarriesLifecycleAsAFieldAndATag(t *testing.T) {
+	url := startTestNATSServer(t)
+	await := captureOn(t, url, IndexItemSubject)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	doc := sampleItemProjection()
+	doc.Lifecycle = "frozen"
+
+	if err := publisher.PublishItem(context.Background(), doc); err != nil {
+		t.Fatalf("PublishItem() = %v, want no error", err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(await(), &envelope); err != nil {
+		t.Fatalf("decoding the envelope = %v", err)
+	}
+
+	data, _ := envelope["data"].(map[string]any)
+	if got := data["lifecycle"]; got != "frozen" {
+		t.Errorf("data[\"lifecycle\"] = %v, want frozen", got)
+	}
+
+	config, _ := envelope["indexing_config"].(map[string]any)
+	rawTags, _ := config["tags"].([]any)
+	var tagged bool
+	for _, tag := range rawTags {
+		if tag == "lifecycle:frozen" {
+			tagged = true
+		}
+	}
+	if !tagged {
+		t.Errorf("tags = %v, want lifecycle:frozen — the exclusion has to be filterable, "+
+			"not only readable", rawTags)
+	}
+}
+
 // Always "updated", never "created" — same reasoning as PublishFormation: the
 // reconcile sweep cannot tell a genuine first publish from a republish of an
 // item that already exists.
@@ -610,10 +652,11 @@ func TestPublishedItemDataExcludesDrawerOnlyFields(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"object_id": true, "formation_uid": true, "project_uid": true, "project_name": true,
-		"project_slug": true, "item_key": true, "title": true, "status_source": true,
-		"status": true, "gate": true, "due_date": true, "owner_team": true,
-		"action_link": true, "assignee": true, "sub_items": true,
+		"object_id": true, "formation_uid": true, "project_uid": true,
+		"project_name": true, "project_slug": true, "lifecycle": true,
+		"item_key": true, "title": true, "status_source": true, "status": true,
+		"gate": true, "due_date": true, "owner_team": true, "action_link": true,
+		"assignee": true, "sub_items": true,
 	}
 	for key := range data {
 		if !want[key] {

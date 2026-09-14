@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -124,6 +125,15 @@ func itemsToWire(items []*model.Item) []*svc.FormationItem {
 		out = append(out, itemToWire(it))
 	}
 	return out
+}
+
+// itemETag renders an item's version for the ETag response header, so a
+// caller holding a mutation's result already holds the If-Match for its next
+// write. Bare digits: if_match is an Int64, so a quoted entity-tag echoed
+// straight back would be refused at decode time.
+func itemETag(item *svc.FormationItem) *string {
+	etag := strconv.FormatInt(item.Version, 10)
+	return &etag
 }
 
 func itemToWire(it *model.Item) *svc.FormationItem {

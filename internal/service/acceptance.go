@@ -104,8 +104,8 @@ type acceptanceOutcome struct {
 // The formation-team membership check happens at the gateway, before this runs.
 // What is left here is the comparison the gateway cannot make: whether the caller
 // is the item's own assignee.
-func (s *Service) AcceptItem(ctx context.Context, p *svc.AcceptItemPayload) (*svc.FormationItem, error) {
-	return s.applyAcceptance(ctx, acceptanceRequest{
+func (s *Service) AcceptItem(ctx context.Context, p *svc.AcceptItemPayload) (*svc.AcceptItemResult, error) {
+	item, err := s.applyAcceptance(ctx, acceptanceRequest{
 		projectUID: p.ProjectUID,
 		itemKey:    p.ItemKey,
 		ifMatch:    p.IfMatch,
@@ -117,12 +117,16 @@ func (s *Service) AcceptItem(ctx context.Context, p *svc.AcceptItemPayload) (*sv
 		action:            "item_accepted",
 		checkSelf:         true,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &svc.AcceptItemResult{Item: item, Etag: itemETag(item)}, nil
 }
 
 // RejectItem returns a claimed item to in_progress with a note the assignee can
 // read.
-func (s *Service) RejectItem(ctx context.Context, p *svc.RejectItemPayload) (*svc.FormationItem, error) {
-	return s.applyAcceptance(ctx, acceptanceRequest{
+func (s *Service) RejectItem(ctx context.Context, p *svc.RejectItemPayload) (*svc.RejectItemResult, error) {
+	item, err := s.applyAcceptance(ctx, acceptanceRequest{
 		projectUID: p.ProjectUID,
 		itemKey:    p.ItemKey,
 		ifMatch:    p.IfMatch,
@@ -136,11 +140,15 @@ func (s *Service) RejectItem(ctx context.Context, p *svc.RejectItemPayload) (*sv
 		// Deliberately false — see acceptanceOutcome.checkSelf.
 		checkSelf: false,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &svc.RejectItemResult{Item: item, Etag: itemETag(item)}, nil
 }
 
 // ReopenItem returns a done item to in_progress.
-func (s *Service) ReopenItem(ctx context.Context, p *svc.ReopenItemPayload) (*svc.FormationItem, error) {
-	return s.applyAcceptance(ctx, acceptanceRequest{
+func (s *Service) ReopenItem(ctx context.Context, p *svc.ReopenItemPayload) (*svc.ReopenItemResult, error) {
+	item, err := s.applyAcceptance(ctx, acceptanceRequest{
 		projectUID: p.ProjectUID,
 		itemKey:    p.ItemKey,
 		ifMatch:    p.IfMatch,
@@ -152,6 +160,10 @@ func (s *Service) ReopenItem(ctx context.Context, p *svc.ReopenItemPayload) (*sv
 		action:            "item_reopened",
 		checkSelf:         true,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &svc.ReopenItemResult{Item: item, Etag: itemETag(item)}, nil
 }
 
 // acceptanceRequest is the shared payload the three routes reduce to.

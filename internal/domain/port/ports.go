@@ -290,6 +290,12 @@ type ItemProjection struct {
 	ProjectName string
 	ProjectSlug string
 
+	// Lifecycle is the owning checklist's, carried per item. A non-live
+	// checklist refuses every write (Lifecycle.Mutable), so an item it left
+	// at a non-terminal status can never reach done or skipped — status
+	// alone never narrows it away.
+	Lifecycle string
+
 	// ItemKey is stable across template versions. Not the document's
 	// identity (that is ItemUID), but useful for debugging a specific
 	// template row across formations.

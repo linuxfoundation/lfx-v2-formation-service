@@ -293,6 +293,7 @@ func buildItemProjections(
 			ProjectUID:     formation.ProjectUID,
 			ProjectName:    projectName,
 			ProjectSlug:    project.Slug,
+			Lifecycle:      string(formation.Lifecycle),
 			ItemKey:        item.ItemKey,
 			Title:          item.Title,
 			StatusSource:   string(item.StatusSource),
