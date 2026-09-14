@@ -241,9 +241,12 @@ func EncodeGetFormationActivityError(encoder func(context.Context, http.Response
 // lfx_v2_formation_service update_item endpoint.
 func EncodeUpdateItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.FormationItem)
+		res, _ := v.(*lfxv2formationservice.UpdateItemResult)
 		enc := encoder(ctx, w)
 		body := NewUpdateItemResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -408,9 +411,12 @@ func EncodeUpdateItemError(encoder func(context.Context, http.ResponseWriter) go
 // lfx_v2_formation_service accept_item endpoint.
 func EncodeAcceptItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.FormationItem)
+		res, _ := v.(*lfxv2formationservice.AcceptItemResult)
 		enc := encoder(ctx, w)
 		body := NewAcceptItemResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -571,9 +577,12 @@ func EncodeAcceptItemError(encoder func(context.Context, http.ResponseWriter) go
 // lfx_v2_formation_service reject_item endpoint.
 func EncodeRejectItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.FormationItem)
+		res, _ := v.(*lfxv2formationservice.RejectItemResult)
 		enc := encoder(ctx, w)
 		body := NewRejectItemResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -738,9 +747,12 @@ func EncodeRejectItemError(encoder func(context.Context, http.ResponseWriter) go
 // lfx_v2_formation_service reopen_item endpoint.
 func EncodeReopenItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.FormationItem)
+		res, _ := v.(*lfxv2formationservice.ReopenItemResult)
 		enc := encoder(ctx, w)
 		body := NewReopenItemResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}

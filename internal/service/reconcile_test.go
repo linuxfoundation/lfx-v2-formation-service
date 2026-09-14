@@ -156,6 +156,39 @@ func TestProjectedCountsPublishedRowsRatherThanProjectsVisited(t *testing.T) {
 	}
 }
 
+// A checklist whose item rows all failed to publish is counted as a failure,
+// not passed over in silence.
+//
+// The two counters answer different questions and a project must land in one
+// of them: Projected counts rows that went out, ProjectionFailed counts a
+// stale index. The gap between them is a project with no checklist, which is
+// neither. An item batch that failed entirely leaves the index stale, so
+// reporting it as "no checklist to publish" would hide it in that gap — the
+// sweep would show a clean run over an index it had just left behind.
+func TestAFailedItemBatchIsCountedAsAFailedProjection(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "engaged", SubStage: model.StageFormationEngaged},
+	}}
+	r, _, publisher := newReconcilerWithIndex(t, projects)
+
+	// The checklist document still publishes; only its item rows fail.
+	publisher.SetItemsError(errors.New("indexer unreachable for items"))
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error — one project's failure must not fail the sweep", err)
+	}
+	if report.ProjectionFailed != 1 {
+		t.Errorf("projectionFailed = %d, want 1 — the index is stale and the report must say so",
+			report.ProjectionFailed)
+	}
+	if report.Projected != 0 {
+		t.Errorf("projected = %d, want 0 — the checklist row alone is not a complete projection",
+			report.Projected)
+	}
+}
+
 // The platform pass runs on every project the sweep finishes, and resolves
 // nothing.
 //

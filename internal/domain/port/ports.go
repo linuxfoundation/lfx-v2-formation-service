@@ -257,6 +257,110 @@ type IndexerPublisher interface {
 	// projects and a project that is gone is not in any list. Removal is
 	// therefore an operator-run repair, and this exists for that job to call.
 	DeleteFormation(ctx context.Context, formationUID string) error
+
+	// PublishItem upserts one checklist item's own projection, separate from
+	// the checklist projection PublishFormation sends for the same sweep.
+	//
+	// Same best-effort contract as PublishFormation: Postgres is the source of
+	// truth, the reconcile republishes every item on every sweep, and a failed
+	// publish is repaired by the next one rather than retried here.
+	PublishItem(ctx context.Context, doc *ItemProjection) error
+
+	// PublishItems upserts every item on one checklist in a single round trip.
+	//
+	// Exists so a checklist with N items costs one NATS flush per sweep tick
+	// rather than N: PublishItem flushes on every call, and the reconcile
+	// sweep calls it once per item, per project, on every tick. A caller with
+	// one document should still use PublishItem; this is for the sweep's own
+	// loop, which already has every item in hand.
+	PublishItems(ctx context.Context, docs []*ItemProjection) error
+
+	// DeleteItem removes one item's projection from the index.
+	//
+	// Keyed on the item UID, mirroring DeleteFormation exactly. There is no
+	// caller for this in the sweep, for the same reason DeleteFormation has
+	// none: an item is never deleted independently of its checklist in the
+	// current domain model, and the checklist itself has no delete operation
+	// today (FormationRepository has no Delete). This exists as the same
+	// operator-run repair DeleteFormation already is.
+	DeleteItem(ctx context.Context, itemUID string) error
+}
+
+// ItemProjection is one row's worth of the Pending Actions surface: a single
+// checklist item, indexed on its own so a query can filter across every
+// formation an assignee holds work in, without listing projects first.
+//
+// Distinct from FormationProjection, which stays the Formations queue's own
+// row. Nothing here changes what that document carries or how it is built.
+type ItemProjection struct {
+	// ItemUID identifies the document. Distinct from FormationUID, which
+	// names the checklist this item belongs to, not the item itself.
+	ItemUID      string
+	FormationUID string
+	ProjectUID   string
+
+	// ProjectName and ProjectSlug are the same project facts the checklist
+	// projection already carries (FormationProjection.ProjectName/ProjectSlug),
+	// copied onto the item so a Pending Actions row can render its project
+	// badge from this document alone — the one query this feature exists to
+	// make sufficient cannot also require a project lookup per row.
+	ProjectName string
+	ProjectSlug string
+
+	// Lifecycle is the owning checklist's, carried per item. A non-live
+	// checklist refuses every write (Lifecycle.Mutable), so an item it left
+	// at a non-terminal status can never reach done or skipped — status
+	// alone never narrows it away.
+	Lifecycle string
+
+	// ItemKey is stable across template versions. Not the document's
+	// identity (that is ItemUID), but useful for debugging a specific
+	// template row across formations.
+	ItemKey string
+
+	// Row content, copied from the Item this projection was built from.
+	Title string
+	// StatusSource says whether Status was set by hand or by a platform
+	// check ("manual" | "platform"), mirroring the checklist read's own
+	// field of the same name. A consumer needs it to tell a manual/link/
+	// request row from one where the row's action is display-only.
+	StatusSource string
+	Status       string
+	Gate         bool
+
+	// RequiresWriter says whether acting on this item needs writer on the
+	// project. A fact about the item, so it belongs here; whether the
+	// caller holds writer is a fact about the caller, which a document
+	// every reader of the project shares cannot carry. A row decides
+	// whether its action is actionable from the two together — an item
+	// this is false for is one an auditor-only assignee can act on.
+	RequiresWriter bool
+
+	DueDate    string // ISO date; empty when unset.
+	OwnerTeam  string // Empty when unset.
+	ActionLink string // Empty when unset.
+	SubItems   []ItemProjectionSubItem
+
+	// Assignee is the sole attribute the Pending Actions query filters on.
+	// Empty when the item is unassigned — never published as an empty-string
+	// tag; see PublishItem.
+	Assignee string
+
+	// AccessRelation is the relation a caller must hold on the project to
+	// read this document. Carried on the projection rather than chosen by the
+	// publisher, for the same reason FormationProjection.AccessRelation is:
+	// the decision belongs in the domain layer, and PublishItem refuses a
+	// document that does not set it.
+	AccessRelation string
+}
+
+// ItemProjectionSubItem is the nested, display-only sub-item summary an
+// ItemProjection carries so a Pending Actions row can render its "N of M"
+// progress line without a second read against the checklist.
+type ItemProjectionSubItem struct {
+	Key    string
+	Title  string
+	Status string
 }
 
 // FormationProjection is one row of the Formations queue.

@@ -78,159 +78,19 @@ type GetFormationActivityResponseBody struct {
 
 // UpdateItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "update_item" endpoint HTTP response body.
-type UpdateItemResponseBody struct {
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    *string `form:"item_key,omitempty" json:"item_key,omitempty" xml:"item_key,omitempty"`
-	SectionKey *string `form:"section_key,omitempty" json:"section_key,omitempty" xml:"section_key,omitempty"`
-	Position   *int    `form:"position,omitempty" json:"position,omitempty" xml:"position,omitempty"`
-	Title      *string `form:"title,omitempty" json:"title,omitempty" xml:"title,omitempty"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           *bool   `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
-	RequiresWriter *bool   `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
-	StatusSource   *string `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired *bool `form:"is_required,omitempty" json:"is_required,omitempty" xml:"is_required,omitempty"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType *string                             `form:"checklist_type,omitempty" json:"checklist_type,omitempty" xml:"checklist_type,omitempty"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version *int64 `form:"version,omitempty" json:"version,omitempty" xml:"version,omitempty"`
-}
+type UpdateItemResponseBody FormationItemResponseBody
 
 // AcceptItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "accept_item" endpoint HTTP response body.
-type AcceptItemResponseBody struct {
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    *string `form:"item_key,omitempty" json:"item_key,omitempty" xml:"item_key,omitempty"`
-	SectionKey *string `form:"section_key,omitempty" json:"section_key,omitempty" xml:"section_key,omitempty"`
-	Position   *int    `form:"position,omitempty" json:"position,omitempty" xml:"position,omitempty"`
-	Title      *string `form:"title,omitempty" json:"title,omitempty" xml:"title,omitempty"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           *bool   `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
-	RequiresWriter *bool   `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
-	StatusSource   *string `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired *bool `form:"is_required,omitempty" json:"is_required,omitempty" xml:"is_required,omitempty"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType *string                             `form:"checklist_type,omitempty" json:"checklist_type,omitempty" xml:"checklist_type,omitempty"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version *int64 `form:"version,omitempty" json:"version,omitempty" xml:"version,omitempty"`
-}
+type AcceptItemResponseBody FormationItemResponseBody
 
 // RejectItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "reject_item" endpoint HTTP response body.
-type RejectItemResponseBody struct {
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    *string `form:"item_key,omitempty" json:"item_key,omitempty" xml:"item_key,omitempty"`
-	SectionKey *string `form:"section_key,omitempty" json:"section_key,omitempty" xml:"section_key,omitempty"`
-	Position   *int    `form:"position,omitempty" json:"position,omitempty" xml:"position,omitempty"`
-	Title      *string `form:"title,omitempty" json:"title,omitempty" xml:"title,omitempty"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           *bool   `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
-	RequiresWriter *bool   `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
-	StatusSource   *string `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired *bool `form:"is_required,omitempty" json:"is_required,omitempty" xml:"is_required,omitempty"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType *string                             `form:"checklist_type,omitempty" json:"checklist_type,omitempty" xml:"checklist_type,omitempty"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version *int64 `form:"version,omitempty" json:"version,omitempty" xml:"version,omitempty"`
-}
+type RejectItemResponseBody FormationItemResponseBody
 
 // ReopenItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "reopen_item" endpoint HTTP response body.
-type ReopenItemResponseBody struct {
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Stable identifier, e.g. charter_agreed. Never changes.
-	ItemKey    *string `form:"item_key,omitempty" json:"item_key,omitempty" xml:"item_key,omitempty"`
-	SectionKey *string `form:"section_key,omitempty" json:"section_key,omitempty" xml:"section_key,omitempty"`
-	Position   *int    `form:"position,omitempty" json:"position,omitempty" xml:"position,omitempty"`
-	Title      *string `form:"title,omitempty" json:"title,omitempty" xml:"title,omitempty"`
-	OwnerTeam  *string `form:"owner_team,omitempty" json:"owner_team,omitempty" xml:"owner_team,omitempty"`
-	// Whether this item blocks going live.
-	Gate           *bool   `form:"gate,omitempty" json:"gate,omitempty" xml:"gate,omitempty"`
-	RequiresWriter *bool   `form:"requires_writer,omitempty" json:"requires_writer,omitempty" xml:"requires_writer,omitempty"`
-	StatusSource   *string `form:"status_source,omitempty" json:"status_source,omitempty" xml:"status_source,omitempty"`
-	// Whether this item must be filled in. Display metadata, not a gate.
-	IsRequired *bool `form:"is_required,omitempty" json:"is_required,omitempty" xml:"is_required,omitempty"`
-	// Which audience this item is for. Display metadata only; the response is
-	// never filtered by it.
-	ChecklistType *string                             `form:"checklist_type,omitempty" json:"checklist_type,omitempty" xml:"checklist_type,omitempty"`
-	PlatformCheck *FormationPlatformCheckResponseBody `form:"platform_check,omitempty" json:"platform_check,omitempty" xml:"platform_check,omitempty"`
-	// Placeholders substituted once at expansion.
-	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
-	// Writer-set; feeds Quick Links.
-	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
-	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
-	// Username. Nothing is granted.
-	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
-	DueDate  *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note     *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Set by the service.
-	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
-	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
-	// Echo as If-Match on every mutation. Per item, not per formation.
-	Version *int64 `form:"version,omitempty" json:"version,omitempty" xml:"version,omitempty"`
-}
+type ReopenItemResponseBody FormationItemResponseBody
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -799,9 +659,9 @@ func NewGetFormationActivityUnauthorized(body *GetFormationActivityUnauthorizedR
 	return v
 }
 
-// NewUpdateItemFormationItemOK builds a "lfx_v2_formation_service" service
+// NewUpdateItemResultOK builds a "lfx_v2_formation_service" service
 // "update_item" endpoint result from a HTTP "OK" response.
-func NewUpdateItemFormationItemOK(body *UpdateItemResponseBody) *lfxv2formationservice.FormationItem {
+func NewUpdateItemResultOK(body *UpdateItemResponseBody, etag *string) *lfxv2formationservice.UpdateItemResult {
 	v := &lfxv2formationservice.FormationItem{
 		UID:            *body.UID,
 		ItemKey:        *body.ItemKey,
@@ -839,8 +699,12 @@ func NewUpdateItemFormationItemOK(body *UpdateItemResponseBody) *lfxv2formations
 			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
 		}
 	}
+	res := &lfxv2formationservice.UpdateItemResult{
+		Item: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewUpdateItemNotFound builds a lfx_v2_formation_service service update_item
@@ -906,9 +770,9 @@ func NewUpdateItemUnauthorized(body *UpdateItemUnauthorizedResponseBody) *lfxv2f
 	return v
 }
 
-// NewAcceptItemFormationItemOK builds a "lfx_v2_formation_service" service
+// NewAcceptItemResultOK builds a "lfx_v2_formation_service" service
 // "accept_item" endpoint result from a HTTP "OK" response.
-func NewAcceptItemFormationItemOK(body *AcceptItemResponseBody) *lfxv2formationservice.FormationItem {
+func NewAcceptItemResultOK(body *AcceptItemResponseBody, etag *string) *lfxv2formationservice.AcceptItemResult {
 	v := &lfxv2formationservice.FormationItem{
 		UID:            *body.UID,
 		ItemKey:        *body.ItemKey,
@@ -946,8 +810,12 @@ func NewAcceptItemFormationItemOK(body *AcceptItemResponseBody) *lfxv2formations
 			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
 		}
 	}
+	res := &lfxv2formationservice.AcceptItemResult{
+		Item: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewAcceptItemNotFound builds a lfx_v2_formation_service service accept_item
@@ -1013,9 +881,9 @@ func NewAcceptItemUnauthorized(body *AcceptItemUnauthorizedResponseBody) *lfxv2f
 	return v
 }
 
-// NewRejectItemFormationItemOK builds a "lfx_v2_formation_service" service
+// NewRejectItemResultOK builds a "lfx_v2_formation_service" service
 // "reject_item" endpoint result from a HTTP "OK" response.
-func NewRejectItemFormationItemOK(body *RejectItemResponseBody) *lfxv2formationservice.FormationItem {
+func NewRejectItemResultOK(body *RejectItemResponseBody, etag *string) *lfxv2formationservice.RejectItemResult {
 	v := &lfxv2formationservice.FormationItem{
 		UID:            *body.UID,
 		ItemKey:        *body.ItemKey,
@@ -1053,8 +921,12 @@ func NewRejectItemFormationItemOK(body *RejectItemResponseBody) *lfxv2formations
 			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
 		}
 	}
+	res := &lfxv2formationservice.RejectItemResult{
+		Item: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewRejectItemNotFound builds a lfx_v2_formation_service service reject_item
@@ -1120,9 +992,9 @@ func NewRejectItemUnauthorized(body *RejectItemUnauthorizedResponseBody) *lfxv2f
 	return v
 }
 
-// NewReopenItemFormationItemOK builds a "lfx_v2_formation_service" service
+// NewReopenItemResultOK builds a "lfx_v2_formation_service" service
 // "reopen_item" endpoint result from a HTTP "OK" response.
-func NewReopenItemFormationItemOK(body *ReopenItemResponseBody) *lfxv2formationservice.FormationItem {
+func NewReopenItemResultOK(body *ReopenItemResponseBody, etag *string) *lfxv2formationservice.ReopenItemResult {
 	v := &lfxv2formationservice.FormationItem{
 		UID:            *body.UID,
 		ItemKey:        *body.ItemKey,
@@ -1160,8 +1032,12 @@ func NewReopenItemFormationItemOK(body *ReopenItemResponseBody) *lfxv2formations
 			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
 		}
 	}
+	res := &lfxv2formationservice.ReopenItemResult{
+		Item: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewReopenItemNotFound builds a lfx_v2_formation_service service reopen_item

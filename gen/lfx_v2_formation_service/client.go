@@ -80,13 +80,13 @@ func (c *Client) GetFormationActivity(ctx context.Context, p *GetFormationActivi
 //   - "BadRequest" (type *FormationError): The payload itself is invalid
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *FormationItem, err error) {
+func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *UpdateItemResult, err error) {
 	var ires any
 	ires, err = c.UpdateItemEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*FormationItem), nil
+	return ires.(*UpdateItemResult), nil
 }
 
 // AcceptItem calls the "accept_item" endpoint of the
@@ -98,13 +98,13 @@ func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *For
 //   - "BadRequest" (type *FormationError): The payload itself is invalid
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) AcceptItem(ctx context.Context, p *AcceptItemPayload) (res *FormationItem, err error) {
+func (c *Client) AcceptItem(ctx context.Context, p *AcceptItemPayload) (res *AcceptItemResult, err error) {
 	var ires any
 	ires, err = c.AcceptItemEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*FormationItem), nil
+	return ires.(*AcceptItemResult), nil
 }
 
 // RejectItem calls the "reject_item" endpoint of the
@@ -116,13 +116,13 @@ func (c *Client) AcceptItem(ctx context.Context, p *AcceptItemPayload) (res *For
 //   - "BadRequest" (type *FormationError): The payload itself is invalid
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) RejectItem(ctx context.Context, p *RejectItemPayload) (res *FormationItem, err error) {
+func (c *Client) RejectItem(ctx context.Context, p *RejectItemPayload) (res *RejectItemResult, err error) {
 	var ires any
 	ires, err = c.RejectItemEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*FormationItem), nil
+	return ires.(*RejectItemResult), nil
 }
 
 // ReopenItem calls the "reopen_item" endpoint of the
@@ -134,13 +134,13 @@ func (c *Client) RejectItem(ctx context.Context, p *RejectItemPayload) (res *For
 //   - "BadRequest" (type *FormationError): The payload itself is invalid
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) ReopenItem(ctx context.Context, p *ReopenItemPayload) (res *FormationItem, err error) {
+func (c *Client) ReopenItem(ctx context.Context, p *ReopenItemPayload) (res *ReopenItemResult, err error) {
 	var ires any
 	ires, err = c.ReopenItemEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*FormationItem), nil
+	return ires.(*ReopenItemResult), nil
 }
 
 // Livez calls the "livez" endpoint of the "lfx_v2_formation_service" service.
