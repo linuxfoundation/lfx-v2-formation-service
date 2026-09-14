@@ -9,7 +9,7 @@
 {{if eq (print .Kind) "overdue"}}
 <p>The announcement date for <strong>{{.ProjectName}}</strong> was <strong>{{.AnnouncementDate}}</strong> but the project has not yet been set Active. Please review the checklist and set it Active in the admin tool as soon as possible.</p>
 {{else}}
-<p>The announcement date for <strong>{{.ProjectName}}</strong> is in <strong>3 days</strong> ({{.AnnouncementDate}}) and the project has not yet been set Active. Please review the checklist and set it Active in the admin tool before the announcement date.</p>
+<p>The announcement date for <strong>{{.ProjectName}}</strong> is in <strong>{{.DaysUntil}} {{if eq .DaysUntil 1}}day{{else}}days{{end}}</strong> ({{.AnnouncementDate}}) and the project has not yet been set Active. Please review the checklist and set it Active in the admin tool before the announcement date.</p>
 {{end}}
 
 <p><a href="{{.AdminToolURL}}" style="display:inline-block;padding:10px 20px;background:#0074D9;color:#fff;text-decoration:none;border-radius:4px">Open in admin tool</a></p>

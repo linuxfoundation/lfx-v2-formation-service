@@ -124,6 +124,7 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 	}
 
 	var result *model.Item
+	var prevAssignee string // captured inside the transaction; empty means no prior assignee
 	txErr := s.uow.Do(ctx, func(tx port.Tx) error {
 		formation, err := tx.Formations().GetByProject(ctx, p.ProjectUID)
 		if err != nil {
@@ -151,6 +152,8 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		if item.Revision != p.IfMatch {
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
+
+		prevAssignee = item.Assignee // capture before the update for email dispatch
 
 		patch, err := buildItemPatch(item, p, assigneeErr)
 		if err != nil {
@@ -188,11 +191,15 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		return nil, mapItemMutationError(txErr)
 	}
 
-	// Fire the item-assigned email when the assignee was set (or changed) by
+	// Fire the item-assigned email when the assignee was set or changed by
 	// this request. Dispatch is best-effort: a failure is logged and never
 	// blocks the write that already succeeded. The email service itself uses
 	// NATS core with no redelivery, so there is no retry contract to honour.
-	if p.Assignee != nil && *p.Assignee != "" {
+	//
+	// prevAssignee was captured inside the transaction so that a PATCH
+	// repeating the current assignee alongside another field change (e.g.
+	// updating status) does not re-send the notification.
+	if p.Assignee != nil && *p.Assignee != "" && result.Assignee != prevAssignee {
 		s.dispatchItemAssigned(ctx, p.ProjectUID, result)
 	}
 
@@ -229,10 +236,10 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	projectName, slug := s.projectNameAndSlug(ctx, projectUID)
-	checklistURL := fmt.Sprintf("%s/manage/projects/%s/checklist", s.emailCfg.AdminBaseURL, slug)
+	checklistURL := fmt.Sprintf("%s/manage/projects/%s/checklist?item=%s", s.emailCfg.AdminBaseURL, slug, item.ItemKey)
 	if slug == "" {
 		// Fall back to a URL keyed on the project UID when the slug is unavailable.
-		checklistURL = fmt.Sprintf("%s/manage/projects/%s/checklist", s.emailCfg.AdminBaseURL, projectUID)
+		checklistURL = fmt.Sprintf("%s/manage/projects/%s/checklist?item=%s", s.emailCfg.AdminBaseURL, projectUID, item.ItemKey)
 	}
 
 	var dueDate string
@@ -258,7 +265,7 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		Subject: subject,
 		HTML:    html,
 		Text:    text,
-		GroupID: "formation.item_assigned",
+		GroupID: "formation.item_assigned." + projectUID + "." + item.ItemKey,
 	}); sendErr != nil {
 		slog.WarnContext(ctx, "item-assigned email: send failed",
 			"item_key", item.ItemKey, "assignee", item.Assignee, "error", sendErr)

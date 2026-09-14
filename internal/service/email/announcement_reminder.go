@@ -6,6 +6,7 @@ package email
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	htmltemplate "html/template"
 	texttemplate "text/template"
 )
@@ -43,8 +44,13 @@ type AnnouncementReminderData struct {
 	// AnnouncementDate is the scheduled date in YYYY-MM-DD format.
 	AnnouncementDate string
 
-	// Kind selects which variant to render (3-day or overdue).
+	// Kind selects which variant to render (3-day warning or overdue).
 	Kind AnnouncementReminderKind
+
+	// DaysUntil is the number of calendar days until the announcement date.
+	// It is positive for upcoming dates (1, 2, 3 …) and zero when today is
+	// the announcement date. Only meaningful for ReminderThreeDayWarning.
+	DaysUntil int
 
 	// AdminToolURL is the deep link to the formation in the admin tool.
 	AdminToolURL string
@@ -57,7 +63,7 @@ func RenderAnnouncementReminder(d AnnouncementReminderData) (subject, html, text
 	case ReminderOverdue:
 		subject = "Announcement date passed – " + d.ProjectName + " is not yet Active"
 	default:
-		subject = "3 days to announcement – " + d.ProjectName + " is not yet Active"
+		subject = fmt.Sprintf("%d days to announcement – %s is not yet Active", d.DaysUntil, d.ProjectName)
 	}
 
 	var buf bytes.Buffer

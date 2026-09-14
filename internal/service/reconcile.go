@@ -689,16 +689,6 @@ func (r *Reconciler) resolvePlatformItems(
 	report.PlatformCheckFailed += pass.Failed
 }
 
-// syncLifecycle moves one project's lifecycle and records the outcome on the
-// report, logging rather than propagating a failure so the sweep continues.
-//
-// The failure is counted rather than only logged. Reporting the outcome here is
-// what makes that possible: returning a bare "did it move" collapsed a failure
-// into the same false as a checklist that needed no move, so a sweep that could
-// not move a single lifecycle still summarised itself as failed=0.
-//
-// It reports whether the lifecycle is in step, so a caller can tell a project
-// whose closing state is unknown from one that is simply where it was.
 // dispatchActiveEmails fans out the "project is now Active" email to every
 // writer and auditor on the project. It is called at most once per transition
 // to LifecycleCompleted; subsequent sweeps do not reach this path because
@@ -723,9 +713,14 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 
 	// Build a deduplicated recipient list: a person holding both writer and
 	// auditor grants would otherwise receive two copies of the Active email.
-	seen := make(map[string]struct{}, len(settings.Writers)+len(settings.Auditors))
-	recipients := make([]string, 0, len(settings.Writers)+len(settings.Auditors))
-	for _, u := range append(settings.Writers, settings.Auditors...) {
+	// Use a separate combined slice to avoid mutating settings.Writers's
+	// backing array in place when it has spare capacity.
+	combined := make([]string, 0, len(settings.Writers)+len(settings.Auditors))
+	combined = append(combined, settings.Writers...)
+	combined = append(combined, settings.Auditors...)
+	seen := make(map[string]struct{}, len(combined))
+	recipients := make([]string, 0, len(combined))
+	for _, u := range combined {
 		if u == "" {
 			continue
 		}
@@ -783,6 +778,15 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 			slog.WarnContext(ctx, "notification check: could not read formation",
 				"project_uid", project.UID, "error", err)
 		}
+		return
+	}
+
+	// Guard: only send notifications while the formation is Live. Completed
+	// and Frozen formations have left (or paused) the formation process, so
+	// sending "Activating" or deadline-reminder emails after that point would
+	// be contradictory. The !lifecycleMoved guard at the call site prevents
+	// the same-sweep race; this guard handles every subsequent sweep.
+	if formation.Lifecycle != model.LifecycleLive {
 		return
 	}
 
@@ -851,11 +855,13 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 
 	// 3-day warning: announcement is within 3 days and project is not yet Active.
 	if daysUntil <= 3 && daysUntil > 0 && formation.NotifiedReminderThreeDayAt == nil {
+		days := daysUntil // capture for closure
 		r.sendOneShot(ctx, formation, "notified_reminder_3d_at", func() (string, string, string, error) {
 			return email.RenderAnnouncementReminder(email.AnnouncementReminderData{
 				ProjectName:      projectName,
 				AnnouncementDate: *announcementDate,
 				Kind:             email.ReminderThreeDayWarning,
+				DaysUntil:        days,
 				AdminToolURL:     adminToolURL,
 			})
 		}, r.emailCfg.FormationInbox, "formation.reminder_3d."+project.UID)
@@ -916,7 +922,7 @@ func (r *Reconciler) sendOneShot(
 		GroupID: groupID,
 	}); sendErr != nil {
 		slog.WarnContext(ctx, "notification: send failed",
-			"formation_uid", formation.UID, "column", column, "to", to, "error", sendErr)
+			"formation_uid", formation.UID, "column", column, "error", sendErr)
 	}
 }
 

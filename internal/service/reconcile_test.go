@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1363,6 +1364,82 @@ func TestReconcileNotificationsSuppressedWhenEmailDisabled(t *testing.T) {
 
 	if mailer.SentCount() != 0 {
 		t.Errorf("SentCount() = %d, want 0 — email must be suppressed when disabled", mailer.SentCount())
+	}
+}
+
+// TestReconcileNotificationsSuppressedForCompletedFormation guards the lifecycle
+// guard introduced by the prabodhcs review: dispatchProjectNotifications must be
+// a no-op when the formation lifecycle is not Live, even though lifecycleMoved is
+// false on sweeps after the initial transition. Without the guard, a project that
+// just went Active could receive contradictory "Activating" or deadline-reminder
+// emails on every subsequent sweep.
+func TestReconcileNotificationsSuppressedForCompletedFormation(t *testing.T) {
+	ctx := context.Background()
+	// Use a future announcement date so the 3-day check is irrelevant; we only
+	// care that no notification fires after the lifecycle has been completed.
+	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
+	r, f, mailer := newNotificationReconciler(t, futureDate)
+
+	// First sweep: creates the formation (Live lifecycle).
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v, want no error", err)
+	}
+
+	// Satisfy the gating item so the lifecycle moves to Completed on the next sweep.
+	markGatingItemDone(t, f, "project-1")
+
+	// Transition the project to Active in the project-list stub so the lifecycle
+	// reconciler knows to complete the formation.
+	r.projects.(*listProjects).refs[0].SubStage = model.StageActive
+
+	// Second sweep: moves lifecycle to Completed and dispatches Active email.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v, want no error", err)
+	}
+	countAfterTransition := mailer.SentCount()
+
+	// Third sweep: lifecycleMoved is false; notifications must still be suppressed
+	// because the formation is now Completed.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("third sweep = %v, want no error", err)
+	}
+
+	if mailer.SentCount() != countAfterTransition {
+		t.Errorf("SentCount() grew from %d to %d on third sweep — notifications must not fire for completed formations",
+			countAfterTransition, mailer.SentCount())
+	}
+}
+
+// TestReconcileReminderSubjectShowsActualDayCount guards the DaysUntil fix:
+// a project whose first sweep falls at 2 days remaining must receive a subject
+// saying "2 days", not the hardcoded "3 days" that predated the fix.
+func TestReconcileReminderSubjectShowsActualDayCount(t *testing.T) {
+	ctx := context.Background()
+	twoDays := time.Now().UTC().AddDate(0, 0, 2).Format("2006-01-02")
+	r, _, mailer := newNotificationReconciler(t, twoDays)
+
+	// First sweep: creates the formation.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("first sweep = %v", err)
+	}
+	// Second sweep: evaluates the 2-day reminder.
+	if _, err := r.ReconcileOnce(ctx); err != nil {
+		t.Fatalf("second sweep = %v", err)
+	}
+
+	found := false
+	for _, m := range mailer.Sent() {
+		if m.To == "formation@linuxfoundation.org" {
+			// Subject must say "2 days", not "3 days".
+			if !strings.Contains(m.Subject, "2 days") {
+				t.Errorf("subject = %q, want it to contain \"2 days\" for a 2-day window", m.Subject)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no reminder sent when announcement is in 2 days; sent = %v", mailer.Sent())
 	}
 }
 

@@ -792,6 +792,35 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	assert.Equal(t, addr, sent.To, "email must be sent to the resolved address, not the bare username")
 }
 
+func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {
+	// Guards the prevAssignee fix: a PATCH that repeats the current assignee
+	// while changing another field (or sending the same state) must not
+	// re-send the notification.
+	username := "alice"
+	addr := "alice@example.com"
+	s, formation, itemOne, mailer := newEmailTestService(t, username, addr)
+
+	// First PATCH: sets the assignee — should send one email.
+	res, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &username,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, mailer.SentCount(), "expected one email after first assignment")
+
+	// Second PATCH: repeats the same assignee — must not send another email.
+	_, err = s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    res.Item.Version,
+		Assignee:   &username,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, mailer.SentCount(), "no additional email when assignee is unchanged")
+}
+
 func TestItemAssignedEmailNotDispatchedWhenAssigneeIsUsername(t *testing.T) {
 	// A username with no email entry in UserEmails must not produce a send:
 	// there is no address to route to, and the bare username is not a mailbox.
