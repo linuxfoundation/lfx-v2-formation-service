@@ -74,11 +74,17 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 
 > The `assignee:` tag is only emitted when the item has an assignee.
 
-> A Pending Actions query sends both, as `tags_all` — `tags_all=assignee:<username>&tags_all=lifecycle:live`.
-> Not `tags`: that parameter is OR (`should` with `minimum_should_match: 1`), so it would ask for
-> items assigned to the caller *or* items on any live checklist, which for a caller with broad read
-> access is most of the index. It still returns the caller's own rows, so the mistake looks like it
-> works.
+> These tags alone are not the query. Pending Actions sends:
+>
+> ```
+> GET /query/resources?v=1&type=formation_item
+>     &tags_all=assignee:<username>&tags_all=lifecycle:live
+>     &cel_filter=data.status != "done" && data.status != "skipped"
+> ```
+>
+> `type=formation_item` is required: the checklist document carries the same `assignee:` and
+> `lifecycle:` tags, so without it every project adds a checklist document to a list of items.
+> `tags_all` rather than `tags`, which is OR and would match either tag alone.
 
 ### Access Control (IndexingConfig)
 
