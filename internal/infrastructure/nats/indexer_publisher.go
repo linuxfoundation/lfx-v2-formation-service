@@ -373,13 +373,42 @@ func nameAndAliases(doc *port.FormationProjection) []string {
 	return out
 }
 
-// parentRefs names the parent project when there is one, which is how the
-// indexer models hierarchy.
+// parentRefs names every project the row sits beneath, nearest first, which is
+// how the indexer models hierarchy.
+//
+// The whole chain rather than the immediate parent, because the query service
+// compiles its parent filter to a term match over this array — so publishing
+// each generation is what makes one query resolve a foundation's descendants at
+// any depth, with no new parameter and no change in the service answering it.
+//
+// The chain already includes the project's own UID, so a foundation's query
+// returns the foundation's own row too.
+//
+// Deduplicated defensively. Resolution will not produce a repeat, since it
+// stops at the first project it sees twice, but a duplicate here would put the
+// same row into a foundation's queue more than once, and the cost of ruling
+// that out is a map over five entries.
+//
+// Falls back to the direct parent when no chain was resolved, so a document
+// built without one is never less scoped than it used to be.
 func parentRefs(doc *port.FormationProjection) []string {
-	if doc.ParentUID == "" {
-		return nil
+	if len(doc.AncestorUIDs) == 0 {
+		if doc.ParentUID == "" {
+			return nil
+		}
+		return []string{projectRefPrefix + doc.ParentUID}
 	}
-	return []string{projectRefPrefix + doc.ParentUID}
+
+	refs := make([]string, 0, len(doc.AncestorUIDs))
+	seen := make(map[string]bool, len(doc.AncestorUIDs))
+	for _, uid := range doc.AncestorUIDs {
+		if uid == "" || seen[uid] {
+			continue
+		}
+		seen[uid] = true
+		refs = append(refs, projectRefPrefix+uid)
+	}
+	return refs
 }
 
 // itemProjectionWire is the searchable body for one item, as a package-private

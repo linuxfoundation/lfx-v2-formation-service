@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"sync/atomic"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
@@ -30,7 +31,49 @@ type Projector struct {
 	items      port.ItemRepository
 	projects   port.ProjectReader
 	publisher  port.IndexerPublisher
+
+	// partialChains counts rows whose parentage resolved only partly, on
+	// either publish path. Carried here rather than left to the index because
+	// a row scoped to less than its true parentage is invisible in the result
+	// — it simply does not appear under a foundation it belongs to, which
+	// looks exactly like it not existing. This is the only signal that says
+	// otherwise.
+	partialChains atomic.Int64
 }
+
+// PublishPosture says which path is asking for a publish, which decides what
+// happens when the project's parentage cannot be fully resolved.
+//
+// The two paths need opposite answers, so this is a named argument rather than
+// something inferred at the call site. A scheduled sweep may be publishing a
+// row for the very first time and has no earlier document to fall back on, so
+// it publishes what it resolved — present under fewer foundations beats absent
+// from all of them. A write-triggered refresh always has an earlier document,
+// and republishing a shorter chain over it would drop the row out of its
+// foundation's queue until the next sweep: the same silent under-report this
+// whole change exists to remove, reintroduced as a side effect of the fix.
+type PublishPosture int
+
+const (
+	// ScheduledPublish is the reconcile sweep. Publishes a partial chain.
+	ScheduledPublish PublishPosture = iota
+
+	// WriteTriggeredPublish is the refresh that follows an item write. Skips
+	// the republish rather than shortening an existing chain.
+	WriteTriggeredPublish
+)
+
+// maxAncestorDepth bounds the upward walk.
+//
+// Headroom over a measurement, not a guess: the deepest real chain in
+// production is five hops, over a project tree that is five levels deep in
+// total. Ten leaves room for the hierarchy to roughly double before anything
+// here needs revisiting, while still bounding the cost of a chain that data
+// corruption has made pathological.
+//
+// Reaching it is treated as partial resolution, not as an error — see
+// ancestorChain.
+const maxAncestorDepth = 10
 
 // NewProjector wires a projector. A nil publisher disables projection, which is
 // how a deployment with no NATS still serves its read and write routes.
@@ -56,7 +99,7 @@ func NewProjector(
 // The project facts are read fresh on every call and never stored. That is why
 // this is safe to run on a ticker: there is no cached copy to invalidate, so the
 // only staleness is the age of the last sweep.
-func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool, error) {
+func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef, posture PublishPosture) (bool, error) {
 	if p.publisher == nil {
 		return false, nil
 	}
@@ -76,10 +119,28 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 
 	name, announcementDate := p.projectFacts(ctx, project)
 
-	if err := p.publisher.PublishFormation(ctx, buildProjection(
-		formation, items, project, name, announcementDate,
-	)); err != nil {
-		return false, err
+	// withheld means the checklist row is deliberately left as it was
+	// published, because this pass could only build a shorter chain than the
+	// document already in the index carries.
+	ancestors, complete := p.ancestorChain(ctx, project)
+	withheld := !complete && posture == WriteTriggeredPublish
+	if !complete {
+		p.partialChains.Add(1)
+		if withheld {
+			slog.WarnContext(ctx, "leaving the queue row as published: parentage could not be resolved on a write-triggered refresh",
+				"project_uid", project.UID, "resolved_depth", len(ancestors))
+		} else {
+			slog.WarnContext(ctx, "publishing a queue row scoped to less than its full parentage",
+				"project_uid", project.UID, "resolved_depth", len(ancestors))
+		}
+	}
+
+	if !withheld {
+		if err := p.publisher.PublishFormation(ctx, buildProjection(
+			formation, items, project, name, announcementDate, ancestors,
+		)); err != nil {
+			return false, err
+		}
 	}
 
 	// One item document per item, alongside the checklist document above, in
@@ -98,11 +159,31 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef) (bool,
 	// project and name are already resolved above for the checklist
 	// document; reusing them here costs nothing further, no second project
 	// lookup.
+	//
+	// Published even when the checklist row above was withheld. Item documents
+	// carry no ancestry at all, so nothing about them is uncertain when
+	// parentage fails to resolve — and withholding them would stall the
+	// assignee's list until the next sweep, which is the one thing the
+	// write-triggered path exists to prevent.
 	itemDocs := buildItemProjections(formation, items, project, name)
 	if len(itemDocs) > 0 {
 		if err := p.publisher.PublishItems(ctx, itemDocs); err != nil {
 			return false, fmt.Errorf("publishing this checklist's item rows: %w", err)
 		}
+	}
+
+	// Reported as an error rather than as a bare false, and the distinction is
+	// not cosmetic: a false means the project holds no checklist, which the
+	// caller counts as "nothing to do" and logs at debug. A row withheld
+	// because its parentage would have regressed is a shortfall somebody has
+	// to be able to find, and it belongs in the same count as any other
+	// projection that did not land. The item rows above still published, which
+	// matches how a failed item batch is reported after the checklist row
+	// succeeded.
+	if withheld {
+		return false, fmt.Errorf("parentage for project %s resolved to %d of its chain; "+
+			"leaving the published row in place rather than narrowing its scope",
+			project.UID, len(ancestors))
 	}
 	return true, nil
 }
@@ -146,6 +227,87 @@ func (p *Projector) projectFacts(ctx context.Context, project port.ProjectRef) (
 	return name, announcementDate
 }
 
+// PartialChains reports how many rows have been published scoped to less than
+// their full parentage, or withheld for the same reason.
+func (p *Projector) PartialChains() int64 {
+	return p.partialChains.Load()
+}
+
+// ancestorChain walks from the project up to the platform root, returning the
+// chain nearest-first and whether it reached the top.
+//
+// The project's own UID comes first. That is what makes scoping to a foundation
+// return the foundation's own row as well as everything beneath it, which is
+// the behaviour the queue's nested rendering and its Foundation type value both
+// assume.
+//
+// One lookup per generation, which cannot be batched: a grandparent's identity
+// is not known until its child has been read. Chains are three to five hops in
+// production, so this is a handful of requests per row on a daily sweep, and
+// never on a path anybody waits on — the queue is one search against the index
+// and does not reach this service at all.
+//
+// Nothing is memoized. A memo would have to outlive the refresh that populated
+// it to save anything, since a single chain never visits the same project
+// twice, and parentage that outlives its refresh is the stale-scoping failure
+// this design rules out.
+//
+// Both bounds — a project seen twice, and the depth cap — return what has been
+// resolved so far with complete false, rather than an error. There is one
+// degradation rule and the caller applies it by publish path; a reader of the
+// counters does not need to know which bound was hit to know the row is scoped
+// to less than its parentage.
+func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) (chain []string, complete bool) {
+	chain = []string{project.UID}
+	if p.projects == nil {
+		// No reader wired, which is the same deployment shape a nil publisher
+		// serves. The direct parent is still known from the ref in hand and is
+		// still emitted — dropping it would make this shape scope worse than it
+		// did before ancestry existed, which no degradation is allowed to do.
+		if project.ParentUID != "" {
+			return append(chain, project.ParentUID), false
+		}
+		return chain, true
+	}
+
+	visited := map[string]bool{project.UID: true}
+	next := project.ParentUID
+
+	for depth := 0; next != ""; depth++ {
+		if depth >= maxAncestorDepth {
+			slog.WarnContext(ctx, "stopped resolving parentage at the depth cap",
+				"project_uid", project.UID, "cap", maxAncestorDepth)
+			return chain, false
+		}
+		if visited[next] {
+			slog.WarnContext(ctx, "stopped resolving parentage at a cycle",
+				"project_uid", project.UID, "repeated_uid", next)
+			return chain, false
+		}
+		visited[next] = true
+
+		// Appended before the lookup, and that is deliberate: this UID came
+		// off a project already read, so the row genuinely sits beneath it
+		// whether or not the project behind it can be read. Dropping it on a
+		// failed lookup would discard a known-good ancestor along with the
+		// unknown ones above it.
+		chain = append(chain, next)
+
+		ref, err := p.projects.GetRef(ctx, next)
+		if err != nil {
+			slog.WarnContext(ctx, "could not read an ancestor while resolving parentage; scoping the row to what resolved",
+				"project_uid", project.UID, "ancestor_uid", next, "error", err)
+			return chain, false
+		}
+		next = ref.ParentUID
+	}
+
+	// An empty parent is how the platform root answers, so the walk stops
+	// there on its own. The bounds above are guards against bad data, not the
+	// ordinary way out.
+	return chain, true
+}
+
 // formationAccessRelation is the relation a caller must hold on the project to
 // read a formation row: auditor, and never viewer.
 //
@@ -181,6 +343,7 @@ func buildProjection(
 	project port.ProjectRef,
 	projectName string,
 	announcementDate string,
+	ancestorUIDs []string,
 ) *port.FormationProjection {
 	counts := countsFromItems(items)
 	gateTotal, gateOutstanding := gateSummaryFromItems(items)
@@ -229,6 +392,11 @@ func buildProjection(
 		IsFoundation: project.IsFoundation,
 		ParentUID:    project.ParentUID,
 		SubStage:     project.SubStage,
+
+		// The whole chain, alongside — not instead of — the direct parent
+		// above. The Type column reads ParentUID and must keep seeing exactly
+		// one project there; scoping reads the chain.
+		AncestorUIDs: ancestorUIDs,
 	}
 
 	return doc

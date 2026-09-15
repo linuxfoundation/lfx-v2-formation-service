@@ -117,6 +117,12 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 | `project:{project_uid}` | Always set |
 | `formation:{formation_uid}` | Always set |
 
+The item document carries its own project and checklist, and no ancestry beyond them. The checklist
+document does carry the project's full ancestor chain, so that a foundation's queue resolves at any
+depth — but the two are deliberately different. This document's only consumer narrows by assignment
+rather than by foundation, so a chain here would be surface with nothing reading it. Add one when a
+consumer asks for it, not to make the two document types match.
+
 ### Cadence
 
 Published from `Projector.Refresh`, which two paths call:

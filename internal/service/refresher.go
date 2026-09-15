@@ -216,7 +216,7 @@ func (r *Refresher) refresh(ctx context.Context, projectUID string) {
 		return
 	}
 
-	published, err := r.projector.Refresh(ctx, ref)
+	published, err := r.projector.Refresh(ctx, ref, WriteTriggeredPublish)
 	if err != nil {
 		// Logged and counted, never propagated — the same treatment the sweep
 		// gives a failed projection, and for the same reason: the checklist in
@@ -230,6 +230,10 @@ func (r *Refresher) refresh(ctx context.Context, projectUID string) {
 		// The project holds no checklist, so there was nothing to publish. Kept
 		// apart from a failure for the reason the sweep keeps them apart: a
 		// failure nobody can find a cause for is worse than no number at all.
+		//
+		// A row withheld because its parentage would have regressed does not
+		// arrive here — that comes back as an error above, so it counts as a
+		// failure rather than silently joining this number.
 		r.skipped.Add(1)
 		return
 	}

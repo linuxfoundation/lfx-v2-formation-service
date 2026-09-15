@@ -60,6 +60,15 @@ type Reconciler struct {
 	emailCfg EmailConfig
 }
 
+// partialChains reads the projector's running total of rows scoped to less than
+// their parentage, or zero when projection is disabled.
+func (r *Reconciler) partialChains() int64 {
+	if r.projector == nil {
+		return 0
+	}
+	return r.projector.PartialChains()
+}
+
 // SetEmailer wires the email dispatcher, item repository, and config into an
 // existing Reconciler. Called after NewReconciler so test call-sites that do
 // not exercise notifications do not have to change.
@@ -188,6 +197,12 @@ func (r *Reconciler) Run(ctx context.Context) {
 				"degraded", report.Degraded,
 				"projected", report.Projected,
 				"projection_failed", report.ProjectionFailed,
+				// Cumulative across sweeps rather than per-sweep like the
+				// fields above, and named so. A row scoped to less than its
+				// parentage is invisible in the index — it just does not
+				// appear under a foundation it belongs to — so this total is
+				// the only place the shortfall surfaces as a number.
+				"partial_chains_total", r.partialChains(),
 				"platform_resolved", report.PlatformResolved,
 				"platform_unanswerable", report.PlatformUnanswerable,
 				"platform_check_failed", report.PlatformCheckFailed,
@@ -592,7 +607,7 @@ func (r *Reconciler) finishProject(
 	if r.projector == nil {
 		return
 	}
-	published, err := r.projector.Refresh(ctx, project)
+	published, err := r.projector.Refresh(ctx, project, ScheduledPublish)
 	if err != nil {
 		// Logged and counted, never propagated. The checklist in Postgres is
 		// correct; only the queue's view of it is stale, and the next sweep

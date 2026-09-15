@@ -1469,7 +1469,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 
 	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
 	projects := &listProjects{
-		refs: []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		refs:         []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
 		announcement: futureDate,
 	}
 	projects.setProjectSettings("project-1", &port.ProjectSettings{
@@ -1487,7 +1487,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 	r, f, _ := newReconcilerWithIndex(t, projects)
 	mailer := mock.NewEmailDispatcher()
 	r.SetEmailer(f.items, mailer, EmailConfig{
-		Enabled:      true,
+		Enabled:        true,
 		FormationInbox: "formation@linuxfoundation.org",
 		AdminBaseURL:   "https://lfx.linuxfoundation.org",
 	})

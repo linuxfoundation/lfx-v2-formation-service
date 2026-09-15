@@ -426,3 +426,37 @@ func TestReportEveryToleratesANonPositiveInterval(t *testing.T) {
 		t.Fatal("ReportEvery did not return when its context was cancelled")
 	}
 }
+
+// A row withheld because its parentage would have regressed has to land in the
+// failure count, not the nothing-to-publish count. The two are deliberately
+// kept apart here, and a shortfall filed under "nothing to publish" is a
+// shortfall nobody goes looking for.
+func TestAWithheldRowCountsAsAFailureRatherThanASkip(t *testing.T) {
+	f := newRefresherFixture(t)
+
+	// Give the project a parent nothing can resolve, so the chain comes back
+	// shorter than the document already indexed.
+	f.projects.SetProjectsByUID([]port.ProjectRef{{
+		UID: "project-1", Slug: "a-project",
+		SubStage: model.StageFormationEngaged, ParentUID: "missing-1",
+	}})
+
+	f.refresher.AfterItemWrite(context.Background(), "project-1")
+	f.drain(t)
+
+	counts := f.refresher.Counts()
+	if counts.Failed != 1 {
+		t.Errorf("Failed = %d, want 1 — a withheld row is a shortfall to find, not a no-op", counts.Failed)
+	}
+	if counts.Skipped != 0 {
+		t.Errorf("Skipped = %d, want 0 — that count means the project holds no checklist", counts.Skipped)
+	}
+	if got := f.publisher.Count(); got != 0 {
+		t.Errorf("published %d checklist documents, want 0", got)
+	}
+	// The item rows still went out: they carry no ancestry, so withholding
+	// them would stall the assignee's list for nothing.
+	if got := f.publisher.ItemCount(); got != 2 {
+		t.Errorf("published %d item documents, want 2", got)
+	}
+}
