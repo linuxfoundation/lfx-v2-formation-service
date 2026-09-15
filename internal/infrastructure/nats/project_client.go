@@ -92,11 +92,12 @@ func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]strin
 
 	// An absent reply (nil/empty) is not the same as an empty roster: an empty
 	// roster is a valid reply (the project has no writers); an absent body
-	// means the upstream could not answer. Treat it as not-found so callers
-	// that key on domain.ErrNotFound can handle it without falling through to
-	// a JSON unmarshal error.
+	// means the upstream could not answer. Under the coordinated project-service
+	// RPC contract, a confirmed absence arrives as {"error":"not_found"}, not as
+	// an empty body — so an empty body is an unresolvable transport/dispatch
+	// failure and must not be mapped to ErrNotFound.
 	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project %s returned no writers reply: %w", projectUID, domain.ErrNotFound)
+		return nil, fmt.Errorf("project %s returned no writers reply (transport failure)", projectUID)
 	}
 
 	// Project-service returns {"error":"<code>",...} on errors. The distinction
@@ -183,10 +184,12 @@ func (p *ProjectClient) GetSettings(ctx context.Context, projectUID string) (*po
 	if err != nil {
 		return nil, err
 	}
-	// A nil/empty body means no response was received at all — treat as not-found
-	// so callers that key on domain.ErrNotFound can handle it appropriately.
+	// A nil/empty body means no response was received at all. Under the
+	// coordinated project-service RPC contract, a confirmed absence arrives as
+	// {"error":"not_found"}, not as an empty body — so an empty body is an
+	// unresolvable transport/dispatch failure and must not be mapped to ErrNotFound.
 	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project %s returned no settings reply: %w", projectUID, domain.ErrNotFound)
+		return nil, fmt.Errorf("project %s returned no settings reply (transport failure)", projectUID)
 	}
 
 	// Project-service returns {"error":"<code>",...} on errors. The success payload
@@ -255,9 +258,11 @@ func (p *ProjectClient) ListFormingProjects(ctx context.Context, alsoUIDs []stri
 	}
 	// A nil/empty body is not the same as an empty project list. An empty []
 	// is the legitimate "no forming projects" answer; an absent body means the
-	// upstream could not answer — treat it as not-found.
+	// upstream could not answer. Under the coordinated project-service RPC
+	// contract, an empty body is a transport/dispatch failure, not a confirmed
+	// absence — so it must not be mapped to ErrNotFound.
 	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project list returned no reply: %w", domain.ErrNotFound)
+		return nil, fmt.Errorf("project list returned no reply (transport failure)")
 	}
 
 	// Project-service returns {"error":"<code>",...} on errors. An empty array []
@@ -414,9 +419,12 @@ func (p *ProjectClient) get(ctx context.Context, subject, projectUID string) (st
 		return "", fmt.Errorf("project-service error for %s on %s (code=%s)", projectUID, subject, code)
 	}
 
+	// An empty body is a transport/dispatch failure — project-service always
+	// returns {"error":"not_found"} for missing projects under the coordinated
+	// RPC contract. An empty body cannot be treated as a confirmed absence.
 	value := strings.TrimSpace(string(reply))
 	if value == "" {
-		return "", fmt.Errorf("project %s has no value on %s: %w", projectUID, subject, domain.ErrNotFound)
+		return "", fmt.Errorf("project-service returned empty reply for %s on %s (transport failure)", projectUID, subject)
 	}
 	return value, nil
 }
