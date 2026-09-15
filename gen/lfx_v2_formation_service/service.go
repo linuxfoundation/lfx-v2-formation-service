@@ -32,30 +32,27 @@ type Service interface {
 	// sequence, which is the dangerous outcome, so a caller must carry the filter
 	// alongside the cursor.
 	GetFormationActivity(context.Context, *GetFormationActivityPayload) (res *FormationActivityPage, err error)
-	// Change one checklist item: status, note, due date, skip reason, evidence
-	// link, assignee, or sub-items. Send only the fields being changed. If-Match
-	// is required and must equal the item's current version — a stale value means
-	// re-read and retry. The response returns the new version as ETag, so
-	// consecutive writes need no re-read. This route also carries the assignee's
-	// own completion claim (status: awaiting_acceptance), but never acceptance,
-	// rejection or reopening, which are their own routes because the
-	// formation-team guard on those is narrower than this route's writer guard and
-	// a Heimdall rule cannot express that on a shared route.
+	// Move one checklist item to a new status — in progress, blocked, done,
+	// skipped, or back to not started — or set the status of its sub-items. At
+	// least one of status and sub_items is required; both may travel together.
+	// If-Match is required and must equal the item's current version — a stale
+	// value means re-read and retry. The response returns the new version as ETag.
+	// Blocking, skipping and sending an item back each require a reason; the other
+	// transitions ignore one if sent.
+	SetItemStatus(context.Context, *SetItemStatusPayload) (res *SetItemStatusResult, err error)
+	// Direct one checklist item's work: set or clear its assignee, set or clear
+	// its due date. Send only the fields being changed; at least one is required.
+	// Assignment is limited to people already holding a grant on the project.
+	// If-Match is required and must equal the item's current version. The response
+	// returns the new version as ETag.
+	AssignItem(context.Context, *AssignItemPayload) (res *AssignItemResult, err error)
+	// Leave an update on one checklist item: a note, an evidence link. Neither
+	// moves a status nor directs anybody's work, so this is the one item route
+	// open on read access. Send only the fields being changed; at least one is
+	// required. If-Match is required and must equal the item's current version — a
+	// stale value means re-read and retry. The response returns the new version as
+	// ETag.
 	UpdateItem(context.Context, *UpdateItemPayload) (res *UpdateItemResult, err error)
-	// Accept an item's completion claim, moving awaiting_acceptance to done.
-	// Restricted to the formation team at the gateway, and refused by the service
-	// when the caller is the item's own assignee. If-Match is required.
-	AcceptItem(context.Context, *AcceptItemPayload) (res *AcceptItemResult, err error)
-	// Reject an item's completion claim, returning it to in_progress with a note
-	// the assignee can read. The note is required: a rejection with no reason
-	// leaves the assignee nothing to act on. Restricted to the formation team at
-	// the gateway.
-	RejectItem(context.Context, *RejectItemPayload) (res *RejectItemResult, err error)
-	// Reopen a done item, returning it to in_progress. Behind the same guard as
-	// acceptance rather than the ordinary write guard: reopening is the reversal
-	// of an acceptance, and a weaker check here would make the acceptance control
-	// bypassable from the other side. Reopening a gating item withdraws readiness.
-	ReopenItem(context.Context, *ReopenItemPayload) (res *ReopenItemResult, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -82,11 +79,11 @@ const ServiceName = "lfx_v2_formation_service"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [8]string{"get_formation", "get_formation_activity", "update_item", "accept_item", "reject_item", "reopen_item", "livez", "readyz"}
+var MethodNames = [7]string{"get_formation", "get_formation_activity", "set_item_status", "assign_item", "update_item", "livez", "readyz"}
 
-// AcceptItemPayload is the payload type of the lfx_v2_formation_service
-// service accept_item method.
-type AcceptItemPayload struct {
+// AssignItemPayload is the payload type of the lfx_v2_formation_service
+// service assign_item method.
+type AssignItemPayload struct {
 	// JWT token issued by Heimdall
 	BearerToken *string
 	// API version. Must be 1.
@@ -97,13 +94,15 @@ type AcceptItemPayload struct {
 	ItemKey string
 	// Must equal the item's current version.
 	IfMatch int64
-	// Replaces the item's note. Omit to clear it.
-	Note *string
+	// Username, or an empty string to clear.
+	Assignee *string
+	// YYYY-MM-DD, or an empty string to clear.
+	DueDate *string
 }
 
-// AcceptItemResult is the result type of the lfx_v2_formation_service service
-// accept_item method.
-type AcceptItemResult struct {
+// AssignItemResult is the result type of the lfx_v2_formation_service service
+// assign_item method.
+type AssignItemResult struct {
 	Item *FormationItem
 	// The item's new version. Send as If-Match on the next write.
 	Etag *string
@@ -133,6 +132,18 @@ type FormationActivityPage struct {
 	Entries []*FormationActivityEntry
 	// Pass as cursor to fetch the next page. Empty on the last page.
 	NextCursor *string
+}
+
+type FormationAvailableAction struct {
+	// Stable identifier, never display text.
+	Action string
+	// Whether taking this action must carry a reason or note, so a browser can
+	// render the input without knowing which actions need one.
+	RequiresReason bool
+	// What the caller must hold for the gateway to admit the call — a relation on
+	// the project, or a team membership. Names a guard the deployed rules already
+	// publish; it discloses nothing about the caller.
+	RequiresRelation string
 }
 
 // FormationChecklist is the result type of the lfx_v2_formation_service
@@ -184,7 +195,7 @@ type FormationItem struct {
 	ActionLink *string
 	// Writer-set; feeds Quick Links.
 	EvidenceLink *string
-	// Six values.
+	// Five values.
 	Status string
 	// Username. Nothing is granted.
 	Assignee *string
@@ -195,6 +206,11 @@ type FormationItem struct {
 	// Set by the service.
 	ResolvedRef *FormationResolvedRef
 	SubItems    []*FormationSubItem
+	// What this item's current state permits, and what each action requires.
+	// Describes the item, not the caller: two people reading the same item receive
+	// the same list, and a browser intersects it with the standing it already
+	// holds. Empty, never absent, when the item permits nothing.
+	AvailableActions []*FormationAvailableAction
 	// Echo as If-Match on every mutation. Per item, not per formation.
 	Version int64
 }
@@ -205,12 +221,11 @@ type FormationPlatformCheck struct {
 }
 
 type FormationProgress struct {
-	NotStarted         int
-	InProgress         int
-	Blocked            int
-	AwaitingAcceptance int
-	Done               int
-	Skipped            int
+	NotStarted int
+	InProgress int
+	Blocked    int
+	Done       int
+	Skipped    int
 }
 
 type FormationResolvedRef struct {
@@ -273,61 +288,41 @@ type NotFoundError struct {
 	Message string
 }
 
-// RejectItemPayload is the payload type of the lfx_v2_formation_service
-// service reject_item method.
-type RejectItemPayload struct {
-	// JWT token issued by Heimdall
-	BearerToken *string
-	// API version. Must be 1.
-	Version string
-	// The project's UID.
-	ProjectUID string
-	// The item's stable key.
-	ItemKey string
-	// Must equal the item's current version.
-	IfMatch int64
-	// Why it was rejected. Readable by the assignee.
-	Note string
-}
-
-// RejectItemResult is the result type of the lfx_v2_formation_service service
-// reject_item method.
-type RejectItemResult struct {
-	Item *FormationItem
-	// The item's new version. Send as If-Match on the next write.
-	Etag *string
-}
-
-// ReopenItemPayload is the payload type of the lfx_v2_formation_service
-// service reopen_item method.
-type ReopenItemPayload struct {
-	// JWT token issued by Heimdall
-	BearerToken *string
-	// API version. Must be 1.
-	Version string
-	// The project's UID.
-	ProjectUID string
-	// The item's stable key.
-	ItemKey string
-	// Must equal the item's current version.
-	IfMatch int64
-	// Why it was reopened.
-	Note *string
-}
-
-// ReopenItemResult is the result type of the lfx_v2_formation_service service
-// reopen_item method.
-type ReopenItemResult struct {
-	Item *FormationItem
-	// The item's new version. Send as If-Match on the next write.
-	Etag *string
-}
-
 type ServiceUnavailableError struct {
 	// HTTP status code
 	Code string
 	// Error message
 	Message string
+}
+
+// SetItemStatusPayload is the payload type of the lfx_v2_formation_service
+// service set_item_status method.
+type SetItemStatusPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The project's UID.
+	ProjectUID string
+	// The item's stable key.
+	ItemKey string
+	// Must equal the item's current version.
+	IfMatch int64
+	// One of the five. Omit to change sub-items alone.
+	Status *string
+	// Why. Required when blocking, skipping, or sending an item back to not
+	// started: each leaves somebody with work to redo, and a bare status change
+	// tells them nothing.
+	Reason   *string
+	SubItems []*FormationSubItemUpdate
+}
+
+// SetItemStatusResult is the result type of the lfx_v2_formation_service
+// service set_item_status method.
+type SetItemStatusResult struct {
+	Item *FormationItem
+	// The item's new version. Send as If-Match on the next write.
+	Etag *string
 }
 
 type UnauthorizedError struct {
@@ -350,18 +345,9 @@ type UpdateItemPayload struct {
 	ItemKey string
 	// Must equal the item's current version.
 	IfMatch int64
-	// One of the six. Omit to leave unchanged.
-	Status *string
-	// Username, or an empty string to clear.
-	Assignee *string
-	// YYYY-MM-DD, or an empty string to clear.
-	DueDate *string
 	Note    *string
-	// Required when status is skipped.
-	SkipReason *string
-	// Writer-set; feeds Quick Links. http/https only.
+	// Feeds Quick Links. http/https only.
 	EvidenceLink *string
-	SubItems     []*FormationSubItemUpdate
 }
 
 // UpdateItemResult is the result type of the lfx_v2_formation_service service
@@ -652,6 +638,18 @@ func transformLfxv2formationserviceviewsFormationItemViewToFormationItem(v *lfxv
 			res.SubItems[i] = transformLfxv2formationserviceviewsFormationSubItemViewToFormationSubItem(val)
 		}
 	}
+	if v.AvailableActions != nil {
+		res.AvailableActions = make([]*FormationAvailableAction, len(v.AvailableActions))
+		for i, val := range v.AvailableActions {
+			if val == nil {
+				res.AvailableActions[i] = nil
+				continue
+			}
+			res.AvailableActions[i] = transformLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableAction(val)
+		}
+	} else {
+		res.AvailableActions = []*FormationAvailableAction{}
+	}
 
 	return res
 }
@@ -702,6 +700,19 @@ func transformLfxv2formationserviceviewsFormationSubItemViewToFormationSubItem(v
 	return res
 }
 
+// transformLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableAction
+// builds a value of type *FormationAvailableAction from a value of type
+// *lfxv2formationserviceviews.FormationAvailableActionView.
+func transformLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableAction(v *lfxv2formationserviceviews.FormationAvailableActionView) *FormationAvailableAction {
+	res := &FormationAvailableAction{
+		Action:           *v.Action,
+		RequiresReason:   *v.RequiresReason,
+		RequiresRelation: *v.RequiresRelation,
+	}
+
+	return res
+}
+
 // transformLfxv2formationserviceviewsFormationProgressViewToFormationProgress
 // builds a value of type *FormationProgress from a value of type
 // *lfxv2formationserviceviews.FormationProgressView.
@@ -710,12 +721,11 @@ func transformLfxv2formationserviceviewsFormationProgressViewToFormationProgress
 		return nil
 	}
 	res := &FormationProgress{
-		NotStarted:         *v.NotStarted,
-		InProgress:         *v.InProgress,
-		Blocked:            *v.Blocked,
-		AwaitingAcceptance: *v.AwaitingAcceptance,
-		Done:               *v.Done,
-		Skipped:            *v.Skipped,
+		NotStarted: *v.NotStarted,
+		InProgress: *v.InProgress,
+		Blocked:    *v.Blocked,
+		Done:       *v.Done,
+		Skipped:    *v.Skipped,
 	}
 
 	return res
@@ -775,6 +785,18 @@ func transformFormationItemToLfxv2formationserviceviewsFormationItemView(v *Form
 			res.SubItems[i] = transformFormationSubItemToLfxv2formationserviceviewsFormationSubItemView(val)
 		}
 	}
+	if v.AvailableActions != nil {
+		res.AvailableActions = make([]*lfxv2formationserviceviews.FormationAvailableActionView, len(v.AvailableActions))
+		for i, val := range v.AvailableActions {
+			if val == nil {
+				res.AvailableActions[i] = nil
+				continue
+			}
+			res.AvailableActions[i] = transformFormationAvailableActionToLfxv2formationserviceviewsFormationAvailableActionView(val)
+		}
+	} else {
+		res.AvailableActions = []*lfxv2formationserviceviews.FormationAvailableActionView{}
+	}
 
 	return res
 }
@@ -826,17 +848,30 @@ func transformFormationSubItemToLfxv2formationserviceviewsFormationSubItemView(v
 	return res
 }
 
+// transformFormationAvailableActionToLfxv2formationserviceviewsFormationAvailableActionView
+// builds a value of type
+// *lfxv2formationserviceviews.FormationAvailableActionView from a value of
+// type *FormationAvailableAction.
+func transformFormationAvailableActionToLfxv2formationserviceviewsFormationAvailableActionView(v *FormationAvailableAction) *lfxv2formationserviceviews.FormationAvailableActionView {
+	res := &lfxv2formationserviceviews.FormationAvailableActionView{
+		Action:           &v.Action,
+		RequiresReason:   &v.RequiresReason,
+		RequiresRelation: &v.RequiresRelation,
+	}
+
+	return res
+}
+
 // transformFormationProgressToLfxv2formationserviceviewsFormationProgressView
 // builds a value of type *lfxv2formationserviceviews.FormationProgressView
 // from a value of type *FormationProgress.
 func transformFormationProgressToLfxv2formationserviceviewsFormationProgressView(v *FormationProgress) *lfxv2formationserviceviews.FormationProgressView {
 	res := &lfxv2formationserviceviews.FormationProgressView{
-		NotStarted:         &v.NotStarted,
-		InProgress:         &v.InProgress,
-		Blocked:            &v.Blocked,
-		AwaitingAcceptance: &v.AwaitingAcceptance,
-		Done:               &v.Done,
-		Skipped:            &v.Skipped,
+		NotStarted: &v.NotStarted,
+		InProgress: &v.InProgress,
+		Blocked:    &v.Blocked,
+		Done:       &v.Done,
+		Skipped:    &v.Skipped,
 	}
 
 	return res

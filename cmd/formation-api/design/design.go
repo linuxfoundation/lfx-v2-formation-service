@@ -158,15 +158,39 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
-	dsl.Method("update_item", func() {
-		dsl.Description("Change one checklist item: status, note, due date, skip reason, evidence link, " +
-			"assignee, or sub-items. Send only the fields being changed. If-Match is required and must " +
-			"equal the item's current version — a stale value means re-read and retry. The response " +
-			"returns the new version as ETag, so consecutive writes need no re-read. This route also " +
-			"carries the assignee's own completion claim (status: awaiting_acceptance), but never " +
-			"acceptance, rejection or reopening, which are their own routes because the formation-team " +
-			"guard on those is narrower than this route's writer guard and a Heimdall rule cannot express " +
-			"that on a shared route.")
+	// Three routes touch one item, and the split is the guard rather than a
+	// taste for small payloads. The architecture review gives three tiers:
+	// leaving an update takes read access, directing somebody else's work takes
+	// write access, and judging whether work was done takes write access plus
+	// membership of the formation team.
+	//
+	// The gateway could carry all three on one route — it can read the parsed
+	// body and run an authorizer conditionally on what it finds. The tiers are
+	// split by route because the review's API surface asks for that, and
+	// because a conditional guard fails open: should the condition ever stop
+	// matching the payload it is meant to catch, the team check quietly does
+	// not run, and what it prevents is somebody closing their own item. A
+	// field's tier therefore decides its route, and folding any two together
+	// would widen the stricter guard to the broadest field sharing the route.
+
+	// Tier three, the narrowest: anything that moves a status.
+	//
+	// This guard is what keeps an assignee from closing their own item. A
+	// partner elevated to writer in order to create the committee still is not
+	// on the formation team, so they do the work, leave a note on the PATCH
+	// route, and somebody else judges it.
+	//
+	// Sub-items are here rather than with the fields because a sub-item status
+	// is a status, drawn from the same enum, and the review treats every status
+	// write alike. Putting them on a wider route would let somebody march an
+	// item's sub-items to done without holding what closing the item takes.
+	dsl.Method("set_item_status", func() {
+		dsl.Description("Move one checklist item to a new status — in progress, blocked, done, " +
+			"skipped, or back to not started — or set the status of its sub-items. At least one of " +
+			"status and sub_items is required; both may travel together. If-Match is required and " +
+			"must equal the item's current version — a stale value means re-read and retry. The " +
+			"response returns the new version as ETag. Blocking, skipping and sending an item back " +
+			"each require a reason; the other transitions ignore one if sent.")
 
 		dsl.Security(JWTAuth)
 
@@ -176,9 +200,71 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
 			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
 			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
-			dsl.Attribute("status", dsl.String, "One of the six. Omit to leave unchanged.", func() {
-				dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+			// Optional, so a caller may move a sub-item without restating
+			// the parent's status — restating it would be refused as a
+			// no-op, which would make sub-items unreachable.
+			dsl.Attribute("status", dsl.String, "One of the five. Omit to change sub-items alone.", func() {
+				dsl.Enum("not_started", "in_progress", "blocked", "done", "skipped")
 			})
+			// One field for all three, rather than a skip reason and a
+			// blocking note carrying the same sentence under different
+			// names. Where it comes to rest still differs — skipping
+			// records it as the item's skip reason, the others as its
+			// note — because those are read back in different places.
+			dsl.Attribute("reason", dsl.String,
+				"Why. Required when blocking, skipping, or sending an item back to not started: each "+
+					"leaves somebody with work to redo, and a bare status change tells them nothing.")
+			dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItemUpdate))
+			dsl.Required("version", "project_uid", "item_key", "if_match")
+		})
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The checklist, or this item's current state, refuses the change")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/formations/{project_uid}/items/{item_key}/status")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	// Tier two: directing somebody else's work, on write access.
+	//
+	// Assignment and the due date share a route because they are the same act —
+	// telling a named person what to do and by when — and the review puts them
+	// on the same guard. Neither judges whether anything was done, which is why
+	// they do not need the team check, and neither is a mere record of work, so
+	// read access is not enough.
+	dsl.Method("assign_item", func() {
+		dsl.Description("Direct one checklist item's work: set or clear its assignee, set or clear " +
+			"its due date. Send only the fields being changed; at least one is required. Assignment " +
+			"is limited to people already holding a grant on the project. If-Match is required and " +
+			"must equal the item's current version. The response returns the new version as ETag.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
 			dsl.Attribute("assignee", dsl.String, "Username, or an empty string to clear.")
 			// No dsl.Format(FormatDate) here, unlike the read-side
 			// due_date attribute: FormatDate is enforced at request
@@ -194,12 +280,63 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("due_date", dsl.String, "YYYY-MM-DD, or an empty string to clear.", func() {
 				dsl.Example("2026-03-31")
 			})
+			dsl.Required("version", "project_uid", "item_key", "if_match")
+		})
+		dsl.Result(func() {
+			dsl.Attribute("item", FormationItem)
+			ETagAttribute()
+			dsl.Required("item")
+		})
+		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
+		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
+		dsl.Error("Conflict", FormationError, "The checklist, or this item's current state, refuses the change")
+		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/formations/{project_uid}/items/{item_key}/assignment")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("item")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	// Tier one, the widest: leaving an update, on read access alone.
+	//
+	// Read access and not write access, and that is the point of the route
+	// rather than an oversight. The assignee of an item is often a partner
+	// holding only "View": they do the work off-platform — a trademark search,
+	// a DocuSign, a domain transfer — and record here what they did, and
+	// somebody on the formation team reads it and moves the status. Guarding
+	// this on write access would mean the person doing the work cannot say they
+	// did it, which is the whole partner workflow.
+	dsl.Method("update_item", func() {
+		dsl.Description("Leave an update on one checklist item: a note, an evidence link. Neither " +
+			"moves a status nor directs anybody's work, so this is the one item route open on read " +
+			"access. Send only the fields being changed; at least one is required. If-Match is " +
+			"required and must equal the item's current version — a stale value means re-read and " +
+			"retry. The response returns the new version as ETag.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
+			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
 			dsl.Attribute("note", dsl.String)
-			dsl.Attribute("skip_reason", dsl.String, "Required when status is skipped.")
-			dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links. http/https only.", func() {
+			dsl.Attribute("evidence_link", dsl.String, "Feeds Quick Links. http/https only.", func() {
 				dsl.Example("https://example.org/bylaws.pdf")
 			})
-			dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItemUpdate))
 			dsl.Required("version", "project_uid", "item_key", "if_match")
 		})
 		dsl.Result(func() {
@@ -214,157 +351,6 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.PATCH("/formations/{project_uid}/items/{item_key}")
-			dsl.Param("version:v")
-			dsl.Header("bearer_token:Authorization")
-			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK, func() {
-				dsl.Body("item")
-				dsl.Header("etag:ETag")
-			})
-			dsl.Response("NotFound", dsl.StatusNotFound)
-			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
-			dsl.Response("Conflict", dsl.StatusConflict)
-			dsl.Response("BadRequest", dsl.StatusBadRequest)
-			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
-		})
-	})
-
-	// Accept, reject and reopen are three routes rather than three status values
-	// on the shared PATCH.
-	//
-	// Not a stylistic choice. A Heimdall rule selects on method and path, so the
-	// formation-team check these need cannot be expressed on a route whose guard
-	// is the project's writer relation — the alternative is moving an
-	// authorization decision into service code, which the platform forbids. Three
-	// paths give the gateway three things to select on.
-	//
-	// Each takes If-Match on the item's version, like the PATCH: an acceptance
-	// decided against a status somebody has since changed is exactly the write
-	// that must be refused. Each returns the new version as ETag, likewise.
-	//
-	// None of them declares a 403. The self-acceptance refusal answers 409 with
-	// reason self_acceptance_forbidden, because 403 is what the gateway returns
-	// when the caller holds nothing on the project — and a service-issued 403
-	// would be indistinguishable from that, telling a client to re-authenticate
-	// when what they actually need is a different person to accept.
-
-	dsl.Method("accept_item", func() {
-		dsl.Description("Accept an item's completion claim, moving awaiting_acceptance to done. " +
-			"Restricted to the formation team at the gateway, and refused by the service when the " +
-			"caller is the item's own assignee. If-Match is required.")
-
-		dsl.Security(JWTAuth)
-
-		dsl.Payload(func() {
-			BearerTokenAttribute()
-			VersionAttribute()
-			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
-			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
-			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
-			dsl.Attribute("note", dsl.String, "Replaces the item's note. Omit to clear it.")
-			dsl.Required("version", "project_uid", "item_key", "if_match")
-		})
-		dsl.Result(func() {
-			dsl.Attribute("item", FormationItem)
-			ETagAttribute()
-			dsl.Required("item")
-		})
-		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
-		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
-		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
-		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
-		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
-		dsl.HTTP(func() {
-			dsl.POST("/formations/{project_uid}/items/{item_key}/accept")
-			dsl.Param("version:v")
-			dsl.Header("bearer_token:Authorization")
-			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK, func() {
-				dsl.Body("item")
-				dsl.Header("etag:ETag")
-			})
-			dsl.Response("NotFound", dsl.StatusNotFound)
-			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
-			dsl.Response("Conflict", dsl.StatusConflict)
-			dsl.Response("BadRequest", dsl.StatusBadRequest)
-			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
-		})
-	})
-
-	dsl.Method("reject_item", func() {
-		dsl.Description("Reject an item's completion claim, returning it to in_progress with a note " +
-			"the assignee can read. The note is required: a rejection with no reason leaves the " +
-			"assignee nothing to act on. Restricted to the formation team at the gateway.")
-
-		dsl.Security(JWTAuth)
-
-		dsl.Payload(func() {
-			BearerTokenAttribute()
-			VersionAttribute()
-			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
-			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
-			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
-			dsl.Attribute("note", dsl.String, "Why it was rejected. Readable by the assignee.", func() {
-				dsl.MinLength(1)
-			})
-			dsl.Required("version", "project_uid", "item_key", "if_match", "note")
-		})
-		dsl.Result(func() {
-			dsl.Attribute("item", FormationItem)
-			ETagAttribute()
-			dsl.Required("item")
-		})
-		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
-		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
-		dsl.Error("Conflict", FormationError, "The item is not awaiting acceptance, or the checklist is read-only")
-		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
-		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
-		dsl.HTTP(func() {
-			dsl.POST("/formations/{project_uid}/items/{item_key}/reject")
-			dsl.Param("version:v")
-			dsl.Header("bearer_token:Authorization")
-			dsl.Header("if_match:If-Match")
-			dsl.Response(dsl.StatusOK, func() {
-				dsl.Body("item")
-				dsl.Header("etag:ETag")
-			})
-			dsl.Response("NotFound", dsl.StatusNotFound)
-			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
-			dsl.Response("Conflict", dsl.StatusConflict)
-			dsl.Response("BadRequest", dsl.StatusBadRequest)
-			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
-		})
-	})
-
-	dsl.Method("reopen_item", func() {
-		dsl.Description("Reopen a done item, returning it to in_progress. Behind the same guard as " +
-			"acceptance rather than the ordinary write guard: reopening is the reversal of an " +
-			"acceptance, and a weaker check here would make the acceptance control bypassable from " +
-			"the other side. Reopening a gating item withdraws readiness.")
-
-		dsl.Security(JWTAuth)
-
-		dsl.Payload(func() {
-			BearerTokenAttribute()
-			VersionAttribute()
-			dsl.Attribute("project_uid", dsl.String, "The project's UID.")
-			dsl.Attribute("item_key", dsl.String, "The item's stable key.")
-			dsl.Attribute("if_match", dsl.Int64, "Must equal the item's current version.")
-			dsl.Attribute("note", dsl.String, "Why it was reopened.")
-			dsl.Required("version", "project_uid", "item_key", "if_match")
-		})
-		dsl.Result(func() {
-			dsl.Attribute("item", FormationItem)
-			ETagAttribute()
-			dsl.Required("item")
-		})
-		dsl.Error("NotFound", FormationError, "No formation, or no item with that key, exists")
-		dsl.Error("VersionMismatch", FormationError, "If-Match did not match the item's current version")
-		dsl.Error("Conflict", FormationError, "The item is not done, or the checklist is read-only")
-		dsl.Error("BadRequest", FormationError, "The payload itself is invalid")
-		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
-		dsl.HTTP(func() {
-			dsl.POST("/formations/{project_uid}/items/{item_key}/reopen")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Header("if_match:If-Match")
@@ -430,9 +416,8 @@ var UnauthorizedError = dsl.Type("UnauthorizedError", func() {
 
 // FormationError is the shared error shape for the write endpoints. The UI
 // switches on reason, never on the HTTP status alone: several reasons share
-// one status (e.g. checklist_read_only, invalid_transition and
-// self_acceptance_forbidden are all 409), so status is not enough to tell
-// them apart.
+// one status (checklist_read_only and invalid_transition are both 409), so
+// status is not enough to tell them apart.
 var FormationError = dsl.Type("FormationError", func() {
 	// One update_item call declares four Error()s (NotFound,
 	// VersionMismatch, Conflict, BadRequest) all typed as FormationError,
@@ -451,8 +436,9 @@ var FormationError = dsl.Type("FormationError", func() {
 			"unknown_item_key",
 			"checklist_read_only",
 			"invalid_transition",
-			"self_acceptance_forbidden",
+			"blocked_reason_required",
 			"skip_reason_required",
+			"return_reason_required",
 			"assignee_not_on_project",
 			"link_scheme_invalid",
 			"due_date_invalid",
@@ -470,7 +456,7 @@ var FormationSubItem = dsl.Type("FormationSubItem", func() {
 	dsl.Attribute("key", dsl.String)
 	dsl.Attribute("title", dsl.String)
 	dsl.Attribute("status", dsl.String, func() {
-		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+		dsl.Enum("not_started", "in_progress", "blocked", "done", "skipped")
 	})
 	dsl.Required("key", "title", "status")
 })
@@ -481,7 +467,7 @@ var FormationSubItem = dsl.Type("FormationSubItem", func() {
 var FormationSubItemUpdate = dsl.Type("FormationSubItemUpdate", func() {
 	dsl.Attribute("key", dsl.String)
 	dsl.Attribute("status", dsl.String, func() {
-		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+		dsl.Enum("not_started", "in_progress", "blocked", "done", "skipped")
 	})
 	dsl.Required("key", "status")
 })
@@ -521,8 +507,8 @@ var FormationItem = dsl.Type("FormationItem", func() {
 	dsl.Attribute("evidence_link", dsl.String, "Writer-set; feeds Quick Links.", func() {
 		dsl.Example("https://example.org/bylaws.pdf")
 	})
-	dsl.Attribute("status", dsl.String, "Six values.", func() {
-		dsl.Enum("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+	dsl.Attribute("status", dsl.String, "Five values.", func() {
+		dsl.Enum("not_started", "in_progress", "blocked", "done", "skipped")
 	})
 	dsl.Attribute("assignee", dsl.String, "Username. Nothing is granted.")
 	dsl.Attribute("due_date", dsl.String, func() { dsl.Format(dsl.FormatDate) })
@@ -530,8 +516,41 @@ var FormationItem = dsl.Type("FormationItem", func() {
 	dsl.Attribute("skip_reason", dsl.String, "Required when status is skipped.")
 	dsl.Attribute("resolved_ref", FormationResolvedRef, "Set by the service.")
 	dsl.Attribute("sub_items", dsl.ArrayOf(FormationSubItem))
+	dsl.Attribute("available_actions", dsl.ArrayOf(FormationAvailableAction),
+		"What this item's current state permits, and what each action requires. Describes the "+
+			"item, not the caller: two people reading the same item receive the same list, and a "+
+			"browser intersects it with the standing it already holds. Empty, never absent, when "+
+			"the item permits nothing.")
 	dsl.Attribute("version", dsl.Int64, "Echo as If-Match on every mutation. Per item, not per formation.")
-	dsl.Required("uid", "item_key", "section_key", "position", "title", "gate", "requires_writer", "status_source", "is_required", "checklist_type", "status", "version")
+	dsl.Required("uid", "item_key", "section_key", "position", "title", "gate", "requires_writer", "status_source", "is_required", "checklist_type", "status", "available_actions", "version")
+})
+
+// FormationAvailableAction is one thing that may be done to an item in its
+// current state, by somebody holding the stated relation.
+//
+// Deliberately no dsl.Enum on action or requires_relation. An enum in a
+// published document invites a consumer to validate against it and reject a
+// value it has not seen, and both sets are expected to grow — the relation
+// names in particular move with the gateway's guards. A consumer meeting an
+// unrecognised value must be able to ignore that entry and carry on, which an
+// enum would turn into a decode failure.
+//
+// No label, icon, description or ordering hint: wording stays in the browser,
+// keyed on the stable name.
+var FormationAvailableAction = dsl.Type("FormationAvailableAction", func() {
+	dsl.Attribute("action", dsl.String, "Stable identifier, never display text.", func() {
+		dsl.Example("mark_done")
+	})
+	dsl.Attribute("requires_reason", dsl.Boolean,
+		"Whether taking this action must carry a reason or note, so a browser can render the "+
+			"input without knowing which actions need one.")
+	dsl.Attribute("requires_relation", dsl.String,
+		"What the caller must hold for the gateway to admit the call — a relation on the project, "+
+			"or a team membership. Names a guard the deployed rules already publish; it discloses "+
+			"nothing about the caller.", func() {
+			dsl.Example("writer")
+		})
+	dsl.Required("action", "requires_reason", "requires_relation")
 })
 
 // FormationSection groups items under one heading.
@@ -542,16 +561,15 @@ var FormationSection = dsl.Type("FormationSection", func() {
 	dsl.Required("key", "title", "position")
 })
 
-// FormationProgress is the six-way status count, derived on every read and
+// FormationProgress is the five-way status count, derived on every read and
 // never stored — skipped is its own bucket, never folded into done.
 var FormationProgress = dsl.Type("FormationProgress", func() {
 	dsl.Attribute("not_started", dsl.Int)
 	dsl.Attribute("in_progress", dsl.Int)
 	dsl.Attribute("blocked", dsl.Int)
-	dsl.Attribute("awaiting_acceptance", dsl.Int)
 	dsl.Attribute("done", dsl.Int)
 	dsl.Attribute("skipped", dsl.Int)
-	dsl.Required("not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped")
+	dsl.Required("not_started", "in_progress", "blocked", "done", "skipped")
 })
 
 // FormationChecklist is the response body for GET /formations/{project_uid}

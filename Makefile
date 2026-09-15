@@ -18,7 +18,7 @@ HELM_NAMESPACE=lfx
 HELM_VALUES_FILE=$(HELM_CHART_PATH)/values.local.yaml
 
 # Go
-GO_VERSION := 1.25.0
+GO_VERSION := 1.26.0
 GOOS := linux
 GOARCH := amd64
 GO_FILES := $(shell find . -name '*.go' -not -path './gen/*' -not -path './vendor/*')

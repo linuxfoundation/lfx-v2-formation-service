@@ -410,22 +410,21 @@ func buildProjection(
 	}
 
 	doc := &port.FormationProjection{
-		FormationUID:       formation.UID.String(),
-		ProjectUID:         formation.ProjectUID,
-		ProjectName:        projectName,
-		AnnouncementDate:   announcementDate,
-		Lifecycle:          string(formation.Lifecycle),
-		GatesCleared:       gatesCleared,
-		IsActivating:       isActivating(gateTotal, gateOutstanding, datePtr),
-		NotStarted:         counts[model.StatusNotStarted],
-		InProgress:         counts[model.StatusInProgress],
-		Blocked:            counts[model.StatusBlocked],
-		AwaitingAcceptance: counts[model.StatusAwaitingAcceptance],
-		Done:               counts[model.StatusDone],
-		Skipped:            counts[model.StatusSkipped],
-		BlockedItemTitles:  blockedItemTitles(items),
-		Assignees:          assigneesOf(items),
-		AccessRelation:     formationAccessRelation,
+		FormationUID:      formation.UID.String(),
+		ProjectUID:        formation.ProjectUID,
+		ProjectName:       projectName,
+		AnnouncementDate:  announcementDate,
+		Lifecycle:         string(formation.Lifecycle),
+		GatesCleared:      gatesCleared,
+		IsActivating:      isActivating(gateTotal, gateOutstanding, datePtr),
+		NotStarted:        counts[model.StatusNotStarted],
+		InProgress:        counts[model.StatusInProgress],
+		Blocked:           counts[model.StatusBlocked],
+		Done:              counts[model.StatusDone],
+		Skipped:           counts[model.StatusSkipped],
+		BlockedItemTitles: blockedItemTitles(items),
+		Assignees:         assigneesOf(items),
+		AccessRelation:    formationAccessRelation,
 
 		// No three-way Type field is stored or published. The browser derives
 		// Foundation / Project / Child project from these two signals, and

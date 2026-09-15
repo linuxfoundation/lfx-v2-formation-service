@@ -64,6 +64,8 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+.tmp-gocache/
+.tmp-lintcache/
 
 # Configuration files that might contain secrets
 config/local.yml

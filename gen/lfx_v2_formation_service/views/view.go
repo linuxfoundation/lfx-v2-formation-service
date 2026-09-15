@@ -74,7 +74,7 @@ type FormationItemView struct {
 	ActionLink *string
 	// Writer-set; feeds Quick Links.
 	EvidenceLink *string
-	// Six values.
+	// Five values.
 	Status *string
 	// Username. Nothing is granted.
 	Assignee *string
@@ -85,6 +85,11 @@ type FormationItemView struct {
 	// Set by the service.
 	ResolvedRef *FormationResolvedRefView
 	SubItems    []*FormationSubItemView
+	// What this item's current state permits, and what each action requires.
+	// Describes the item, not the caller: two people reading the same item receive
+	// the same list, and a browser intersects it with the standing it already
+	// holds. Empty, never absent, when the item permits nothing.
+	AvailableActions []*FormationAvailableActionView
 	// Echo as If-Match on every mutation. Per item, not per formation.
 	Version *int64
 }
@@ -109,14 +114,27 @@ type FormationSubItemView struct {
 	Status *string
 }
 
+// FormationAvailableActionView is a type that runs validations on a projected
+// type.
+type FormationAvailableActionView struct {
+	// Stable identifier, never display text.
+	Action *string
+	// Whether taking this action must carry a reason or note, so a browser can
+	// render the input without knowing which actions need one.
+	RequiresReason *bool
+	// What the caller must hold for the gateway to admit the call — a relation on
+	// the project, or a team membership. Names a guard the deployed rules already
+	// publish; it discloses nothing about the caller.
+	RequiresRelation *string
+}
+
 // FormationProgressView is a type that runs validations on a projected type.
 type FormationProgressView struct {
-	NotStarted         *int
-	InProgress         *int
-	Blocked            *int
-	AwaitingAcceptance *int
-	Done               *int
-	Skipped            *int
+	NotStarted *int
+	InProgress *int
+	Blocked    *int
+	Done       *int
+	Skipped    *int
 }
 
 // FormationActivityPageView is a type that runs validations on a projected
@@ -300,6 +318,9 @@ func ValidateFormationItemView(result *FormationItemView) (err error) {
 	if result.Status == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "result"))
 	}
+	if result.AvailableActions == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("available_actions", "result"))
+	}
 	if result.Version == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("version", "result"))
 	}
@@ -314,8 +335,8 @@ func ValidateFormationItemView(result *FormationItemView) (err error) {
 		}
 	}
 	if result.Status != nil {
-		if !(*result.Status == "not_started" || *result.Status == "in_progress" || *result.Status == "blocked" || *result.Status == "awaiting_acceptance" || *result.Status == "done" || *result.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.status", *result.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+		if !(*result.Status == "not_started" || *result.Status == "in_progress" || *result.Status == "blocked" || *result.Status == "done" || *result.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.status", *result.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 		}
 	}
 	if result.DueDate != nil {
@@ -324,6 +345,13 @@ func ValidateFormationItemView(result *FormationItemView) (err error) {
 	for _, e := range result.SubItems {
 		if e != nil {
 			if err2 := ValidateFormationSubItemView(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	for _, e := range result.AvailableActions {
+		if e != nil {
+			if err2 := ValidateFormationAvailableActionView(e); err2 != nil {
 				err = goa.MergeErrors(err, err2)
 			}
 		}
@@ -358,9 +386,24 @@ func ValidateFormationSubItemView(result *FormationSubItemView) (err error) {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "result"))
 	}
 	if result.Status != nil {
-		if !(*result.Status == "not_started" || *result.Status == "in_progress" || *result.Status == "blocked" || *result.Status == "awaiting_acceptance" || *result.Status == "done" || *result.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.status", *result.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+		if !(*result.Status == "not_started" || *result.Status == "in_progress" || *result.Status == "blocked" || *result.Status == "done" || *result.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.status", *result.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 		}
+	}
+	return
+}
+
+// ValidateFormationAvailableActionView runs the validations defined on
+// FormationAvailableActionView.
+func ValidateFormationAvailableActionView(result *FormationAvailableActionView) (err error) {
+	if result.Action == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("action", "result"))
+	}
+	if result.RequiresReason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_reason", "result"))
+	}
+	if result.RequiresRelation == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_relation", "result"))
 	}
 	return
 }
@@ -376,9 +419,6 @@ func ValidateFormationProgressView(result *FormationProgressView) (err error) {
 	}
 	if result.Blocked == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("blocked", "result"))
-	}
-	if result.AwaitingAcceptance == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("awaiting_acceptance", "result"))
 	}
 	if result.Done == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("done", "result"))

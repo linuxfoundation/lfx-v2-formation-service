@@ -455,13 +455,12 @@ type FormationProjection struct {
 	// IsActivating is full readiness: GatesCleared and an announcement date set.
 	IsActivating bool
 
-	// The six progress counts, sent as fields so the search can sort on them.
-	NotStarted         int
-	InProgress         int
-	Blocked            int
-	AwaitingAcceptance int
-	Done               int
-	Skipped            int
+	// The five progress counts, sent as fields so the search can sort on them.
+	NotStarted int
+	InProgress int
+	Blocked    int
+	Done       int
+	Skipped    int
 
 	// BlockedItemTitles is the Blocking column. Titles only — naming the person
 	// on a blocked item would put an assignment in a document read by everyone

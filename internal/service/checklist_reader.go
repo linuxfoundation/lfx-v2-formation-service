@@ -78,7 +78,7 @@ func (s *Service) GetFormation(ctx context.Context, p *svc.GetFormationPayload) 
 		TemplateVersion: formation.TemplateVersion,
 		Lifecycle:       string(formation.Lifecycle),
 		Sections:        sectionsFromFormation(formation),
-		Items:           itemsToWire(items),
+		Items:           itemsToWire(items, formation.Lifecycle),
 		Progress:        progressFromCounts(counts),
 		IsActivating:    isActivating(gateTotal, gateOutstanding, announcementDate),
 	}, nil
@@ -193,10 +193,10 @@ func sectionsFromFormation(f *model.Formation) []*svc.FormationSection {
 	return out
 }
 
-func itemsToWire(items []*model.Item) []*svc.FormationItem {
+func itemsToWire(items []*model.Item, lifecycle model.Lifecycle) []*svc.FormationItem {
 	out := make([]*svc.FormationItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, itemToWire(it))
+		out = append(out, itemToWire(it, lifecycle))
 	}
 	return out
 }
@@ -210,20 +210,30 @@ func itemETag(item *svc.FormationItem) *string {
 	return &etag
 }
 
-func itemToWire(it *model.Item) *svc.FormationItem {
+// itemToWire renders one item for the wire, including what its current state
+// permits. The lifecycle is a parameter rather than something read off the item
+// because an item does not carry its parent's state, and a checklist that has
+// completed or frozen permits nothing regardless of what any row says.
+//
+// Note what is *not* a parameter: the caller. The list describes the item, so
+// two people reading the same row get the same answer and the browser applies
+// who they are. Adding a caller here would put this service back in the
+// business of resolving permissions.
+func itemToWire(it *model.Item, lifecycle model.Lifecycle) *svc.FormationItem {
 	wire := &svc.FormationItem{
-		UID:            it.UID.String(),
-		ItemKey:        it.ItemKey,
-		SectionKey:     it.SectionKey,
-		Position:       it.Position,
-		Title:          it.Title,
-		Gate:           it.Gate,
-		RequiresWriter: it.RequiresWriter,
-		StatusSource:   string(it.StatusSource),
-		IsRequired:     it.IsRequired,
-		ChecklistType:  string(it.ChecklistType),
-		Status:         string(it.Status),
-		Version:        it.Revision,
+		UID:              it.UID.String(),
+		ItemKey:          it.ItemKey,
+		SectionKey:       it.SectionKey,
+		Position:         it.Position,
+		Title:            it.Title,
+		Gate:             it.Gate,
+		RequiresWriter:   it.RequiresWriter,
+		StatusSource:     string(it.StatusSource),
+		IsRequired:       it.IsRequired,
+		ChecklistType:    string(it.ChecklistType),
+		Status:           string(it.Status),
+		AvailableActions: availableActionsToWire(it.Status, lifecycle),
+		Version:          it.Revision,
 	}
 	if it.OwnerTeam != "" {
 		wire.OwnerTeam = &it.OwnerTeam
@@ -270,6 +280,23 @@ func itemToWire(it *model.Item) *svc.FormationItem {
 		}
 	}
 	return wire
+}
+
+// availableActionsToWire renders the domain's answer for the wire. The slice is
+// built empty rather than left nil on purpose: a nil slice marshals to null,
+// and a consumer has to be able to tell "this item permits nothing" from "this
+// response does not say".
+func availableActionsToWire(status model.ItemStatus, lifecycle model.Lifecycle) []*svc.FormationAvailableAction {
+	actions := model.AvailableActionsFor(status, lifecycle)
+	out := make([]*svc.FormationAvailableAction, 0, len(actions))
+	for _, a := range actions {
+		out = append(out, &svc.FormationAvailableAction{
+			Action:           a.Action,
+			RequiresReason:   a.RequiresReason,
+			RequiresRelation: a.RequiresRelation,
+		})
+	}
+	return out
 }
 
 func activityToWire(entries []*model.ActivityEntry) []*svc.FormationActivityEntry {

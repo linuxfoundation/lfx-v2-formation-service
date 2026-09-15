@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
-	"time"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -19,23 +17,26 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
 
-// The machine-readable reasons this route can refuse with. They exist so the
-// browser can switch on the cause rather than parse a message, which is why
-// several distinct ones share a single HTTP status.
-// self_acceptance_forbidden belongs to the accept route, not this one.
+// The machine-readable reasons the item write routes can refuse with. They
+// exist so the browser can switch on the cause rather than parse a message,
+// which is why several distinct ones share a single HTTP status. Shared across
+// the three routes: the same condition must answer the same way whichever
+// route met it.
 const (
-	reasonNotFound             = "not_found"
-	reasonVersionMismatch      = "version_mismatch"
-	reasonUnknownItemKey       = "unknown_item_key"
-	reasonChecklistReadOnly    = "checklist_read_only"
-	reasonInvalidTransition    = "invalid_transition"
-	reasonSkipReasonRequired   = "skip_reason_required"
-	reasonAssigneeNotOnProject = "assignee_not_on_project"
-	reasonLinkSchemeInvalid    = "link_scheme_invalid"
-	reasonDueDateInvalid       = "due_date_invalid"
-	reasonSubItemNull          = "sub_item_null"
-	reasonUnknownSubItemKey    = "unknown_sub_item_key"
-	reasonNoFieldsToUpdate     = "no_fields_to_update"
+	reasonNotFound              = "not_found"
+	reasonVersionMismatch       = "version_mismatch"
+	reasonUnknownItemKey        = "unknown_item_key"
+	reasonChecklistReadOnly     = "checklist_read_only"
+	reasonInvalidTransition     = "invalid_transition"
+	reasonBlockedReasonRequired = "blocked_reason_required"
+	reasonSkipReasonRequired    = "skip_reason_required"
+	reasonReturnReasonRequired  = "return_reason_required"
+	reasonAssigneeNotOnProject  = "assignee_not_on_project"
+	reasonLinkSchemeInvalid     = "link_scheme_invalid"
+	reasonDueDateInvalid        = "due_date_invalid"
+	reasonSubItemNull           = "sub_item_null"
+	reasonUnknownSubItemKey     = "unknown_sub_item_key"
+	reasonNoFieldsToUpdate      = "no_fields_to_update"
 )
 
 // dueDateLayout is the wire format for due_date: YYYY-MM-DD, matching the
@@ -49,51 +50,30 @@ const dueDateLayout = "2006-01-02"
 // on this string, but a caller reading the response directly still needs a
 // sentence, not "conflict".
 var reasonMessages = map[string]string{
-	reasonNotFound:             "no formation exists for this project",
-	reasonUnknownItemKey:       "no item with that key exists",
-	reasonVersionMismatch:      "if-match did not match the item's current version",
-	reasonChecklistReadOnly:    "the checklist is completed or frozen and no longer accepts changes",
-	reasonInvalidTransition:    "that status transition is not permitted from the item's current state",
-	reasonSkipReasonRequired:   "a reason is required to skip an item",
-	reasonAssigneeNotOnProject: "the assignee holds no writer or auditor grant on this project",
-	reasonLinkSchemeInvalid:    "evidence_link must use the http or https scheme",
-	reasonDueDateInvalid:       "due_date must be YYYY-MM-DD, or an empty string to clear it",
-	reasonSubItemNull:          "sub_items must not contain null entries",
-	reasonUnknownSubItemKey:    "the item has no sub-item with that key",
-	reasonNoFieldsToUpdate:     "the request changes no field",
+	reasonNotFound:              "no formation exists for this project",
+	reasonUnknownItemKey:        "no item with that key exists",
+	reasonVersionMismatch:       "if-match did not match the item's current version",
+	reasonChecklistReadOnly:     "the checklist is completed or frozen and no longer accepts changes",
+	reasonInvalidTransition:     "that status transition is not permitted from the item's current state",
+	reasonBlockedReasonRequired: "a reason is required to block an item",
+	reasonSkipReasonRequired:    "a reason is required to skip an item",
+	reasonReturnReasonRequired:  "a reason is required to send an item back to not started",
+	reasonAssigneeNotOnProject:  "the assignee holds no writer or auditor grant on this project",
+	reasonLinkSchemeInvalid:     "evidence_link must use the http or https scheme",
+	reasonDueDateInvalid:        "due_date must be YYYY-MM-DD, or an empty string to clear it",
+	reasonSubItemNull:           "sub_items must not contain null entries",
+	reasonUnknownSubItemKey:     "the item has no sub-item with that key",
+	reasonNoFieldsToUpdate:      "the request changes no field",
 }
 
-// allowedItemTransitions is every status edge this route may make. done is
-// deliberately unreachable from any source here, not just excluded as a
-// source: this route's guard is Manage (any project writer, including the
-// item's own assignee), and reaching done has to go through
-// awaiting_acceptance and the accept route so the formation-team-only,
-// never-the-assignee guard on acceptance actually runs. A PATCH straight to
-// done would let a writer accept their own item by skipping that route
-// entirely, which is exactly what self_acceptance_forbidden exists to
-// prevent.
-var allowedItemTransitions = map[model.ItemStatus][]model.ItemStatus{
-	model.StatusNotStarted: {model.StatusInProgress, model.StatusSkipped},
-	model.StatusInProgress: {model.StatusBlocked, model.StatusAwaitingAcceptance},
-	model.StatusBlocked:    {model.StatusInProgress},
-	model.StatusSkipped:    {model.StatusNotStarted},
-}
-
-func isAllowedItemTransition(from, to model.ItemStatus) bool {
-	for _, allowed := range allowedItemTransitions[from] {
-		if allowed == to {
-			return true
-		}
-	}
-	return false
-}
-
-// UpdateItem changes one checklist item: status, note, due date, skip
-// reason, evidence link, assignee, or sub-items. The whole read-validate-
-// write-log sequence runs inside one transaction, so a failure partway —
-// most concretely, the activity append after the item write succeeds —
-// leaves neither change committed rather than an item mutation with no
-// audit trail.
+// UpdateItem records an update against one checklist item: a note, an evidence
+// link. The widest of the three item routes and the only one open on read
+// access, because the person who did the work is often the one holding the
+// least access — they say what they did here, and somebody else judges it.
+//
+// Nothing reachable from here moves a status or reassigns anybody. That is
+// enforced by the payload rather than by a check: the fields do not exist on
+// it, and their routes are guarded more narrowly.
 func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*svc.UpdateItemResult, error) {
 	if s.uow == nil {
 		// Server misconfiguration, not a client problem: falls through
@@ -102,31 +82,61 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		return nil, errors.New("no unit of work wired")
 	}
 
-	// Checked before the transaction opens, because it is a NATS round-trip to
-	// another service bounded only by that client's timeout, and inside the
-	// transaction it would hold the row lock the later Update takes for the
-	// whole trip — the same reason the template upgrade resolves its project
-	// facts before opening one.
-	//
-	// The result is carried, not returned, and reported by buildItemPatch from
-	// the exact position the check used to occupy. Returning it here would put
-	// this refusal ahead of the missing-checklist, read-only, stale-precondition
-	// and invalid-transition ones, so a stale write to a frozen checklist would
-	// answer 400 where it used to answer 409 — a change to the wire contract,
-	// made by accident, in the name of not holding a lock.
-	//
-	// The cost is one wasted round-trip when the request was going to be
-	// refused on a precondition anyway. That is the right trade against holding
-	// a row lock across a call to another service.
-	var assigneeErr error
-	if p.Assignee != nil && *p.Assignee != "" {
-		assigneeErr = validateAssignee(ctx, s.projects, p.ProjectUID, *p.Assignee)
+	result, _, txErr := s.mutateItem(ctx, p.ProjectUID, p.ItemKey, p.IfMatch,
+		func(item *model.Item) (port.ItemPatch, string, error) {
+			patch, err := buildItemPatch(item, p)
+			return patch, mutationAction(p), err
+		})
+	if txErr != nil {
+		return nil, mapItemMutationError(txErr)
 	}
 
+	// After the commit, never inside it. Publishing from within the
+	// transaction would ship a state that can still roll back, and would hold
+	// the row lock across three network calls.
+	//
+	// Unconditional on which field changed. The indexed item document carries
+	// the due date, the note's absence, the lifecycle and more besides, and the
+	// refresh rebuilds the whole projection either way, so narrowing this would
+	// save nothing and leave the rest stale.
+	s.refreshIndex(ctx, p.ProjectUID)
+
+	// LifecycleLive rather than the formation's stored value, which is scoped
+	// to the transaction above and not worth hoisting out: this line is only
+	// reached when the write committed, and a write only commits when the
+	// read-only check at the top of the transaction passed. A checklist that
+	// was not live could not have produced this result.
+	item := itemToWire(result, model.LifecycleLive)
+	return &svc.UpdateItemResult{Item: item, Etag: itemETag(item)}, nil
+}
+
+// mutateItem runs the read-validate-write-log sequence one item write is made
+// of, and both write routes go through it: the whole sequence is one
+// transaction, so a failure partway — most concretely, the activity append
+// after the item write succeeds — leaves neither change committed rather than
+// an item mutation with no audit trail.
+//
+// build is handed the item as it stands and returns the patch to apply plus the
+// name the activity entry gets. It is where the two routes differ and the only
+// place they do; everything around it — the missing checklist, the frozen
+// checklist, the stale precondition, the unknown key — is refused identically,
+// and in that order, so the two routes cannot drift into answering different
+// codes for the same condition.
+//
+// Returns the updated item and the assignee it had beforehand, the latter
+// captured inside the transaction so the caller can decide whether an
+// assignment actually changed.
+func (s *Service) mutateItem(
+	ctx context.Context,
+	projectUID, itemKey string,
+	ifMatch int64,
+	build func(item *model.Item) (port.ItemPatch, string, error),
+) (*model.Item, string, error) {
 	var result *model.Item
-	var prevAssignee string // captured inside the transaction; empty means no prior assignee
-	txErr := s.uow.Do(ctx, func(tx port.Tx) error {
-		formation, err := tx.Formations().GetByProject(ctx, p.ProjectUID)
+	var prevAssignee string // empty means no prior assignee
+
+	err := s.uow.Do(ctx, func(tx port.Tx) error {
+		formation, err := tx.Formations().GetByProject(ctx, projectUID)
 		if err != nil {
 			if errors.Is(err, domain.ErrNotFound) {
 				return domain.NewReasonError(domain.ErrNotFound, reasonNotFound)
@@ -141,21 +151,21 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 			return domain.NewReasonError(domain.ErrConflict, reasonChecklistReadOnly)
 		}
 
-		item, err := tx.Items().GetByKey(ctx, formation.UID, p.ItemKey)
+		item, err := tx.Items().GetByKey(ctx, formation.UID, itemKey)
 		if err != nil {
 			if errors.Is(err, domain.ErrNotFound) {
 				return domain.NewReasonErrorf(domain.ErrNotFound, reasonUnknownItemKey,
-					"no item with key %q exists", p.ItemKey)
+					"no item with key %q exists", itemKey)
 			}
 			return err
 		}
-		if item.Revision != p.IfMatch {
+		if item.Revision != ifMatch {
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 
-		prevAssignee = item.Assignee // capture before the update for email dispatch
+		prevAssignee = item.Assignee
 
-		patch, err := buildItemPatch(item, p, assigneeErr)
+		patch, action, err := build(item)
 		if err != nil {
 			return err
 		}
@@ -177,7 +187,7 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 			ItemUID:      &updated.UID,
 			Actor:        principal,
 			SetBy:        model.SetByUser,
-			Action:       mutationAction(p),
+			Action:       action,
 			Before:       activitySummary(item),
 			After:        activitySummary(updated),
 		}); err != nil {
@@ -187,35 +197,10 @@ func (s *Service) UpdateItem(ctx context.Context, p *svc.UpdateItemPayload) (*sv
 		result = updated
 		return nil
 	})
-	if txErr != nil {
-		return nil, mapItemMutationError(txErr)
+	if err != nil {
+		return nil, "", err
 	}
-
-	// Fire the item-assigned email when the assignee was set or changed by
-	// this request. Dispatch is best-effort: a failure is logged and never
-	// blocks the write that already succeeded. The email service itself uses
-	// NATS core with no redelivery, so there is no retry contract to honour.
-	//
-	// prevAssignee was captured inside the transaction so that a PATCH
-	// repeating the current assignee alongside another field change (e.g.
-	// updating status) does not re-send the notification.
-	if p.Assignee != nil && *p.Assignee != "" && result.Assignee != prevAssignee {
-		s.dispatchItemAssigned(ctx, p.ProjectUID, result)
-	}
-
-	// After the commit, never inside it. Publishing from within the
-	// transaction would ship a state that can still roll back, and would hold
-	// the row lock across three network calls — the same hazard the assignee
-	// check above was moved out of the transaction to avoid.
-	//
-	// Unconditional on which field changed. The indexed item document carries
-	// the due date, the note's absence, the lifecycle and more besides, and the
-	// refresh rebuilds the whole projection either way, so narrowing this to
-	// status and assignee would save nothing and leave the rest stale.
-	s.refreshIndex(ctx, p.ProjectUID)
-
-	item := itemToWire(result)
-	return &svc.UpdateItemResult{Item: item, Etag: itemETag(item)}, nil
+	return result, prevAssignee, nil
 }
 
 // dispatchItemAssigned sends the item-assigned notification email.
@@ -316,63 +301,17 @@ func (s *Service) refreshIndex(ctx context.Context, projectUID string) {
 	s.refresher.AfterItemWrite(ctx, projectUID)
 }
 
-// buildItemPatch validates the payload's mutable fields against the item's
-// current state and turns them into a port.ItemPatch. It returns before
-// setting anything on the returned patch once it finds a refusal, so a
-// caller never sees a partial patch alongside an error.
-// assigneeErr carries the result of the assignee check the caller ran before
-// opening the transaction, so it can be reported from the position it used to be
-// checked in.
-func buildItemPatch(item *model.Item, p *svc.UpdateItemPayload, assigneeErr error) (port.ItemPatch, error) {
+// buildItemPatch validates this route's two fields and turns them into a
+// port.ItemPatch. It returns before setting anything on the returned patch once
+// it finds a refusal, so a caller never sees a partial patch alongside an error.
+func buildItemPatch(item *model.Item, p *svc.UpdateItemPayload) (port.ItemPatch, error) {
 	var patch port.ItemPatch
 
 	// Refused rather than applied as a no-op: Update always increments the
 	// revision, so an empty body would invalidate every other client's
 	// if_match and append an activity entry recording no change.
-	if p.Status == nil && p.Assignee == nil && p.Note == nil && p.SkipReason == nil &&
-		p.EvidenceLink == nil && p.DueDate == nil && p.SubItems == nil {
+	if p.Note == nil && p.EvidenceLink == nil {
 		return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonNoFieldsToUpdate)
-	}
-
-	if p.Status != nil {
-		newStatus := model.ItemStatus(*p.Status)
-		if newStatus != item.Status && !isAllowedItemTransition(item.Status, newStatus) {
-			return port.ItemPatch{}, domain.NewReasonError(domain.ErrConflict, reasonInvalidTransition)
-		}
-		patch.Status = &newStatus
-	}
-
-	// The skipped-item invariant is checked against the values this PATCH
-	// resolves to, not against the fields it happens to carry. Scoping it to
-	// requests that include status left two ways to reach a state the
-	// skip_needs_reason constraint rejects: an already-skipped item can send
-	// skip_reason alone, and the constraint compares btrim(skip_reason), so a
-	// whitespace-only reason passes an == "" test here. Either one used to
-	// surface as a 500 from Postgres while the mock stored it happily.
-	resolvedStatus := item.Status
-	if patch.Status != nil {
-		resolvedStatus = *patch.Status
-	}
-	if resolvedStatus == model.StatusSkipped {
-		resolvedReason := item.SkipReason
-		if p.SkipReason != nil {
-			resolvedReason = *p.SkipReason
-		}
-		if strings.TrimSpace(resolvedReason) == "" {
-			return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSkipReasonRequired)
-		}
-	}
-
-	if p.Assignee != nil {
-		// The membership itself was checked by the caller, before the
-		// transaction opened, because it is a call to another service. It is
-		// reported here, where the check used to happen, so which refusal a
-		// caller sees does not depend on where the check runs: an invalid
-		// transition and a skipped item with no reason both still outrank it.
-		if assigneeErr != nil {
-			return port.ItemPatch{}, assigneeErr
-		}
-		patch.Assignee = p.Assignee
 	}
 
 	if p.EvidenceLink != nil {
@@ -381,41 +320,8 @@ func buildItemPatch(item *model.Item, p *svc.UpdateItemPayload, assigneeErr erro
 		}
 		patch.EvidenceLink = p.EvidenceLink
 	}
-
-	if p.DueDate != nil {
-		if *p.DueDate != "" {
-			due, err := time.Parse(dueDateLayout, *p.DueDate)
-			// Go's parser accepts a year zero and Postgres has none, so
-			// without this the value reached the DATE column and came back as
-			// a 500 rather than this 400.
-			if err != nil || due.Year() < 1 {
-				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonDueDateInvalid)
-			}
-		}
-		patch.DueDate = p.DueDate
-	}
 	if p.Note != nil {
 		patch.Note = p.Note
-	}
-	if p.SkipReason != nil {
-		patch.SkipReason = p.SkipReason
-	}
-	if p.SubItems != nil {
-		// Refused rather than skipped. Goa's generated validator steps over
-		// nil elements without reporting them, so `"sub_items":[null]`
-		// arrives here as a live nil and used to panic the handler on the
-		// first field access. Answering 400 also tells the caller their
-		// payload was wrong, which quietly dropping the entry would not.
-		for _, u := range p.SubItems {
-			if u == nil {
-				return port.ItemPatch{}, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubItemNull)
-			}
-		}
-		subItems, err := subItemsFromWire(item.SubItems, p.SubItems)
-		if err != nil {
-			return port.ItemPatch{}, err
-		}
-		patch.SubItems = &subItems
 	}
 
 	return patch, nil
@@ -462,23 +368,10 @@ func subItemsFromWire(existing []model.SubItem, updates []*svc.FormationSubItemU
 // logging every field separately.
 func mutationAction(p *svc.UpdateItemPayload) string {
 	switch {
-	case p.Status != nil:
-		return "status_changed"
-	case p.Assignee != nil:
-		return "assignee_changed"
 	case p.EvidenceLink != nil:
 		return "evidence_link_changed"
-	case p.DueDate != nil:
-		return "due_date_changed"
 	case p.Note != nil:
 		return "note_changed"
-	case p.SubItems != nil:
-		return "sub_items_changed"
-	// Last so that adding it left every other combination's label alone; a
-	// skip reason only ever travels with a status in practice, and status
-	// already wins.
-	case p.SkipReason != nil:
-		return "skip_reason_changed"
 	default:
 		return "item_updated"
 	}

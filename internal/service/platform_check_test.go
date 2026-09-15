@@ -147,12 +147,12 @@ func TestAPlatformCheckReachesDoneWithoutAwaitingAcceptance(t *testing.T) {
 	after, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusDone, after.Status,
-		"a platform item stopped at awaiting_acceptance, which would need a person to accept a fact")
+		"a platform item must reach done without stopping for a person to confirm a derived fact")
 }
 
 // The move is attributed to the system. Naming a person for a change they did not
-// make would be worse than recording nothing, because this feed is what the
-// acceptance rule gets audited against.
+// make would be worse than recording nothing, because this feed is what status
+// changes are audited against.
 func TestAnAdvancedItemIsAttributedToTheSystem(t *testing.T) {
 	checker, repos, formation := platformFixture(t, model.StatusInProgress, foundCommittee)
 

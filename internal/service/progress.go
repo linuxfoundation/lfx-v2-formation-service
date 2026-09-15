@@ -8,19 +8,18 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 )
 
-// progressFromCounts derives the six-way progress count on every read
+// progressFromCounts derives the five-way progress count on every read
 // rather than maintaining a counter — a status change is always the
 // single source of truth, so there is nothing to keep in sync. skipped is its
 // own bucket here and is never folded into done: a skipped item did not get
 // done, it got excused.
 func progressFromCounts(counts map[model.ItemStatus]int) *svc.FormationProgress {
 	return &svc.FormationProgress{
-		NotStarted:         counts[model.StatusNotStarted],
-		InProgress:         counts[model.StatusInProgress],
-		Blocked:            counts[model.StatusBlocked],
-		AwaitingAcceptance: counts[model.StatusAwaitingAcceptance],
-		Done:               counts[model.StatusDone],
-		Skipped:            counts[model.StatusSkipped],
+		NotStarted: counts[model.StatusNotStarted],
+		InProgress: counts[model.StatusInProgress],
+		Blocked:    counts[model.StatusBlocked],
+		Done:       counts[model.StatusDone],
+		Skipped:    counts[model.StatusSkipped],
 	}
 }
 
@@ -31,7 +30,7 @@ func progressFromCounts(counts map[model.ItemStatus]int) *svc.FormationProgress 
 // statements with no shared snapshot, so a mutation landing between them
 // could return an item in one state and a progress count from another.
 func countsFromItems(items []*model.Item) map[model.ItemStatus]int {
-	counts := make(map[model.ItemStatus]int, 6)
+	counts := make(map[model.ItemStatus]int, 5)
 	for _, item := range items {
 		counts[item.Status]++
 	}

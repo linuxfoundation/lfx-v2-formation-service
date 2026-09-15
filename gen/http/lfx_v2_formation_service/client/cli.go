@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"unicode/utf8"
 
 	lfxv2formationservice "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	goa "goa.design/goa/v3/pkg"
@@ -121,19 +120,19 @@ func BuildGetFormationActivityPayload(lfxV2FormationServiceGetFormationActivityP
 	return v, nil
 }
 
-// BuildUpdateItemPayload builds the payload for the lfx_v2_formation_service
-// update_item endpoint from CLI flags.
-func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2FormationServiceUpdateItemProjectUID string, lfxV2FormationServiceUpdateItemItemKey string, lfxV2FormationServiceUpdateItemVersion string, lfxV2FormationServiceUpdateItemBearerToken string, lfxV2FormationServiceUpdateItemIfMatch string) (*lfxv2formationservice.UpdateItemPayload, error) {
+// BuildSetItemStatusPayload builds the payload for the
+// lfx_v2_formation_service set_item_status endpoint from CLI flags.
+func BuildSetItemStatusPayload(lfxV2FormationServiceSetItemStatusBody string, lfxV2FormationServiceSetItemStatusProjectUID string, lfxV2FormationServiceSetItemStatusItemKey string, lfxV2FormationServiceSetItemStatusVersion string, lfxV2FormationServiceSetItemStatusBearerToken string, lfxV2FormationServiceSetItemStatusIfMatch string) (*lfxv2formationservice.SetItemStatusPayload, error) {
 	var err error
-	var body UpdateItemRequestBody
+	var body SetItemStatusRequestBody
 	{
-		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
+		err = json.Unmarshal([]byte(lfxV2FormationServiceSetItemStatusBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Ab nemo.\",\n      \"due_date\": \"2026-03-31\",\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"At id labore ducimus perspiciatis sed.\",\n      \"skip_reason\": \"Ipsam id cum qui odit quidem dolor.\",\n      \"status\": \"in_progress\",\n      \"sub_items\": [\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Tenetur autem voluptatem dolor ut sed.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Dolorem esse fugiat aperiam.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         }\n      ]\n   }'")
 		}
 		if body.Status != nil {
-			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-				err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+				err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 			}
 		}
 		for _, e := range body.SubItems {
@@ -145,6 +144,126 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 		}
 		if err != nil {
 			return nil, err
+		}
+	}
+	var projectUID string
+	{
+		projectUID = lfxV2FormationServiceSetItemStatusProjectUID
+	}
+	var itemKey string
+	{
+		itemKey = lfxV2FormationServiceSetItemStatusItemKey
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceSetItemStatusVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceSetItemStatusBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceSetItemStatusBearerToken
+		}
+	}
+	var ifMatch int64
+	{
+		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceSetItemStatusIfMatch, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
+		}
+	}
+	v := &lfxv2formationservice.SetItemStatusPayload{
+		Status: body.Status,
+		Reason: body.Reason,
+	}
+	if body.SubItems != nil {
+		v.SubItems = make([]*lfxv2formationservice.FormationSubItemUpdate, len(body.SubItems))
+		for i, val := range body.SubItems {
+			if val == nil {
+				v.SubItems[i] = nil
+				continue
+			}
+			v.SubItems[i] = marshalFormationSubItemUpdateRequestBodyToLfxv2formationserviceFormationSubItemUpdate(val)
+		}
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
+
+	return v, nil
+}
+
+// BuildAssignItemPayload builds the payload for the lfx_v2_formation_service
+// assign_item endpoint from CLI flags.
+func BuildAssignItemPayload(lfxV2FormationServiceAssignItemBody string, lfxV2FormationServiceAssignItemProjectUID string, lfxV2FormationServiceAssignItemItemKey string, lfxV2FormationServiceAssignItemVersion string, lfxV2FormationServiceAssignItemBearerToken string, lfxV2FormationServiceAssignItemIfMatch string) (*lfxv2formationservice.AssignItemPayload, error) {
+	var err error
+	var body AssignItemRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceAssignItemBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Non sunt et velit.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
+		}
+	}
+	var projectUID string
+	{
+		projectUID = lfxV2FormationServiceAssignItemProjectUID
+	}
+	var itemKey string
+	{
+		itemKey = lfxV2FormationServiceAssignItemItemKey
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceAssignItemVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceAssignItemBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceAssignItemBearerToken
+		}
+	}
+	var ifMatch int64
+	{
+		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceAssignItemIfMatch, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
+		}
+	}
+	v := &lfxv2formationservice.AssignItemPayload{
+		Assignee: body.Assignee,
+		DueDate:  body.DueDate,
+	}
+	v.ProjectUID = projectUID
+	v.ItemKey = itemKey
+	v.Version = version
+	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
+
+	return v, nil
+}
+
+// BuildUpdateItemPayload builds the payload for the lfx_v2_formation_service
+// update_item endpoint from CLI flags.
+func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2FormationServiceUpdateItemProjectUID string, lfxV2FormationServiceUpdateItemItemKey string, lfxV2FormationServiceUpdateItemVersion string, lfxV2FormationServiceUpdateItemBearerToken string, lfxV2FormationServiceUpdateItemIfMatch string) (*lfxv2formationservice.UpdateItemPayload, error) {
+	var err error
+	var body UpdateItemRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Dolorem facere.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -179,190 +298,8 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 		}
 	}
 	v := &lfxv2formationservice.UpdateItemPayload{
-		Status:       body.Status,
-		Assignee:     body.Assignee,
-		DueDate:      body.DueDate,
 		Note:         body.Note,
-		SkipReason:   body.SkipReason,
 		EvidenceLink: body.EvidenceLink,
-	}
-	if body.SubItems != nil {
-		v.SubItems = make([]*lfxv2formationservice.FormationSubItemUpdate, len(body.SubItems))
-		for i, val := range body.SubItems {
-			if val == nil {
-				v.SubItems[i] = nil
-				continue
-			}
-			v.SubItems[i] = marshalFormationSubItemUpdateRequestBodyToLfxv2formationserviceFormationSubItemUpdate(val)
-		}
-	}
-	v.ProjectUID = projectUID
-	v.ItemKey = itemKey
-	v.Version = version
-	v.BearerToken = bearerToken
-	v.IfMatch = ifMatch
-
-	return v, nil
-}
-
-// BuildAcceptItemPayload builds the payload for the lfx_v2_formation_service
-// accept_item endpoint from CLI flags.
-func BuildAcceptItemPayload(lfxV2FormationServiceAcceptItemBody string, lfxV2FormationServiceAcceptItemProjectUID string, lfxV2FormationServiceAcceptItemItemKey string, lfxV2FormationServiceAcceptItemVersion string, lfxV2FormationServiceAcceptItemBearerToken string, lfxV2FormationServiceAcceptItemIfMatch string) (*lfxv2formationservice.AcceptItemPayload, error) {
-	var err error
-	var body AcceptItemRequestBody
-	{
-		err = json.Unmarshal([]byte(lfxV2FormationServiceAcceptItemBody), &body)
-		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Et temporibus laborum.\"\n   }'")
-		}
-	}
-	var projectUID string
-	{
-		projectUID = lfxV2FormationServiceAcceptItemProjectUID
-	}
-	var itemKey string
-	{
-		itemKey = lfxV2FormationServiceAcceptItemItemKey
-	}
-	var version string
-	{
-		version = lfxV2FormationServiceAcceptItemVersion
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	var bearerToken *string
-	{
-		if lfxV2FormationServiceAcceptItemBearerToken != "" {
-			bearerToken = &lfxV2FormationServiceAcceptItemBearerToken
-		}
-	}
-	var ifMatch int64
-	{
-		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceAcceptItemIfMatch, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
-		}
-	}
-	v := &lfxv2formationservice.AcceptItemPayload{
-		Note: body.Note,
-	}
-	v.ProjectUID = projectUID
-	v.ItemKey = itemKey
-	v.Version = version
-	v.BearerToken = bearerToken
-	v.IfMatch = ifMatch
-
-	return v, nil
-}
-
-// BuildRejectItemPayload builds the payload for the lfx_v2_formation_service
-// reject_item endpoint from CLI flags.
-func BuildRejectItemPayload(lfxV2FormationServiceRejectItemBody string, lfxV2FormationServiceRejectItemProjectUID string, lfxV2FormationServiceRejectItemItemKey string, lfxV2FormationServiceRejectItemVersion string, lfxV2FormationServiceRejectItemBearerToken string, lfxV2FormationServiceRejectItemIfMatch string) (*lfxv2formationservice.RejectItemPayload, error) {
-	var err error
-	var body RejectItemRequestBody
-	{
-		err = json.Unmarshal([]byte(lfxV2FormationServiceRejectItemBody), &body)
-		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"w1\"\n   }'")
-		}
-		if utf8.RuneCountInString(body.Note) < 1 {
-			err = goa.MergeErrors(err, goa.InvalidLengthError("body.note", body.Note, utf8.RuneCountInString(body.Note), 1, true))
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	var projectUID string
-	{
-		projectUID = lfxV2FormationServiceRejectItemProjectUID
-	}
-	var itemKey string
-	{
-		itemKey = lfxV2FormationServiceRejectItemItemKey
-	}
-	var version string
-	{
-		version = lfxV2FormationServiceRejectItemVersion
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	var bearerToken *string
-	{
-		if lfxV2FormationServiceRejectItemBearerToken != "" {
-			bearerToken = &lfxV2FormationServiceRejectItemBearerToken
-		}
-	}
-	var ifMatch int64
-	{
-		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceRejectItemIfMatch, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
-		}
-	}
-	v := &lfxv2formationservice.RejectItemPayload{
-		Note: body.Note,
-	}
-	v.ProjectUID = projectUID
-	v.ItemKey = itemKey
-	v.Version = version
-	v.BearerToken = bearerToken
-	v.IfMatch = ifMatch
-
-	return v, nil
-}
-
-// BuildReopenItemPayload builds the payload for the lfx_v2_formation_service
-// reopen_item endpoint from CLI flags.
-func BuildReopenItemPayload(lfxV2FormationServiceReopenItemBody string, lfxV2FormationServiceReopenItemProjectUID string, lfxV2FormationServiceReopenItemItemKey string, lfxV2FormationServiceReopenItemVersion string, lfxV2FormationServiceReopenItemBearerToken string, lfxV2FormationServiceReopenItemIfMatch string) (*lfxv2formationservice.ReopenItemPayload, error) {
-	var err error
-	var body ReopenItemRequestBody
-	{
-		err = json.Unmarshal([]byte(lfxV2FormationServiceReopenItemBody), &body)
-		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"note\": \"Minima doloremque molestiae aut adipisci.\"\n   }'")
-		}
-	}
-	var projectUID string
-	{
-		projectUID = lfxV2FormationServiceReopenItemProjectUID
-	}
-	var itemKey string
-	{
-		itemKey = lfxV2FormationServiceReopenItemItemKey
-	}
-	var version string
-	{
-		version = lfxV2FormationServiceReopenItemVersion
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	var bearerToken *string
-	{
-		if lfxV2FormationServiceReopenItemBearerToken != "" {
-			bearerToken = &lfxV2FormationServiceReopenItemBearerToken
-		}
-	}
-	var ifMatch int64
-	{
-		ifMatch, err = strconv.ParseInt(lfxV2FormationServiceReopenItemIfMatch, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for ifMatch, must be INT64")
-		}
-	}
-	v := &lfxv2formationservice.ReopenItemPayload{
-		Note: body.Note,
 	}
 	v.ProjectUID = projectUID
 	v.ItemKey = itemKey

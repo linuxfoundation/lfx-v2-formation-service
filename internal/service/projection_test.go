@@ -22,15 +22,14 @@ func liveFormation() *model.Formation {
 	return &model.Formation{ProjectUID: "project-1", Lifecycle: model.LifecycleLive}
 }
 
-// The six counts are published as fields because the queue sorts on them, and
+// The five counts are published as fields because the queue sorts on them, and
 // the items themselves are not in the document for the browser to count.
-func TestProjectionCountsEverySixStatuses(t *testing.T) {
+func TestProjectionCountsEveryFiveStatuses(t *testing.T) {
 	items := []*model.Item{
 		{ItemKey: "a", Status: model.StatusNotStarted},
 		{ItemKey: "b", Status: model.StatusInProgress},
 		{ItemKey: "c", Status: model.StatusInProgress},
 		{ItemKey: "d", Status: model.StatusBlocked, Title: "Blocked one"},
-		{ItemKey: "e", Status: model.StatusAwaitingAcceptance},
 		{ItemKey: "f", Status: model.StatusDone},
 		{ItemKey: "g", Status: model.StatusSkipped},
 	}
@@ -44,7 +43,6 @@ func TestProjectionCountsEverySixStatuses(t *testing.T) {
 		{"not_started", doc.NotStarted, 1},
 		{"in_progress", doc.InProgress, 2},
 		{"blocked", doc.Blocked, 1},
-		{"awaiting_acceptance", doc.AwaitingAcceptance, 1},
 		{"done", doc.Done, 1},
 		{"skipped", doc.Skipped, 1},
 	} {
@@ -93,11 +91,12 @@ func TestNoGatingItemsIsNeitherClearedNorActivating(t *testing.T) {
 	}
 }
 
-// awaiting_acceptance is the whole reason the status exists: a claim must not
-// satisfy a gate before someone accepts it. skipped must not either — a skipped
-// gating item was excused, not completed.
-func TestNeitherAClaimNorASkipSatisfiesAGate(t *testing.T) {
-	for _, status := range []model.ItemStatus{model.StatusAwaitingAcceptance, model.StatusSkipped} {
+// Only done satisfies a gate. A skipped gating item was excused, not completed,
+// so it must not clear the way to Active — and nor must anything short of done.
+func TestOnlyDoneSatisfiesAGate(t *testing.T) {
+	for _, status := range []model.ItemStatus{
+		model.StatusNotStarted, model.StatusInProgress, model.StatusBlocked, model.StatusSkipped,
+	} {
 		doc := buildProjection(liveFormation(),
 			[]*model.Item{{ItemKey: "gate", Gate: true, Status: status}},
 			port.ProjectRef{}, "A Project", "2026-12-01", nil)

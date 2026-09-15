@@ -47,7 +47,7 @@ service.
 | `item_key` | string | Stable across template versions; not the document's identity, useful for debugging a specific template row across formations |
 | `title` | string | Item title |
 | `status_source` | string enum | `manual \| platform` — whether the status is hand-set or driven by a platform check. Drives the row's action affordance |
-| `status` | string enum | `not_started \| in_progress \| blocked \| awaiting_acceptance \| done \| skipped` |
+| `status` | string enum | `not_started \| in_progress \| blocked \| done \| skipped` |
 | `gate` | bool | Whether this item blocks the project's Active transition |
 | `requires_writer` | bool | Whether acting on this item needs `writer` on the project. A fact about the item; whether the caller holds `writer` is a fact about the caller, which a shared document cannot carry. A row decides actionability from the two together |
 | `due_date` | string (ISO date, optional) | Omitted when unset |
@@ -164,9 +164,9 @@ result from the row not existing.
 
 Published from `Projector.Refresh`, which two paths call:
 
-- **On the write.** `PATCH /items/{key}`, `accept`, `reject` and `reopen` each ask for a refresh
-  after their transaction commits. This is the path a person's list depends on: an item assigned to
-  somebody appears on their queue in seconds rather than at the next sweep.
+- **On the write.** The item update, assignment and status routes each ask for a refresh after their
+  transaction commits. This is the path a person's list depends on: an item assigned to somebody
+  appears on their queue in seconds rather than at the next sweep.
 - **On the sweep.** Every reconcile tick republishes the same documents for every forming project,
   which is what repairs a write-path refresh lost to a restart, a timeout or an unreachable index.
 

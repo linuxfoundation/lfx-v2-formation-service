@@ -132,7 +132,7 @@ paths:
             tags:
                 - lfx_v2_formation_service
             summary: update_item lfx_v2_formation_service
-            description: 'Change one checklist item: status, note, due date, skip reason, evidence link, assignee, or sub-items. Send only the fields being changed. If-Match is required and must equal the item''s current version — a stale value means re-read and retry. The response returns the new version as ETag, so consecutive writes need no re-read. This route also carries the assignee''s own completion claim (status: awaiting_acceptance), but never acceptance, rejection or reopening, which are their own routes because the formation-team guard on those is narrower than this route''s writer guard and a Heimdall rule cannot express that on a shared route.'
+            description: 'Leave an update on one checklist item: a note, an evidence link. Neither moves a status nor directs anybody''s work, so this is the one item route open on read access. Send only the fields being changed; at least one is required. If-Match is required and must equal the item''s current version — a stale value means re-read and retry. The response returns the new version as ETag.'
             operationId: lfx_v2_formation_service#update_item
             parameters:
                 - name: v
@@ -185,6 +185,7 @@ paths:
                             - is_required
                             - checklist_type
                             - status
+                            - available_actions
                             - version
                     headers:
                         ETag:
@@ -237,13 +238,13 @@ paths:
                 - http
             security:
                 - jwt_header_Authorization: []
-    /formations/{project_uid}/items/{item_key}/accept:
+    /formations/{project_uid}/items/{item_key}/assignment:
         post:
             tags:
                 - lfx_v2_formation_service
-            summary: accept_item lfx_v2_formation_service
-            description: Accept an item's completion claim, moving awaiting_acceptance to done. Restricted to the formation team at the gateway, and refused by the service when the caller is the item's own assignee. If-Match is required.
-            operationId: lfx_v2_formation_service#accept_item
+            summary: assign_item lfx_v2_formation_service
+            description: 'Direct one checklist item''s work: set or clear its assignee, set or clear its due date. Send only the fields being changed; at least one is required. Assignment is limited to people already holding a grant on the project. If-Match is required and must equal the item''s current version. The response returns the new version as ETag.'
+            operationId: lfx_v2_formation_service#assign_item
             parameters:
                 - name: v
                   in: query
@@ -273,16 +274,16 @@ paths:
                   required: true
                   type: integer
                   format: int64
-                - name: accept_item_request_body
+                - name: assign_item_request_body
                   in: body
                   required: true
                   schema:
-                    $ref: '#/definitions/LfxV2FormationServiceAcceptItemRequestBody'
+                    $ref: '#/definitions/LfxV2FormationServiceAssignItemRequestBody'
             responses:
                 "200":
                     description: OK response.
                     schema:
-                        $ref: '#/definitions/LfxV2FormationServiceAcceptItemResponseBody'
+                        $ref: '#/definitions/LfxV2FormationServiceAssignItemResponseBody'
                         required:
                             - uid
                             - item_key
@@ -295,6 +296,7 @@ paths:
                             - is_required
                             - checklist_type
                             - status
+                            - available_actions
                             - version
                     headers:
                         ETag:
@@ -347,13 +349,13 @@ paths:
                 - http
             security:
                 - jwt_header_Authorization: []
-    /formations/{project_uid}/items/{item_key}/reject:
+    /formations/{project_uid}/items/{item_key}/status:
         post:
             tags:
                 - lfx_v2_formation_service
-            summary: reject_item lfx_v2_formation_service
-            description: 'Reject an item''s completion claim, returning it to in_progress with a note the assignee can read. The note is required: a rejection with no reason leaves the assignee nothing to act on. Restricted to the formation team at the gateway.'
-            operationId: lfx_v2_formation_service#reject_item
+            summary: set_item_status lfx_v2_formation_service
+            description: Move one checklist item to a new status — in progress, blocked, done, skipped, or back to not started — or set the status of its sub-items. At least one of status and sub_items is required; both may travel together. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag. Blocking, skipping and sending an item back each require a reason; the other transitions ignore one if sent.
+            operationId: lfx_v2_formation_service#set_item_status
             parameters:
                 - name: v
                   in: query
@@ -383,18 +385,16 @@ paths:
                   required: true
                   type: integer
                   format: int64
-                - name: reject_item_request_body
+                - name: set_item_status_request_body
                   in: body
                   required: true
                   schema:
-                    $ref: '#/definitions/LfxV2FormationServiceRejectItemRequestBody'
-                    required:
-                        - note
+                    $ref: '#/definitions/LfxV2FormationServiceSetItemStatusRequestBody'
             responses:
                 "200":
                     description: OK response.
                     schema:
-                        $ref: '#/definitions/LfxV2FormationServiceRejectItemResponseBody'
+                        $ref: '#/definitions/LfxV2FormationServiceSetItemStatusResponseBody'
                         required:
                             - uid
                             - item_key
@@ -407,116 +407,7 @@ paths:
                             - is_required
                             - checklist_type
                             - status
-                            - version
-                    headers:
-                        ETag:
-                            description: The item's new version. Send as If-Match on the next write.
-                            type: string
-                "400":
-                    description: Bad Request response.
-                    schema:
-                        $ref: '#/definitions/FormationError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "404":
-                    description: Not Found response.
-                    schema:
-                        $ref: '#/definitions/FormationError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "409":
-                    description: Conflict response.
-                    schema:
-                        $ref: '#/definitions/FormationError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "412":
-                    description: Precondition Failed response.
-                    schema:
-                        $ref: '#/definitions/FormationError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-    /formations/{project_uid}/items/{item_key}/reopen:
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: reopen_item lfx_v2_formation_service
-            description: 'Reopen a done item, returning it to in_progress. Behind the same guard as acceptance rather than the ordinary write guard: reopening is the reversal of an acceptance, and a weaker check here would make the acceptance control bypassable from the other side. Reopening a gating item withdraws readiness.'
-            operationId: lfx_v2_formation_service#reopen_item
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: project_uid
-                  in: path
-                  description: The project's UID.
-                  required: true
-                  type: string
-                - name: item_key
-                  in: path
-                  description: The item's stable key.
-                  required: true
-                  type: string
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-                - name: If-Match
-                  in: header
-                  description: Must equal the item's current version.
-                  required: true
-                  type: integer
-                  format: int64
-                - name: reopen_item_request_body
-                  in: body
-                  required: true
-                  schema:
-                    $ref: '#/definitions/LfxV2FormationServiceReopenItemRequestBody'
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        $ref: '#/definitions/LfxV2FormationServiceReopenItemResponseBody'
-                        required:
-                            - uid
-                            - item_key
-                            - section_key
-                            - position
-                            - title
-                            - gate
-                            - requires_writer
-                            - status_source
-                            - is_required
-                            - checklist_type
-                            - status
+                            - available_actions
                             - version
                     headers:
                         ETag:
@@ -576,42 +467,42 @@ definitions:
         properties:
             action:
                 type: string
-                example: Consequatur ad est velit distinctio.
+                example: Voluptatum aut vel provident quas atque.
             actor:
                 type: string
-                example: Occaecati neque aut error.
+                example: Suscipit harum in ut quam ea explicabo.
             after:
-                example: Ipsam nemo nulla cumque nesciunt.
+                example: Sint blanditiis sit.
             at:
                 type: string
-                example: "2011-07-22T08:26:06Z"
+                example: "1998-09-07T22:51:22Z"
                 format: date-time
             before:
                 description: Redacted summary.
-                example: Magni quae assumenda quis quia dolore.
+                example: Culpa modi ratione fugiat.
             item_uid:
                 type: string
                 description: Nullable. Absent means either a formation-level entry — template expansion or upgrade, which concern no single item — or an entry whose item has since been removed, since the reference is cleared rather than the row deleted. The two are indistinguishable here. Neither is ever returned by a read filtered on item_uid.
-                example: Deserunt voluptates voluptatem animi rem recusandae neque.
+                example: Asperiores eum laboriosam.
             set_by:
                 type: string
-                example: user
+                example: system
                 enum:
                     - user
                     - system
             ulid:
                 type: string
                 description: Time-ordered; doubles as the paging cursor.
-                example: Quos ratione ipsam dolores est.
+                example: Vitae temporibus tempora sit veritatis qui deserunt.
         example:
-            action: Asperiores expedita rerum aut et eum.
-            actor: Eius et nihil sed.
-            after: Sint commodi maiores ad.
-            at: "2003-05-04T08:04:28Z"
-            before: Quia velit perferendis assumenda quibusdam.
-            item_uid: Omnis error.
-            set_by: user
-            ulid: Ut distinctio laborum qui pariatur in suscipit.
+            action: Vitae aut modi officia nihil sed est.
+            actor: Dolor placeat.
+            after: Deserunt voluptates voluptatem animi rem recusandae neque.
+            at: "1988-06-02T06:53:13Z"
+            before: Ratione ipsam dolores est.
+            item_uid: Quisquam dolores harum quidem qui id eligendi.
+            set_by: system
+            ulid: Voluptas impedit labore voluptatum cupiditate.
         required:
             - ulid
             - actor
@@ -627,48 +518,80 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationActivityEntry'
                 example:
-                    - action: Officiis id consequatur.
-                      actor: Facilis nihil.
-                      after: Dignissimos accusantium.
-                      at: "1988-06-05T13:40:17Z"
-                      before: Earum et.
-                      item_uid: Consectetur temporibus odio perspiciatis nobis accusamus consequatur.
+                    - action: Commodi dolor.
+                      actor: Sit odit aperiam.
+                      after: Omnis nostrum.
+                      at: "2003-09-25T18:30:00Z"
+                      before: Vitae delectus.
+                      item_uid: Iure cum sit reprehenderit.
                       set_by: user
-                      ulid: Sequi est.
-                    - action: Officiis id consequatur.
-                      actor: Facilis nihil.
-                      after: Dignissimos accusantium.
-                      at: "1988-06-05T13:40:17Z"
-                      before: Earum et.
-                      item_uid: Consectetur temporibus odio perspiciatis nobis accusamus consequatur.
+                      ulid: Quam numquam necessitatibus fugiat nemo laborum sit.
+                    - action: Commodi dolor.
+                      actor: Sit odit aperiam.
+                      after: Omnis nostrum.
+                      at: "2003-09-25T18:30:00Z"
+                      before: Vitae delectus.
+                      item_uid: Iure cum sit reprehenderit.
                       set_by: user
-                      ulid: Sequi est.
+                      ulid: Quam numquam necessitatibus fugiat nemo laborum sit.
             next_cursor:
                 type: string
                 description: Pass as cursor to fetch the next page. Empty on the last page.
-                example: Aliquid inventore nisi illo temporibus.
+                example: Libero ipsum repellendus quae quasi aliquam aut.
         description: get_formation_activity_response_body result type (default view)
         example:
             entries:
-                - action: Officiis id consequatur.
-                  actor: Facilis nihil.
-                  after: Dignissimos accusantium.
-                  at: "1988-06-05T13:40:17Z"
-                  before: Earum et.
-                  item_uid: Consectetur temporibus odio perspiciatis nobis accusamus consequatur.
+                - action: Commodi dolor.
+                  actor: Sit odit aperiam.
+                  after: Omnis nostrum.
+                  at: "2003-09-25T18:30:00Z"
+                  before: Vitae delectus.
+                  item_uid: Iure cum sit reprehenderit.
                   set_by: user
-                  ulid: Sequi est.
-                - action: Officiis id consequatur.
-                  actor: Facilis nihil.
-                  after: Dignissimos accusantium.
-                  at: "1988-06-05T13:40:17Z"
-                  before: Earum et.
-                  item_uid: Consectetur temporibus odio perspiciatis nobis accusamus consequatur.
+                  ulid: Quam numquam necessitatibus fugiat nemo laborum sit.
+                - action: Commodi dolor.
+                  actor: Sit odit aperiam.
+                  after: Omnis nostrum.
+                  at: "2003-09-25T18:30:00Z"
+                  before: Vitae delectus.
+                  item_uid: Iure cum sit reprehenderit.
                   set_by: user
-                  ulid: Sequi est.
-            next_cursor: Et aspernatur sapiente facilis asperiores.
+                  ulid: Quam numquam necessitatibus fugiat nemo laborum sit.
+                - action: Commodi dolor.
+                  actor: Sit odit aperiam.
+                  after: Omnis nostrum.
+                  at: "2003-09-25T18:30:00Z"
+                  before: Vitae delectus.
+                  item_uid: Iure cum sit reprehenderit.
+                  set_by: user
+                  ulid: Quam numquam necessitatibus fugiat nemo laborum sit.
+            next_cursor: Dicta culpa quo.
         required:
             - entries
+    FormationAvailableAction:
+        title: FormationAvailableAction
+        type: object
+        properties:
+            action:
+                type: string
+                description: Stable identifier, never display text.
+                example: mark_done
+            requires_reason:
+                type: boolean
+                description: Whether taking this action must carry a reason or note, so a browser can render the input without knowing which actions need one.
+                example: true
+            requires_relation:
+                type: string
+                description: What the caller must hold for the gateway to admit the call — a relation on the project, or a team membership. Names a guard the deployed rules already publish; it discloses nothing about the caller.
+                example: writer
+        example:
+            action: mark_done
+            requires_reason: false
+            requires_relation: writer
+        required:
+            - action
+            - requires_reason
+            - requires_relation
     FormationChecklist:
         title: 'Mediatype identifier: application/vnd.formation.checklist+json; view=default'
         type: object
@@ -676,164 +599,114 @@ definitions:
             is_activating:
                 type: boolean
                 description: Every gating item done, at least one gating item exists, and the project has an announcement date.
-                example: true
+                example: false
             items:
                 type: array
                 items:
                     $ref: '#/definitions/FormationItem'
                 example:
-                    - action_link: Reprehenderit aut explicabo.
-                      assignee: Placeat placeat.
+                    - action_link: Autem vel voluptatem corporis.
+                      assignee: Aut assumenda.
+                      available_actions:
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
                       checklist_type: both
-                      due_date: "1979-02-02"
+                      due_date: "1977-07-09"
                       evidence_link: https://example.org/bylaws.pdf
-                      gate: true
-                      is_required: false
-                      item_key: Ea consectetur veritatis.
-                      note: Aut dolor provident quae consequatur iusto vel.
+                      gate: false
+                      is_required: true
+                      item_key: Quia possimus.
+                      note: Dolores voluptates facere voluptates minima.
                       owner_team: formation
                       platform_check:
-                        min_count: 6089547691831694078
-                        resource_type: Doloremque facere et.
-                      position: 9005249321634205669
-                      requires_writer: true
+                        min_count: 8962530890465776017
+                        resource_type: Facilis non sunt accusantium.
+                      position: 6572820329468802691
+                      requires_writer: false
                       resolved_ref:
-                        type: Perferendis quaerat libero harum similique non.
-                        uid: Earum at voluptas culpa.
-                      section_key: Ab nihil totam.
-                      skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                      status: not_started
-                      status_source: manual
+                        type: Rerum incidunt eos.
+                        uid: Laborum est voluptas aliquam.
+                      section_key: Consectetur enim dolorum quia a aspernatur.
+                      skip_reason: Recusandae dolorem et facere aut quam aliquam.
+                      status: blocked
+                      status_source: platform
                       sub_items:
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                      title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                      uid: Aut assumenda.
-                      version: 4376216335774838477
-                    - action_link: Reprehenderit aut explicabo.
-                      assignee: Placeat placeat.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                      title: Voluptatem tempora sunt architecto.
+                      uid: Saepe necessitatibus consectetur at dolorem.
+                      version: 2201534472154164626
+                    - action_link: Autem vel voluptatem corporis.
+                      assignee: Aut assumenda.
+                      available_actions:
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
                       checklist_type: both
-                      due_date: "1979-02-02"
+                      due_date: "1977-07-09"
                       evidence_link: https://example.org/bylaws.pdf
-                      gate: true
-                      is_required: false
-                      item_key: Ea consectetur veritatis.
-                      note: Aut dolor provident quae consequatur iusto vel.
+                      gate: false
+                      is_required: true
+                      item_key: Quia possimus.
+                      note: Dolores voluptates facere voluptates minima.
                       owner_team: formation
                       platform_check:
-                        min_count: 6089547691831694078
-                        resource_type: Doloremque facere et.
-                      position: 9005249321634205669
-                      requires_writer: true
+                        min_count: 8962530890465776017
+                        resource_type: Facilis non sunt accusantium.
+                      position: 6572820329468802691
+                      requires_writer: false
                       resolved_ref:
-                        type: Perferendis quaerat libero harum similique non.
-                        uid: Earum at voluptas culpa.
-                      section_key: Ab nihil totam.
-                      skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                      status: not_started
-                      status_source: manual
+                        type: Rerum incidunt eos.
+                        uid: Laborum est voluptas aliquam.
+                      section_key: Consectetur enim dolorum quia a aspernatur.
+                      skip_reason: Recusandae dolorem et facere aut quam aliquam.
+                      status: blocked
+                      status_source: platform
                       sub_items:
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                      title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                      uid: Aut assumenda.
-                      version: 4376216335774838477
-                    - action_link: Reprehenderit aut explicabo.
-                      assignee: Placeat placeat.
-                      checklist_type: both
-                      due_date: "1979-02-02"
-                      evidence_link: https://example.org/bylaws.pdf
-                      gate: true
-                      is_required: false
-                      item_key: Ea consectetur veritatis.
-                      note: Aut dolor provident quae consequatur iusto vel.
-                      owner_team: formation
-                      platform_check:
-                        min_count: 6089547691831694078
-                        resource_type: Doloremque facere et.
-                      position: 9005249321634205669
-                      requires_writer: true
-                      resolved_ref:
-                        type: Perferendis quaerat libero harum similique non.
-                        uid: Earum at voluptas culpa.
-                      section_key: Ab nihil totam.
-                      skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                      status: not_started
-                      status_source: manual
-                      sub_items:
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                      title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                      uid: Aut assumenda.
-                      version: 4376216335774838477
-                    - action_link: Reprehenderit aut explicabo.
-                      assignee: Placeat placeat.
-                      checklist_type: both
-                      due_date: "1979-02-02"
-                      evidence_link: https://example.org/bylaws.pdf
-                      gate: true
-                      is_required: false
-                      item_key: Ea consectetur veritatis.
-                      note: Aut dolor provident quae consequatur iusto vel.
-                      owner_team: formation
-                      platform_check:
-                        min_count: 6089547691831694078
-                        resource_type: Doloremque facere et.
-                      position: 9005249321634205669
-                      requires_writer: true
-                      resolved_ref:
-                        type: Perferendis quaerat libero harum similique non.
-                        uid: Earum at voluptas culpa.
-                      section_key: Ab nihil totam.
-                      skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                      status: not_started
-                      status_source: manual
-                      sub_items:
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                        - key: Ratione fuga fuga ea.
-                          status: done
-                          title: Aperiam nulla adipisci omnis ea autem.
-                      title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                      uid: Aut assumenda.
-                      version: 4376216335774838477
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                        - key: Quam voluptatem omnis.
+                          status: not_started
+                          title: Sed quis deserunt qui eos quia explicabo.
+                      title: Voluptatem tempora sunt architecto.
+                      uid: Saepe necessitatibus consectetur at dolorem.
+                      version: 2201534472154164626
             lifecycle:
                 type: string
                 example: frozen
@@ -845,205 +718,208 @@ definitions:
                 $ref: '#/definitions/FormationProgress'
             project_uid:
                 type: string
-                example: Rerum officiis pariatur repellat ut.
+                example: Impedit possimus.
             sections:
                 type: array
                 items:
                     $ref: '#/definitions/FormationSection'
                 example:
-                    - key: Quo soluta explicabo facilis non sunt accusantium.
-                      position: 415250788317751147
-                      title: Omnis autem vel voluptatem corporis.
-                    - key: Quo soluta explicabo facilis non sunt accusantium.
-                      position: 415250788317751147
-                      title: Omnis autem vel voluptatem corporis.
-                    - key: Quo soluta explicabo facilis non sunt accusantium.
-                      position: 415250788317751147
-                      title: Omnis autem vel voluptatem corporis.
-                    - key: Quo soluta explicabo facilis non sunt accusantium.
-                      position: 415250788317751147
-                      title: Omnis autem vel voluptatem corporis.
+                    - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                      position: 7522858094662828524
+                      title: Quaerat rem.
+                    - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                      position: 7522858094662828524
+                      title: Quaerat rem.
+                    - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                      position: 7522858094662828524
+                      title: Quaerat rem.
+                    - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                      position: 7522858094662828524
+                      title: Quaerat rem.
             template_uid:
                 type: string
-                example: Quo ratione est.
+                example: Molestias corrupti.
             template_version:
                 type: integer
-                example: 232144966550937364
+                example: 4578011777014196852
                 format: int64
         description: get_formation_response_body result type (default view)
         example:
-            is_activating: true
+            is_activating: false
             items:
-                - action_link: Reprehenderit aut explicabo.
-                  assignee: Placeat placeat.
+                - action_link: Autem vel voluptatem corporis.
+                  assignee: Aut assumenda.
+                  available_actions:
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
                   checklist_type: both
-                  due_date: "1979-02-02"
+                  due_date: "1977-07-09"
                   evidence_link: https://example.org/bylaws.pdf
-                  gate: true
-                  is_required: false
-                  item_key: Ea consectetur veritatis.
-                  note: Aut dolor provident quae consequatur iusto vel.
+                  gate: false
+                  is_required: true
+                  item_key: Quia possimus.
+                  note: Dolores voluptates facere voluptates minima.
                   owner_team: formation
                   platform_check:
-                    min_count: 6089547691831694078
-                    resource_type: Doloremque facere et.
-                  position: 9005249321634205669
-                  requires_writer: true
+                    min_count: 8962530890465776017
+                    resource_type: Facilis non sunt accusantium.
+                  position: 6572820329468802691
+                  requires_writer: false
                   resolved_ref:
-                    type: Perferendis quaerat libero harum similique non.
-                    uid: Earum at voluptas culpa.
-                  section_key: Ab nihil totam.
-                  skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                  status: not_started
-                  status_source: manual
+                    type: Rerum incidunt eos.
+                    uid: Laborum est voluptas aliquam.
+                  section_key: Consectetur enim dolorum quia a aspernatur.
+                  skip_reason: Recusandae dolorem et facere aut quam aliquam.
+                  status: blocked
+                  status_source: platform
                   sub_items:
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                  title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                  uid: Aut assumenda.
-                  version: 4376216335774838477
-                - action_link: Reprehenderit aut explicabo.
-                  assignee: Placeat placeat.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                  title: Voluptatem tempora sunt architecto.
+                  uid: Saepe necessitatibus consectetur at dolorem.
+                  version: 2201534472154164626
+                - action_link: Autem vel voluptatem corporis.
+                  assignee: Aut assumenda.
+                  available_actions:
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
                   checklist_type: both
-                  due_date: "1979-02-02"
+                  due_date: "1977-07-09"
                   evidence_link: https://example.org/bylaws.pdf
-                  gate: true
-                  is_required: false
-                  item_key: Ea consectetur veritatis.
-                  note: Aut dolor provident quae consequatur iusto vel.
+                  gate: false
+                  is_required: true
+                  item_key: Quia possimus.
+                  note: Dolores voluptates facere voluptates minima.
                   owner_team: formation
                   platform_check:
-                    min_count: 6089547691831694078
-                    resource_type: Doloremque facere et.
-                  position: 9005249321634205669
-                  requires_writer: true
+                    min_count: 8962530890465776017
+                    resource_type: Facilis non sunt accusantium.
+                  position: 6572820329468802691
+                  requires_writer: false
                   resolved_ref:
-                    type: Perferendis quaerat libero harum similique non.
-                    uid: Earum at voluptas culpa.
-                  section_key: Ab nihil totam.
-                  skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                  status: not_started
-                  status_source: manual
+                    type: Rerum incidunt eos.
+                    uid: Laborum est voluptas aliquam.
+                  section_key: Consectetur enim dolorum quia a aspernatur.
+                  skip_reason: Recusandae dolorem et facere aut quam aliquam.
+                  status: blocked
+                  status_source: platform
                   sub_items:
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                  title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                  uid: Aut assumenda.
-                  version: 4376216335774838477
-                - action_link: Reprehenderit aut explicabo.
-                  assignee: Placeat placeat.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                  title: Voluptatem tempora sunt architecto.
+                  uid: Saepe necessitatibus consectetur at dolorem.
+                  version: 2201534472154164626
+                - action_link: Autem vel voluptatem corporis.
+                  assignee: Aut assumenda.
+                  available_actions:
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
                   checklist_type: both
-                  due_date: "1979-02-02"
+                  due_date: "1977-07-09"
                   evidence_link: https://example.org/bylaws.pdf
-                  gate: true
-                  is_required: false
-                  item_key: Ea consectetur veritatis.
-                  note: Aut dolor provident quae consequatur iusto vel.
+                  gate: false
+                  is_required: true
+                  item_key: Quia possimus.
+                  note: Dolores voluptates facere voluptates minima.
                   owner_team: formation
                   platform_check:
-                    min_count: 6089547691831694078
-                    resource_type: Doloremque facere et.
-                  position: 9005249321634205669
-                  requires_writer: true
+                    min_count: 8962530890465776017
+                    resource_type: Facilis non sunt accusantium.
+                  position: 6572820329468802691
+                  requires_writer: false
                   resolved_ref:
-                    type: Perferendis quaerat libero harum similique non.
-                    uid: Earum at voluptas culpa.
-                  section_key: Ab nihil totam.
-                  skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                  status: not_started
-                  status_source: manual
+                    type: Rerum incidunt eos.
+                    uid: Laborum est voluptas aliquam.
+                  section_key: Consectetur enim dolorum quia a aspernatur.
+                  skip_reason: Recusandae dolorem et facere aut quam aliquam.
+                  status: blocked
+                  status_source: platform
                   sub_items:
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                  title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                  uid: Aut assumenda.
-                  version: 4376216335774838477
-                - action_link: Reprehenderit aut explicabo.
-                  assignee: Placeat placeat.
-                  checklist_type: both
-                  due_date: "1979-02-02"
-                  evidence_link: https://example.org/bylaws.pdf
-                  gate: true
-                  is_required: false
-                  item_key: Ea consectetur veritatis.
-                  note: Aut dolor provident quae consequatur iusto vel.
-                  owner_team: formation
-                  platform_check:
-                    min_count: 6089547691831694078
-                    resource_type: Doloremque facere et.
-                  position: 9005249321634205669
-                  requires_writer: true
-                  resolved_ref:
-                    type: Perferendis quaerat libero harum similique non.
-                    uid: Earum at voluptas culpa.
-                  section_key: Ab nihil totam.
-                  skip_reason: Aut ut fugiat voluptate qui libero incidunt.
-                  status: not_started
-                  status_source: manual
-                  sub_items:
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                  title: Praesentium est saepe nobis fugiat assumenda aperiam.
-                  uid: Aut assumenda.
-                  version: 4376216335774838477
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                  title: Voluptatem tempora sunt architecto.
+                  uid: Saepe necessitatibus consectetur at dolorem.
+                  version: 2201534472154164626
             lifecycle: frozen
             progress:
-                awaiting_acceptance: 5151178514167062818
-                blocked: 2273570315401524371
-                done: 125327233371382188
-                in_progress: 5522297176212579240
-                not_started: 7735669695322614976
-                skipped: 5640974145902695399
-            project_uid: Quo reprehenderit perspiciatis tempora quod sed.
+                blocked: 4956357673936013120
+                done: 2902547083599500121
+                in_progress: 1241017614584036486
+                not_started: 7074000617377984864
+                skipped: 5500739450289518117
+            project_uid: Molestiae quis.
             sections:
-                - key: Quo soluta explicabo facilis non sunt accusantium.
-                  position: 415250788317751147
-                  title: Omnis autem vel voluptatem corporis.
-                - key: Quo soluta explicabo facilis non sunt accusantium.
-                  position: 415250788317751147
-                  title: Omnis autem vel voluptatem corporis.
-            template_uid: Et perspiciatis consequuntur et.
-            template_version: 1194822173819823636
+                - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                  position: 7522858094662828524
+                  title: Quaerat rem.
+                - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                  position: 7522858094662828524
+                  title: Quaerat rem.
+                - key: Eveniet rerum magnam blanditiis est similique voluptatem.
+                  position: 7522858094662828524
+                  title: Quaerat rem.
+            template_uid: Omnis non occaecati voluptas ut.
+            template_version: 1020663915756178785
         required:
             - project_uid
             - template_uid
@@ -1064,23 +940,24 @@ definitions:
             message:
                 type: string
                 description: Human-readable message
-                example: Dolores adipisci et necessitatibus fugiat fugit sed.
+                example: Voluptas id vel officia explicabo officiis.
             name:
                 type: string
                 description: Which declared error this is — matches the Error() name (e.g. "Conflict"). Transport dispatch only; switch on reason, not this.
-                example: Eveniet sint.
+                example: Consequatur aut nulla.
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: due_date_invalid
+                example: no_fields_to_update
                 enum:
                     - not_found
                     - version_mismatch
                     - unknown_item_key
                     - checklist_read_only
                     - invalid_transition
-                    - self_acceptance_forbidden
+                    - blocked_reason_required
                     - skip_reason_required
+                    - return_reason_required
                     - assignee_not_on_project
                     - link_scheme_invalid
                     - due_date_invalid
@@ -1090,9 +967,9 @@ definitions:
         description: No formation, or no item with that key, exists
         example:
             code: "409"
-            message: Ad perferendis culpa amet eos eum laborum.
-            name: Et reprehenderit qui qui omnis ea.
-            reason: invalid_transition
+            message: Omnis error.
+            name: Ut distinctio laborum qui pariatur in suscipit.
+            reason: skip_reason_required
         required:
             - name
             - code
@@ -1105,11 +982,26 @@ definitions:
             action_link:
                 type: string
                 description: Placeholders substituted once at expansion.
-                example: Debitis enim voluptate.
+                example: Impedit eum omnis.
             assignee:
                 type: string
                 description: Username. Nothing is granted.
-                example: Iusto aut libero fuga temporibus velit sunt.
+                example: Unde culpa reprehenderit porro doloremque non voluptatem.
+            available_actions:
+                type: array
+                items:
+                    $ref: '#/definitions/FormationAvailableAction'
+                description: 'What this item''s current state permits, and what each action requires. Describes the item, not the caller: two people reading the same item receive the same list, and a browser intersects it with the standing it already holds. Empty, never absent, when the item permits nothing.'
+                example:
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
+                    - action: mark_done
+                      requires_reason: true
+                      requires_relation: writer
             checklist_type:
                 type: string
                 description: Which audience this item is for. Display metadata only; the response is never filtered by it.
@@ -1120,7 +1012,7 @@ definitions:
                     - both
             due_date:
                 type: string
-                example: "2009-03-10"
+                example: "2014-10-12"
                 format: date
             evidence_link:
                 type: string
@@ -1129,18 +1021,18 @@ definitions:
             gate:
                 type: boolean
                 description: Whether this item blocks going live.
-                example: true
+                example: false
             is_required:
                 type: boolean
                 description: Whether this item must be filled in. Display metadata, not a gate.
-                example: false
+                example: true
             item_key:
                 type: string
                 description: Stable identifier, e.g. charter_agreed. Never changes.
-                example: Nam ipsam et in consequatur qui.
+                example: Ut earum ea dolor.
             note:
                 type: string
-                example: Pariatur dolor repellat.
+                example: Hic quis possimus.
             owner_team:
                 type: string
                 example: formation
@@ -1148,34 +1040,33 @@ definitions:
                 $ref: '#/definitions/FormationPlatformCheck'
             position:
                 type: integer
-                example: 1060915898915462397
+                example: 8405710516182963643
                 format: int64
             requires_writer:
                 type: boolean
-                example: false
+                example: true
             resolved_ref:
                 $ref: '#/definitions/FormationResolvedRef'
             section_key:
                 type: string
-                example: Quis dolorem explicabo quaerat ea voluptatem.
+                example: Non nesciunt reprehenderit non minima doloremque.
             skip_reason:
                 type: string
                 description: Required when status is skipped.
-                example: Quaerat labore qui nisi quia officiis perspiciatis.
+                example: Neque quia odio.
             status:
                 type: string
-                description: Six values.
-                example: done
+                description: Five values.
+                example: skipped
                 enum:
                     - not_started
                     - in_progress
                     - blocked
-                    - awaiting_acceptance
                     - done
                     - skipped
             status_source:
                 type: string
-                example: platform
+                example: manual
                 enum:
                     - manual
                     - platform
@@ -1184,59 +1075,78 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationSubItem'
                 example:
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
-                    - key: Ratione fuga fuga ea.
-                      status: done
-                      title: Aperiam nulla adipisci omnis ea autem.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
+                    - key: Quam voluptatem omnis.
+                      status: not_started
+                      title: Sed quis deserunt qui eos quia explicabo.
             title:
                 type: string
-                example: Optio totam corporis voluptatem quia.
+                example: Adipisci quod fuga ipsam minus consequatur.
             uid:
                 type: string
-                example: Possimus voluptatem neque quia.
+                example: Suscipit nihil.
             version:
                 type: integer
                 description: Echo as If-Match on every mutation. Per item, not per formation.
-                example: 7136126776044934121
+                example: 363719030997976248
                 format: int64
         example:
-            action_link: Minus iure velit enim omnis.
-            assignee: Quaerat dicta asperiores.
+            action_link: Odit repellendus.
+            assignee: Qui est quod.
+            available_actions:
+                - action: mark_done
+                  requires_reason: true
+                  requires_relation: writer
+                - action: mark_done
+                  requires_reason: true
+                  requires_relation: writer
+                - action: mark_done
+                  requires_reason: true
+                  requires_relation: writer
+                - action: mark_done
+                  requires_reason: true
+                  requires_relation: writer
             checklist_type: internal
-            due_date: "1980-08-13"
+            due_date: "2001-09-14"
             evidence_link: https://example.org/bylaws.pdf
             gate: false
             is_required: false
-            item_key: Occaecati voluptas ut rerum exercitationem.
-            note: Deleniti ullam pariatur ea atque aspernatur voluptatem.
+            item_key: Dolores nobis debitis deleniti.
+            note: Est nemo illo amet.
             owner_team: formation
             platform_check:
-                min_count: 6089547691831694078
-                resource_type: Doloremque facere et.
-            position: 2768378238133802981
+                min_count: 8962530890465776017
+                resource_type: Facilis non sunt accusantium.
+            position: 2224718914715951320
             requires_writer: true
             resolved_ref:
-                type: Perferendis quaerat libero harum similique non.
-                uid: Earum at voluptas culpa.
-            section_key: Eveniet possimus impedit sed dicta.
-            skip_reason: Repudiandae sed.
-            status: awaiting_acceptance
+                type: Rerum incidunt eos.
+                uid: Laborum est voluptas aliquam.
+            section_key: Nam vel provident sed est quia sunt.
+            skip_reason: Ut nam aliquid voluptate.
+            status: in_progress
             status_source: platform
             sub_items:
-                - key: Ratione fuga fuga ea.
-                  status: done
-                  title: Aperiam nulla adipisci omnis ea autem.
-                - key: Ratione fuga fuga ea.
-                  status: done
-                  title: Aperiam nulla adipisci omnis ea autem.
-            title: Aspernatur et est amet sed suscipit animi.
-            uid: Quis molestias omnis.
-            version: 9054124544859972197
+                - key: Quam voluptatem omnis.
+                  status: not_started
+                  title: Sed quis deserunt qui eos quia explicabo.
+                - key: Quam voluptatem omnis.
+                  status: not_started
+                  title: Sed quis deserunt qui eos quia explicabo.
+                - key: Quam voluptatem omnis.
+                  status: not_started
+                  title: Sed quis deserunt qui eos quia explicabo.
+            title: Et adipisci voluptas rerum.
+            uid: Nesciunt dolor.
+            version: 4543667141743971166
         required:
             - uid
             - item_key
@@ -1249,6 +1159,7 @@ definitions:
             - is_required
             - checklist_type
             - status
+            - available_actions
             - version
     FormationPlatformCheck:
         title: FormationPlatformCheck
@@ -1256,54 +1167,48 @@ definitions:
         properties:
             min_count:
                 type: integer
-                example: 453601911589031058
+                example: 8168812529059822814
                 format: int64
             resource_type:
                 type: string
-                example: Expedita magni expedita nulla.
+                example: Quo odio aut possimus qui maiores vel.
         example:
-            min_count: 7278242847265721939
-            resource_type: Sint quos quasi tempore magnam deserunt blanditiis.
+            min_count: 3511954004834753205
+            resource_type: Officiis voluptas veritatis fugiat.
     FormationProgress:
         title: FormationProgress
         type: object
         properties:
-            awaiting_acceptance:
-                type: integer
-                example: 8036711439010799633
-                format: int64
             blocked:
                 type: integer
-                example: 5018975404729309854
+                example: 230955639121660722
                 format: int64
             done:
                 type: integer
-                example: 470713114746814533
+                example: 1109332020498008375
                 format: int64
             in_progress:
                 type: integer
-                example: 6721210334396160788
+                example: 5805270018703495557
                 format: int64
             not_started:
                 type: integer
-                example: 8205554822328077000
+                example: 2104275223705258702
                 format: int64
             skipped:
                 type: integer
-                example: 6897732933634080231
+                example: 3293269492936366700
                 format: int64
         example:
-            awaiting_acceptance: 1056988087176983776
-            blocked: 8978146873916628366
-            done: 5215568676136270126
-            in_progress: 3646555658743406913
-            not_started: 7963342894995687624
-            skipped: 7443385067434164225
+            blocked: 5389703356905530171
+            done: 5388711199032314792
+            in_progress: 605557423433321785
+            not_started: 997967423603300827
+            skipped: 8345218071152990581
         required:
             - not_started
             - in_progress
             - blocked
-            - awaiting_acceptance
             - done
             - skipped
     FormationResolvedRef:
@@ -1312,31 +1217,31 @@ definitions:
         properties:
             type:
                 type: string
-                example: Ex iusto ut at tempore.
+                example: Ipsam et.
             uid:
                 type: string
-                example: Aspernatur nisi repellendus quisquam ipsa soluta repudiandae.
+                example: Consequatur qui ut quis dolorem explicabo quaerat.
         example:
-            type: Distinctio quo dignissimos ut et voluptatibus sit.
-            uid: Eum nam.
+            type: Voluptatem sit repellendus.
+            uid: Totam corporis voluptatem quia doloremque facilis est.
     FormationSection:
         title: FormationSection
         type: object
         properties:
             key:
                 type: string
-                example: Corrupti corporis delectus soluta.
+                example: Dolore consectetur dolores.
             position:
                 type: integer
-                example: 1916425185325869246
+                example: 5587827007997886853
                 format: int64
             title:
                 type: string
-                example: Aut eos expedita.
+                example: Ab repudiandae quia id.
         example:
-            key: Eius odio.
-            position: 4724106725026615773
-            title: Consectetur placeat aut.
+            key: Eius aut atque laborum consequuntur consequatur.
+            position: 577452545985372179
+            title: Consectetur non accusamus ut.
         required:
             - key
             - title
@@ -1347,24 +1252,23 @@ definitions:
         properties:
             key:
                 type: string
-                example: Est nemo illo amet.
+                example: Sit animi expedita magni expedita nulla.
             status:
                 type: string
-                example: done
+                example: blocked
                 enum:
                     - not_started
                     - in_progress
                     - blocked
-                    - awaiting_acceptance
                     - done
                     - skipped
             title:
                 type: string
-                example: Ut nam aliquid voluptate.
+                example: Aperiam sint quos quasi tempore magnam deserunt.
         example:
-            key: Labore sed sed.
-            status: in_progress
-            title: Aperiam dolores debitis labore ut magnam occaecati.
+            key: Ipsa debitis enim voluptate.
+            status: not_started
+            title: Tempora iusto aut libero.
         required:
             - key
             - title
@@ -1375,97 +1279,56 @@ definitions:
         properties:
             key:
                 type: string
-                example: Nihil aut consequatur nesciunt aperiam dolorem.
+                example: Aut et eum iure quia.
             status:
                 type: string
-                example: not_started
+                example: skipped
                 enum:
                     - not_started
                     - in_progress
                     - blocked
-                    - awaiting_acceptance
                     - done
                     - skipped
         example:
-            key: Accusamus voluptatem similique laborum.
-            status: skipped
+            key: Assumenda quibusdam error sint commodi.
+            status: in_progress
         required:
             - key
             - status
-    LfxV2FormationServiceAcceptItemRequestBody:
-        title: LfxV2FormationServiceAcceptItemRequestBody
-        type: object
-        properties:
-            note:
-                type: string
-                description: Replaces the item's note. Omit to clear it.
-                example: Molestiae iusto incidunt aut optio ipsa omnis.
-        example:
-            note: Nisi vitae aut itaque rerum omnis est.
-    LfxV2FormationServiceAcceptItemResponseBody:
-        title: LfxV2FormationServiceAcceptItemResponseBody
-        $ref: '#/definitions/FormationItem'
-    LfxV2FormationServiceRejectItemRequestBody:
-        title: LfxV2FormationServiceRejectItemRequestBody
-        type: object
-        properties:
-            note:
-                type: string
-                description: Why it was rejected. Readable by the assignee.
-                example: f2k
-                minLength: 1
-        example:
-            note: 8m
-        required:
-            - note
-    LfxV2FormationServiceRejectItemResponseBody:
-        title: LfxV2FormationServiceRejectItemResponseBody
-        $ref: '#/definitions/FormationItem'
-    LfxV2FormationServiceReopenItemRequestBody:
-        title: LfxV2FormationServiceReopenItemRequestBody
-        type: object
-        properties:
-            note:
-                type: string
-                description: Why it was reopened.
-                example: In aut.
-        example:
-            note: Ex omnis minus beatae fugit.
-    LfxV2FormationServiceReopenItemResponseBody:
-        title: LfxV2FormationServiceReopenItemResponseBody
-        $ref: '#/definitions/FormationItem'
-    LfxV2FormationServiceUpdateItemRequestBody:
-        title: LfxV2FormationServiceUpdateItemRequestBody
+    LfxV2FormationServiceAssignItemRequestBody:
+        title: LfxV2FormationServiceAssignItemRequestBody
         type: object
         properties:
             assignee:
                 type: string
                 description: Username, or an empty string to clear.
-                example: Nihil aut voluptatem dolor.
+                example: Ut eum.
             due_date:
                 type: string
                 description: YYYY-MM-DD, or an empty string to clear.
                 example: "2026-03-31"
-            evidence_link:
+        example:
+            assignee: Earum qui voluptatibus enim in nostrum.
+            due_date: "2026-03-31"
+    LfxV2FormationServiceAssignItemResponseBody:
+        title: LfxV2FormationServiceAssignItemResponseBody
+        $ref: '#/definitions/FormationItem'
+    LfxV2FormationServiceSetItemStatusRequestBody:
+        title: LfxV2FormationServiceSetItemStatusRequestBody
+        type: object
+        properties:
+            reason:
                 type: string
-                description: Writer-set; feeds Quick Links. http/https only.
-                example: https://example.org/bylaws.pdf
-            note:
-                type: string
-                example: Sint accusamus est.
-            skip_reason:
-                type: string
-                description: Required when status is skipped.
-                example: Ut nulla assumenda animi aut hic non.
+                description: 'Why. Required when blocking, skipping, or sending an item back to not started: each leaves somebody with work to redo, and a bare status change tells them nothing.'
+                example: Nihil sed natus exercitationem asperiores expedita.
             status:
                 type: string
-                description: One of the six. Omit to leave unchanged.
-                example: awaiting_acceptance
+                description: One of the five. Omit to change sub-items alone.
+                example: blocked
                 enum:
                     - not_started
                     - in_progress
                     - blocked
-                    - awaiting_acceptance
                     - done
                     - skipped
             sub_items:
@@ -1473,30 +1336,39 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationSubItemUpdate'
                 example:
-                    - key: Tenetur autem voluptatem dolor ut sed.
-                      status: blocked
-                    - key: Tenetur autem voluptatem dolor ut sed.
-                      status: blocked
-                    - key: Tenetur autem voluptatem dolor ut sed.
-                      status: blocked
-                    - key: Tenetur autem voluptatem dolor ut sed.
-                      status: blocked
+                    - key: Dignissimos dolor aliquid.
+                      status: in_progress
+                    - key: Dignissimos dolor aliquid.
+                      status: in_progress
         example:
-            assignee: Ipsam ut blanditiis veniam sunt eum voluptate.
-            due_date: "2026-03-31"
-            evidence_link: https://example.org/bylaws.pdf
-            note: Deleniti tempora.
-            skip_reason: Eius exercitationem non odit aut.
-            status: skipped
+            reason: Quam vitae nesciunt.
+            status: done
             sub_items:
-                - key: Tenetur autem voluptatem dolor ut sed.
-                  status: blocked
-                - key: Tenetur autem voluptatem dolor ut sed.
-                  status: blocked
-                - key: Tenetur autem voluptatem dolor ut sed.
-                  status: blocked
-                - key: Tenetur autem voluptatem dolor ut sed.
-                  status: blocked
+                - key: Dignissimos dolor aliquid.
+                  status: in_progress
+                - key: Dignissimos dolor aliquid.
+                  status: in_progress
+                - key: Dignissimos dolor aliquid.
+                  status: in_progress
+                - key: Dignissimos dolor aliquid.
+                  status: in_progress
+    LfxV2FormationServiceSetItemStatusResponseBody:
+        title: LfxV2FormationServiceSetItemStatusResponseBody
+        $ref: '#/definitions/FormationItem'
+    LfxV2FormationServiceUpdateItemRequestBody:
+        title: LfxV2FormationServiceUpdateItemRequestBody
+        type: object
+        properties:
+            evidence_link:
+                type: string
+                description: Feeds Quick Links. http/https only.
+                example: https://example.org/bylaws.pdf
+            note:
+                type: string
+                example: Optio nihil et inventore.
+        example:
+            evidence_link: https://example.org/bylaws.pdf
+            note: Ut labore eius.
     LfxV2FormationServiceUpdateItemResponseBody:
         title: LfxV2FormationServiceUpdateItemResponseBody
         $ref: '#/definitions/FormationItem'
@@ -1511,11 +1383,11 @@ definitions:
             message:
                 type: string
                 description: Error message
-                example: Officia quisquam dolores.
+                example: Sed dicta culpa distinctio aspernatur et est.
         description: The requested resource does not exist
         example:
             code: "404"
-            message: Quidem qui id.
+            message: Sed suscipit animi sed qui tempore.
         required:
             - code
             - message
@@ -1530,11 +1402,11 @@ definitions:
             message:
                 type: string
                 description: Error message
-                example: Occaecati dolor placeat porro ea vitae.
+                example: Molestiae culpa minus iure velit enim omnis.
         description: Missing, expired, or malformed bearer token
         example:
             code: "401"
-            message: Modi officia nihil sed.
+            message: Quo quaerat dicta asperiores qui saepe.
         required:
             - code
             - message

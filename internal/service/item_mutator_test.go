@@ -115,13 +115,14 @@ func refresherOf(t *testing.T, s *Service) *recordingRefresher {
 func TestUpdateItem(t *testing.T) {
 	t.Run("two people editing different items both succeed", func(t *testing.T) {
 		s, formation, itemOne, itemTwo := newItemMutatorTestService(t)
-		inProgress := "in_progress"
 
-		res1, err1 := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &inProgress,
+		res1, err1 := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("in_progress"),
 		})
-		res2, err2 := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemTwo.ItemKey, IfMatch: itemTwo.Revision, Status: &inProgress,
+		res2, err2 := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemTwo.ItemKey, IfMatch: itemTwo.Revision,
+			Status: ptr("in_progress"),
 		})
 
 		require.NoError(t, err1)
@@ -139,7 +140,7 @@ func TestUpdateItem(t *testing.T) {
 		// reporting them, so `"sub_items":[null]` reaches the service as a
 		// live nil. It used to reach a field access and take the handler
 		// down with a nil dereference.
-		_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		_, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
 			SubItems: []*svc.FormationSubItemUpdate{nil},
 		})
@@ -157,46 +158,19 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, itemOne.Revision, got.Revision, "the refused mutation must not have bumped the revision")
 	})
 
-	t.Run("an already-skipped item cannot have its reason cleared without a status", func(t *testing.T) {
-		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped, reason := "skipped", "not applicable to this project"
-
-		// Get the item into skipped-with-a-reason first.
-		first, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &skipped, SkipReason: &reason,
-		})
-		require.NoError(t, err)
-
-		// Now clear the reason alone. The old check only ran when status was
-		// present, so this reached the skip_needs_reason constraint and came
-		// back as a 500.
-		empty := ""
-		_, err = updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: first.Version,
-			SkipReason: &empty,
-		})
-
-		require.Error(t, err)
-		var formationErr *svc.FormationError
-		require.ErrorAs(t, err, &formationErr)
-		assert.Equal(t, "BadRequest", formationErr.Name)
-		assert.Equal(t, "skip_reason_required", formationErr.Reason)
-	})
-
 	t.Run("a skipped item can still be patched on an unrelated field", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped, reason := "skipped", "not applicable to this project"
+		reason := "not applicable to this project"
 
-		first, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		first, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &skipped, SkipReason: &reason,
+			Status: ptr("skipped"), Reason: &reason,
 		})
 		require.NoError(t, err)
 
-		// Guards the cost of checking the invariant against resolved values
-		// rather than the fields present: the reason falls back to the stored
-		// one, so a note-only PATCH must not be read as clearing it.
+		// A skipped item is still editable. Its reason cannot be cleared from
+		// here at all now that it travels with the transition, so the field
+		// this route does carry must not disturb it.
 		note := "still worth recording why"
 		got, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: first.Version,
@@ -209,13 +183,13 @@ func TestUpdateItem(t *testing.T) {
 
 	t.Run("a whitespace-only skip reason is refused", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped, blank := "skipped", "   "
+		blank := "   "
 
 		// Postgres compares btrim(skip_reason), so this passed an == "" test
 		// in the service and failed only in the database.
-		_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		_, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &skipped, SkipReason: &blank,
+			Status: ptr("skipped"), Reason: &blank,
 		})
 
 		require.Error(t, err)
@@ -229,7 +203,7 @@ func TestUpdateItem(t *testing.T) {
 
 		// Appending would have created a sub-item with no title, and let a
 		// status-only route change the checklist's structure.
-		_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		_, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
 			SubItems: []*svc.FormationSubItemUpdate{{Key: "not-a-real-key", Status: "done"}},
 		})
@@ -248,18 +222,19 @@ func TestUpdateItem(t *testing.T) {
 
 	t.Run("stale precondition on the same item is refused with nothing lost", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		inProgress := "in_progress"
-		blocked := "blocked"
+		blockedReason := "waiting on the partner"
 
 		// First writer succeeds and moves the item's revision forward.
-		first, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &inProgress,
+		first, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("in_progress"),
 		})
 		require.NoError(t, err)
 
 		// Second writer still holds the pre-update revision.
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &blocked,
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("blocked"), Reason: &blockedReason,
 		})
 
 		require.Nil(t, result)
@@ -278,10 +253,10 @@ func TestUpdateItem(t *testing.T) {
 
 	t.Run("skip with no reason is refused", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped := "skipped"
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &skipped,
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("skipped"),
 		})
 
 		require.Nil(t, result)
@@ -296,14 +271,27 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, model.StatusNotStarted, got.Status, "the refused mutation must not have changed the item")
 	})
 
+	t.Run("blocking with no reason names the blocked requirement", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("blocked"),
+		})
+
+		require.Nil(t, result)
+		formationErr := formationError(t, err)
+		assert.Equal(t, "blocked_reason_required", formationErr.Reason)
+		assert.Equal(t, "a reason is required to block an item", formationErr.Message)
+	})
+
 	t.Run("skip with a reason succeeds", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped := "skipped"
 		reason := "blocked by legal review"
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &skipped, SkipReason: &reason,
+			Status: ptr("skipped"), Reason: &reason,
 		})
 
 		require.NoError(t, err)
@@ -345,12 +333,20 @@ func TestUpdateItem(t *testing.T) {
 
 	t.Run("invalid transition is refused", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		done := "done"
 
-		// not_started -> done skips the whole claim/accept dance, which is
-		// reserved for the accept route.
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &done,
+		// A closed item reopens — to not started or in progress — and that is
+		// all. Excusing it outright is not a reversal of closing it, and
+		// getting there means reopening it first, on the record.
+		closed, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("done"),
+		})
+		require.NoError(t, err)
+
+		excuse := "turned out not to apply"
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: closed.Version,
+			Status: ptr("skipped"), Reason: &excuse,
 		})
 
 		require.Nil(t, result)
@@ -361,55 +357,66 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, "invalid_transition", formationErr.Reason)
 	})
 
-	t.Run("in_progress to done directly is refused, even for a non-assignee writer", func(t *testing.T) {
-		// done is reachable only through awaiting_acceptance + the accept
-		// route. A direct in_progress -> done via this Manage-guarded PATCH
-		// would let any writer — not just the formation team, and not
-		// excluding the item's own assignee — skip acceptance outright,
-		// which defeats the reason awaiting_acceptance exists.
+	t.Run("in_progress to done closes the item in one step", func(t *testing.T) {
+		// This used to be refused. done was reachable only by claiming
+		// completion and having somebody else accept it, and the refusal here
+		// was what forced a caller onto that narrower-guarded route.
+		//
+		// The claim state is gone and the safeguard it existed for did not go
+		// with it: closing an item is a status change, every status change
+		// enters through this route, and the gateway admits this route only
+		// for the formation team. An assignee elevated to writer to do the
+		// work is not on that team, so they still cannot close their own item
+		// — the refusal moved from the transition table to the guard.
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		inProgress := "in_progress"
-		done := "done"
 
-		_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &inProgress,
+		started, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("in_progress"),
 		})
 		require.NoError(t, err)
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision + 1, Status: &done,
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: started.Version,
+			Status: ptr("done"),
 		})
 
-		require.Nil(t, result)
-		var formationErr *svc.FormationError
-		require.ErrorAs(t, err, &formationErr)
-		assert.Equal(t, "invalid_transition", formationErr.Reason)
+		require.NoError(t, err)
+		assert.Equal(t, "done", result.Status)
 	})
 
-	t.Run("reopen and accept are refused on this route", func(t *testing.T) {
+	t.Run("a closed item goes back with a reason, and needs one", func(t *testing.T) {
+		// The reversal of closing. A reviewer who decides the work was not
+		// done correctly has to be able to return it, and returning it
+		// silently leaves the assignee nothing to act on — so the reason is
+		// required rather than merely accepted.
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		inProgress := "in_progress"
-		awaiting := "awaiting_acceptance"
-		done := "done"
 
-		_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &inProgress,
+		closed, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("done"),
 		})
 		require.NoError(t, err)
 
-		claimed, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision + 1, Status: &awaiting,
+		_, err = setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: closed.Version,
+			Status: ptr("not_started"),
 		})
-		require.NoError(t, err, "the assignee's own completion claim is this route's job")
+		require.Error(t, err, "sending an item back with no reason")
+		formationErr := formationError(t, err)
+		assert.Equal(t, "return_reason_required", formationErr.Reason)
+		assert.Equal(t, "a reason is required to send an item back to not started", formationErr.Message)
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: claimed.Version, Status: &done,
+		reason := "the evidence link is dead"
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: closed.Version,
+			Status: ptr("not_started"), Reason: &reason,
 		})
 
-		require.Nil(t, result)
-		var formationErr *svc.FormationError
-		require.ErrorAs(t, err, &formationErr)
-		assert.Equal(t, "invalid_transition", formationErr.Reason, "accepting is the accept route's job, not this one")
+		require.NoError(t, err)
+		assert.Equal(t, "not_started", result.Status)
+		require.NotNil(t, result.Note)
+		assert.Equal(t, reason, *result.Note)
 	})
 
 	t.Run("checklist read-only refuses every mutation", func(t *testing.T) {
@@ -453,7 +460,7 @@ func TestUpdateItem(t *testing.T) {
 		s.projects = projects
 
 		outsider := "mallory"
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Assignee: &outsider,
 		})
 
@@ -478,7 +485,7 @@ func TestUpdateItem(t *testing.T) {
 		s.projects = mock.NewProjectReader()
 
 		assignee := "someone-unverifiable"
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
 			IfMatch: itemOne.Revision, Assignee: &assignee,
 		})
@@ -502,7 +509,7 @@ func TestUpdateItem(t *testing.T) {
 		s.projects = projects
 
 		outsider := "mallory"
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
 			IfMatch:  itemOne.Revision + 99,
 			Assignee: &outsider,
@@ -529,7 +536,7 @@ func TestUpdateItem(t *testing.T) {
 		require.NoError(t, freezeErr)
 
 		outsider := "mallory"
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey,
 			IfMatch:  itemOne.Revision,
 			Assignee: &outsider,
@@ -541,11 +548,14 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, "checklist_read_only", formationErr.Reason)
 	})
 
-	// The assignee check sits after the status rules, so a request that is wrong
-	// about both is answered on the transition. This is the case the first
-	// attempt at moving the check out of the transaction got wrong: it hoisted
-	// the refusal to the front and turned this 409 into a 400.
-	t.Run("an invalid transition outranks a bad assignee", func(t *testing.T) {
+	// The assignee is checked against another service, so that check runs
+	// before the transaction opens rather than holding a row lock across a
+	// network call. Moving it there must not change which refusal a caller
+	// sees: a request that is wrong about both the precondition and the
+	// assignee is still answered on the precondition. The first attempt at
+	// moving it got this wrong — it hoisted the refusal to the front and
+	// turned this 412 into a 400.
+	t.Run("a stale precondition outranks a bad assignee", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		projects := mock.NewProjectReader()
 		projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
@@ -554,17 +564,16 @@ func TestUpdateItem(t *testing.T) {
 		s.projects = projects
 
 		outsider := "mallory"
-		done := string(model.StatusDone)
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &done, Assignee: &outsider,
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision + 99,
+			Assignee: &outsider,
 		})
 
 		require.Nil(t, result)
 		var formationErr *svc.FormationError
 		require.ErrorAs(t, err, &formationErr)
-		assert.Equal(t, "invalid_transition", formationErr.Reason)
-		assert.Equal(t, "Conflict", formationErr.Name)
+		assert.Equal(t, "version_mismatch", formationErr.Reason)
+		assert.Equal(t, "VersionMismatch", formationErr.Name)
 	})
 
 	t.Run("assignee holding a project grant succeeds", func(t *testing.T) {
@@ -576,7 +585,7 @@ func TestUpdateItem(t *testing.T) {
 		s.projects = projects
 
 		alice := "alice"
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Assignee: &alice,
 		})
 
@@ -614,7 +623,7 @@ func TestUpdateItem(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: withSubItems.Revision,
 			SubItems: []*svc.FormationSubItemUpdate{{Key: "sub-a", Status: "done"}},
 		})
@@ -636,7 +645,7 @@ func TestUpdateItem(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		due := "2026-08-31"
 
-		set, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		set, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, DueDate: &due,
 		})
 		require.NoError(t, err)
@@ -644,7 +653,7 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, due, *set.DueDate)
 
 		empty := ""
-		cleared, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		cleared, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision + 1, DueDate: &empty,
 		})
 		require.NoError(t, err)
@@ -655,7 +664,7 @@ func TestUpdateItem(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		bad := "not-a-date"
 
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, DueDate: &bad,
 		})
 
@@ -666,34 +675,79 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, "due_date_invalid", formationErr.Reason)
 	})
 
-	t.Run("re-patching an already-skipped item with an empty skip_reason is refused", func(t *testing.T) {
+	t.Run("re-skipping an already-skipped item is refused as a no-op", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
-		skipped := "skipped"
 		reason := "blocked by legal review"
 
-		afterSkip, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		afterSkip, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
-			Status: &skipped, SkipReason: &reason,
+			Status: ptr("skipped"), Reason: &reason,
 		})
 		require.NoError(t, err)
 
+		// Sending the status it already holds is refused before the reason is
+		// even looked at. The stored reason is therefore unreachable from
+		// here, which is what the old empty-skip_reason hazard needed.
 		emptyReason := ""
-		result, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
 			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: afterSkip.Version,
-			Status: &skipped, SkipReason: &emptyReason,
+			Status: ptr("skipped"), Reason: &emptyReason,
 		})
 
 		require.Nil(t, result)
-		var formationErr *svc.FormationError
-		require.ErrorAs(t, err, &formationErr)
-		assert.Equal(t, "skip_reason_required", formationErr.Reason)
+		assert.Equal(t, "no_fields_to_update", formationError(t, err).Reason)
+
+		got, getErr := s.items.Get(context.Background(), itemOne.UID)
+		require.NoError(t, getErr)
+		assert.Equal(t, reason, got.SkipReason, "the stored reason must survive the refusal")
+	})
+
+	t.Run("an empty sub-items update is refused as a no-op", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			SubItems: []*svc.FormationSubItemUpdate{},
+		})
+
+		require.Nil(t, result)
+		assert.Equal(t, "no_fields_to_update", formationError(t, err).Reason)
+
+		got, getErr := s.items.Get(context.Background(), itemOne.UID)
+		require.NoError(t, getErr)
+		assert.Equal(t, itemOne.Revision, got.Revision, "a no-op must not consume the ETag")
+	})
+
+	t.Run("unchanged parent and sub-item statuses are refused as a no-op", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+
+		withSubItem, err := s.items.Update(context.Background(), itemOne.UID, itemOne.Revision, port.ItemPatch{
+			SubItems: &[]model.SubItem{
+				{Key: "sub-a", Title: "Sub A", Status: model.StatusNotStarted},
+			},
+		})
+		require.NoError(t, err)
+
+		result, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: withSubItem.Revision,
+			Status:   ptr("not_started"),
+			SubItems: []*svc.FormationSubItemUpdate{{Key: "sub-a", Status: "not_started"}},
+		})
+
+		require.Nil(t, result)
+		assert.Equal(t, "no_fields_to_update", formationError(t, err).Reason)
+
+		got, getErr := s.items.Get(context.Background(), itemOne.UID)
+		require.NoError(t, getErr)
+		assert.Equal(t, withSubItem.Revision, got.Revision, "a no-op must not consume the ETag")
 	})
 }
 
 // The activity feed names an entry after the field the caller led with, so the
 // precedence between cases is the behaviour worth pinning, not just the
-// mapping. skip_reason is deliberately last: it was added after the others and
-// keeping it there left every existing combination's label unchanged.
+// mapping. Status, assignment and sub-items are absent because they are not
+// this route's to carry: each enters through a route guarded differently, and
+// each names its own entry there.
 func TestMutationAction(t *testing.T) {
 	str := func(s string) *string { return &s }
 
@@ -702,22 +756,12 @@ func TestMutationAction(t *testing.T) {
 		p    *svc.UpdateItemPayload
 		want string
 	}{
-		{"status alone", &svc.UpdateItemPayload{Status: str("done")}, "status_changed"},
-		{"assignee alone", &svc.UpdateItemPayload{Assignee: str("someone")}, "assignee_changed"},
 		{"evidence link alone", &svc.UpdateItemPayload{EvidenceLink: str("https://example.test")}, "evidence_link_changed"},
-		{"due date alone", &svc.UpdateItemPayload{DueDate: str("2026-01-01")}, "due_date_changed"},
 		{"note alone", &svc.UpdateItemPayload{Note: str("a note")}, "note_changed"},
-		{"sub items alone", &svc.UpdateItemPayload{SubItems: []*svc.FormationSubItemUpdate{}}, "sub_items_changed"},
-		{"skip reason alone", &svc.UpdateItemPayload{SkipReason: str("not applicable")}, "skip_reason_changed"},
 		{
-			"status wins over a co-submitted skip reason",
-			&svc.UpdateItemPayload{Status: str("skipped"), SkipReason: str("not applicable")},
-			"status_changed",
-		},
-		{
-			"sub items win over a co-submitted skip reason",
-			&svc.UpdateItemPayload{SubItems: []*svc.FormationSubItemUpdate{}, SkipReason: str("not applicable")},
-			"sub_items_changed",
+			"the evidence link wins over a co-submitted note",
+			&svc.UpdateItemPayload{EvidenceLink: str("https://example.test"), Note: str("a note")},
+			"evidence_link_changed",
 		},
 		{"nothing recognised", &svc.UpdateItemPayload{}, "item_updated"},
 	}
@@ -732,12 +776,12 @@ func TestMutationAction(t *testing.T) {
 // The ETag exists to be sent straight back as the next If-Match. A value that
 // does not parse as the Int64 that header expects would be worse than no
 // header at all, so the round trip is asserted rather than the format alone.
-func TestUpdateItemReturnsAnETagThatWorksAsTheNextIfMatch(t *testing.T) {
+func TestSetItemStatusReturnsAnETagThatWorksAsTheNextIfMatch(t *testing.T) {
 	s, formation, itemOne, _ := newItemMutatorTestService(t)
-	inProgress := "in_progress"
 
-	first, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
-		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision, Status: &inProgress,
+	first, err := s.SetItemStatus(context.Background(), &svc.SetItemStatusPayload{
+		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+		Status: ptr("in_progress"),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, first.Etag)
@@ -746,9 +790,10 @@ func TestUpdateItemReturnsAnETagThatWorksAsTheNextIfMatch(t *testing.T) {
 	ifMatch, err := strconv.ParseInt(*first.Etag, 10, 64)
 	require.NoError(t, err, "the ETag we hand out must parse as the If-Match we demand")
 
-	blocked := "blocked"
-	second, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
-		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: ifMatch, Status: &blocked,
+	blockedReason := "waiting on the partner"
+	second, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: ifMatch,
+		Status: ptr("blocked"), Reason: &blockedReason,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, first.Item.Version+1, second.Version)
@@ -781,7 +826,7 @@ func TestUpdateItemRefusesYearZeroDueDate(t *testing.T) {
 
 	// Go's parser accepts this and Postgres has no year zero, so it used to
 	// pass validation and fail in the DATE column as a 500.
-	_, err := updateItem(s, context.Background(), &svc.UpdateItemPayload{
+	_, err := assignItem(s, context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
 		DueDate: &yearZero,
 	})
@@ -829,7 +874,7 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	addr := "alice@example.com"
 	s, formation, itemOne, mailer := newEmailTestService(t, username, addr)
 
-	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,
@@ -851,7 +896,7 @@ func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {
 	s, formation, itemOne, mailer := newEmailTestService(t, username, addr)
 
 	// First PATCH: sets the assignee — should send one email.
-	res, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	res, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,
@@ -861,7 +906,7 @@ func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {
 	require.Equal(t, 1, mailer.SentCount(), "expected one email after first assignment")
 
 	// Second PATCH: repeats the same assignee — must not send another email.
-	_, err = s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err = s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    res.Item.Version,
@@ -877,7 +922,7 @@ func TestItemAssignedEmailNotDispatchedWhenAssigneeIsUsername(t *testing.T) {
 	username := "alice"
 	s, formation, itemOne, mailer := newEmailTestService(t, username, "") // no email mapped
 
-	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,
@@ -892,7 +937,7 @@ func TestItemAssignedEmailNotDispatchedWhenAssigneeClearedOrEmpty(t *testing.T) 
 	s, formation, itemOne, mailer := newEmailTestService(t, "alice", "alice@example.com")
 
 	empty := ""
-	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,
@@ -908,7 +953,7 @@ func TestItemAssignedEmailNotDispatchedWhenEmailerNil(t *testing.T) {
 	s.emailer = nil // not wired
 
 	username := "alice"
-	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,
@@ -923,7 +968,7 @@ func TestItemAssignedEmailNotDispatchedWhenEmailDisabled(t *testing.T) {
 	s.emailCfg.Enabled = false
 
 	username := "alice"
-	_, err := s.UpdateItem(context.Background(), &svc.UpdateItemPayload{
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID,
 		ItemKey:    itemOne.ItemKey,
 		IfMatch:    itemOne.Revision,

@@ -11,6 +11,25 @@ metadata:
     app: {{ .Chart.Name }}
 spec:
   rules:
+    # DEPLOY ORDER: every project-scoped rule below names a `_guard` relation,
+    # and those relations reach the platform model in the global-team-relations
+    # change (lfx-self-serve#2148). They do not exist in the model on main. This
+    # chart must not reach an environment before that model does, or OpenFGA is
+    # asked for a relation it does not define and every route below refuses.
+    # Nothing else is coupled: no other service guards a `_guard` relation yet,
+    # so the model change is inert until this ships.
+    #
+    # Why the `_guard` relations rather than the bare grants, which is what the
+    # platform model asks endpoints to do: on `type project` the bare relations
+    # compose only direct and inherited grants. A team holding `global_writer`
+    # satisfies `writer_guard` but not `writer`; one holding `global_auditor`
+    # satisfies `auditor_guard` but not `auditor`. Guarding the bare names
+    # therefore refuses LF staff whose access is a global grant — including on
+    # the read routes, where the effect is that staff cannot open a checklist
+    # they are meant to be running. On leaf types the distinction does not
+    # arise, because their own `writer` is defined as `writer_guard from
+    # project`; it arises here only because these rules key on the project.
+    #
     # Reading the checklist and its activity requires the project's
     # audit-level read, never the viewer relation (which includes every
     # user and would make a public project's checklist world-readable).
@@ -31,7 +50,7 @@ spec:
         - authorizer: openfga_check
           config:
             values:
-              relation: auditor
+              relation: auditor_guard
               object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
         {{- else }}
         - authorizer: allow_all
@@ -57,7 +76,7 @@ spec:
         - authorizer: openfga_check
           config:
             values:
-              relation: auditor
+              relation: auditor_guard
               object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
         {{- else }}
         - authorizer: allow_all
@@ -66,10 +85,41 @@ spec:
           config:
             values:
               aud: {{ .Values.app.audience }}
-    # Every item mutation except accept/reject/reopen needs only the
-    # project's writer relation, which is what "Manage" grants —
-    # never the narrower formation-team check accept/reject/reopen need,
-    # which is why those are their own routes rather than sharing this one.
+    # Three rules for three routes on one item, and the split is the guard.
+    # There are three tiers: leaving an update takes read access, directing
+    # somebody else's work takes write access, and judging whether work was done
+    # takes write access plus the formation team.
+    #
+    # One route could carry all three. Heimdall exposes the parsed body as
+    # `Request.Body()` and can execute an authorizer conditionally, so a single
+    # PATCH could add the team check only when the payload names a status —
+    # sibling services already template on body fields this way. The tiers are
+    # split by route anyway, for two reasons. The architecture review's API
+    # surface asks for separate status and update routes. And a conditional
+    # guard fails open: if the condition ever stops matching the payload it is
+    # meant to catch — a renamed field, a sub-items-only request, a request
+    # arriving without a parseable content type — the team check silently does
+    # not run, and the thing it exists to prevent is somebody closing their own
+    # item. A separate route cannot be called without its guard. For this
+    # particular rule that difference is worth three paths.
+
+    # Tier one, the widest: leaving an update — a note, an evidence link.
+    # Guarded on the project's audit-level read, NOT on writer.
+    #
+    # That is deliberate and it is the point of this route. The assignee of an
+    # item is often a partner holding only "View": they do the work off-platform
+    # — a trademark search, a DocuSign, a domain transfer — and record what they
+    # did here, and somebody on the formation team reads it and moves the
+    # status. Guarding this on writer would mean the person doing the work
+    # cannot say they did it, which is the whole partner workflow.
+    #
+    # There are no per-item guards: an auditor may leave an update on any item,
+    # not only one assigned to them. The UI directs people to their own items;
+    # the API does not enforce it. A conscious simplification, cheap to tighten.
+    #
+    # Nothing on this route moves a status or reassigns anybody, and that is
+    # enforced by the payload rather than by this rule: those fields do not
+    # exist on it, and each has its own route and guard below.
     - id: "rule:lfx:lfx-v2-formation-service:formations:update_item"
       allow_encoded_slashes: 'off'
       match:
@@ -87,7 +137,7 @@ spec:
         - authorizer: openfga_check
           config:
             values:
-              relation: writer
+              relation: auditor_guard
               object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
         {{- else }}
         - authorizer: allow_all
@@ -97,49 +147,92 @@ spec:
             values:
               aud: {{ .Values.app.audience }}
 
-    # Accept, reject and reopen. Three rules rather than one, because a Heimdall
-    # rule selects on method and path and these are three paths.
+    # Tier two: directing somebody else's work — assignment, due date — on
+    # write access.
     #
-    # Each checks membership of the formation team, with NO resource in the object:
-    # the question is "is this person on the formation team", which has nothing to
-    # do with which project the request names. That is why these cannot be folded
-    # into the PATCH rule above — that one is gated on the project's writer
-    # relation, and a rule cannot express two different objects for two different
-    # request bodies on the same route.
-    #
-    # This is the narrower guard, so the routes it protects are the ones that reach
-    # done and the one that reverses it. A project writer who is not on the
-    # formation team is refused here, before the service is reached.
-    #
-    # The self-acceptance refusal is NOT here and cannot be: it compares the caller
-    # to a value stored on the row, which no gateway rule can read. It lives in the
-    # service and answers 409.
-    {{- range $action := list "accept" "reject" "reopen" }}
-    - id: "rule:lfx:lfx-v2-formation-service:formations:{{ $action }}_item"
+    # Neither judges whether anything was done, which is why this does not need
+    # the team check that tier three does; and neither is a record of work done,
+    # so the read access tier one runs on is not enough. Assigning an item to
+    # somebody writes no tuple and grants them nothing: it is an attribute on
+    # the row, and the service refuses a username holding no grant on the
+    # project rather than creating one.
+    - id: "rule:lfx:lfx-v2-formation-service:formations:assign_item"
       allow_encoded_slashes: 'off'
       match:
         methods:
           - POST
         routes:
-          - path: /formations/:project_uid/items/:item_key/{{ $action }}
+          - path: /formations/:project_uid/items/:item_key/assignment
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
-        {{- if $.Values.app.use_oidc_contextualizer }}
+        {{- if .Values.app.use_oidc_contextualizer }}
         - contextualizer: oidc_contextualizer
         {{- end }}
-        {{- if $.Values.openfga.enabled }}
+        {{- if .Values.openfga.enabled }}
         - authorizer: openfga_check
           config:
             values:
-              relation: member
-              object: "team:{{ $.Values.app.formationTeamName | trim }}"
+              relation: writer_guard
+              object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
         {{- else }}
         - authorizer: allow_all
         {{- end }}
         - finalizer: create_jwt
           config:
             values:
-              aud: {{ $.Values.app.audience }}
-    {{- end }}
+              aud: {{ .Values.app.audience }}
+
+    # Tier three, the narrowest: moving a status — the five controls, and the
+    # status of an item's sub-items, which are drawn from the same enum.
+    #
+    # TWO authorizers, both of which must pass. Write access on the project
+    # answers "may this person change this project at all", and formation-team
+    # membership answers "is this person one of the people whose job it is to
+    # judge whether the work was done". Neither alone is sufficient: a staff
+    # member who is not a writer on the project cannot move a status here
+    # either.
+    #
+    # This pair is what implements the rule that assignees do not close their
+    # own items, and it is the only thing that implements it. A partner
+    # elevated to writer so they can create the committee (which the item asks
+    # for) passes the first check and fails the second — they leave a note on
+    # the PATCH route, and somebody on the formation team closes the row. There
+    # is no per-item comparison of the caller against the assignee anywhere in
+    # the service, and there does not need to be: nobody who could be an
+    # assignee holds the team membership.
+    - id: "rule:lfx:lfx-v2-formation-service:formations:set_item_status"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /formations/:project_uid/items/:item_key/status
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: writer_guard
+              object: "project:{{ "{{- .Request.URL.Captures.project_uid -}}" }}"
+        # No resource in this object: the question is "is this person on the
+        # formation team", which has nothing to do with which project the
+        # request names.
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: member
+              object: "team:{{ .Values.app.formationTeamName | trim }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
 {{- end }}

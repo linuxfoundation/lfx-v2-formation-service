@@ -14,42 +14,33 @@ import (
 	goa "goa.design/goa/v3/pkg"
 )
 
-// UpdateItemRequestBody is the type of the "lfx_v2_formation_service" service
-// "update_item" endpoint HTTP request body.
-type UpdateItemRequestBody struct {
-	// One of the six. Omit to leave unchanged.
+// SetItemStatusRequestBody is the type of the "lfx_v2_formation_service"
+// service "set_item_status" endpoint HTTP request body.
+type SetItemStatusRequestBody struct {
+	// One of the five. Omit to change sub-items alone.
 	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
+	// Why. Required when blocking, skipping, or sending an item back to not
+	// started: each leaves somebody with work to redo, and a bare status change
+	// tells them nothing.
+	Reason   *string                              `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+	SubItems []*FormationSubItemUpdateRequestBody `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+}
+
+// AssignItemRequestBody is the type of the "lfx_v2_formation_service" service
+// "assign_item" endpoint HTTP request body.
+type AssignItemRequestBody struct {
 	// Username, or an empty string to clear.
 	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
 	// YYYY-MM-DD, or an empty string to clear.
 	DueDate *string `form:"due_date,omitempty" json:"due_date,omitempty" xml:"due_date,omitempty"`
-	Note    *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-	// Required when status is skipped.
-	SkipReason *string `form:"skip_reason,omitempty" json:"skip_reason,omitempty" xml:"skip_reason,omitempty"`
-	// Writer-set; feeds Quick Links. http/https only.
-	EvidenceLink *string                              `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	SubItems     []*FormationSubItemUpdateRequestBody `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
 }
 
-// AcceptItemRequestBody is the type of the "lfx_v2_formation_service" service
-// "accept_item" endpoint HTTP request body.
-type AcceptItemRequestBody struct {
-	// Replaces the item's note. Omit to clear it.
+// UpdateItemRequestBody is the type of the "lfx_v2_formation_service" service
+// "update_item" endpoint HTTP request body.
+type UpdateItemRequestBody struct {
 	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
-}
-
-// RejectItemRequestBody is the type of the "lfx_v2_formation_service" service
-// "reject_item" endpoint HTTP request body.
-type RejectItemRequestBody struct {
-	// Why it was rejected. Readable by the assignee.
-	Note string `form:"note" json:"note" xml:"note"`
-}
-
-// ReopenItemRequestBody is the type of the "lfx_v2_formation_service" service
-// "reopen_item" endpoint HTTP request body.
-type ReopenItemRequestBody struct {
-	// Why it was reopened.
-	Note *string `form:"note,omitempty" json:"note,omitempty" xml:"note,omitempty"`
+	// Feeds Quick Links. http/https only.
+	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
 }
 
 // GetFormationResponseBody is the type of the "lfx_v2_formation_service"
@@ -76,21 +67,17 @@ type GetFormationActivityResponseBody struct {
 	NextCursor *string `form:"next_cursor,omitempty" json:"next_cursor,omitempty" xml:"next_cursor,omitempty"`
 }
 
+// SetItemStatusResponseBody is the type of the "lfx_v2_formation_service"
+// service "set_item_status" endpoint HTTP response body.
+type SetItemStatusResponseBody FormationItemResponseBody
+
+// AssignItemResponseBody is the type of the "lfx_v2_formation_service" service
+// "assign_item" endpoint HTTP response body.
+type AssignItemResponseBody FormationItemResponseBody
+
 // UpdateItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "update_item" endpoint HTTP response body.
 type UpdateItemResponseBody FormationItemResponseBody
-
-// AcceptItemResponseBody is the type of the "lfx_v2_formation_service" service
-// "accept_item" endpoint HTTP response body.
-type AcceptItemResponseBody FormationItemResponseBody
-
-// RejectItemResponseBody is the type of the "lfx_v2_formation_service" service
-// "reject_item" endpoint HTTP response body.
-type RejectItemResponseBody FormationItemResponseBody
-
-// ReopenItemResponseBody is the type of the "lfx_v2_formation_service" service
-// "reopen_item" endpoint HTTP response body.
-type ReopenItemResponseBody FormationItemResponseBody
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -126,6 +113,144 @@ type GetFormationActivityNotFoundResponseBody struct {
 // "lfx_v2_formation_service" service "get_formation_activity" endpoint HTTP
 // response body for the "Unauthorized" error.
 type GetFormationActivityUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// SetItemStatusNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "set_item_status" endpoint HTTP response
+// body for the "NotFound" error.
+type SetItemStatusNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// SetItemStatusVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "set_item_status" endpoint HTTP response
+// body for the "VersionMismatch" error.
+type SetItemStatusVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// SetItemStatusConflictResponseBody is the type of the
+// "lfx_v2_formation_service" service "set_item_status" endpoint HTTP response
+// body for the "Conflict" error.
+type SetItemStatusConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// SetItemStatusBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "set_item_status" endpoint HTTP response
+// body for the "BadRequest" error.
+type SetItemStatusBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// SetItemStatusUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "set_item_status" endpoint HTTP response
+// body for the "Unauthorized" error.
+type SetItemStatusUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// AssignItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
+// service "assign_item" endpoint HTTP response body for the "NotFound" error.
+type AssignItemNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// AssignItemVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "assign_item" endpoint HTTP response body
+// for the "VersionMismatch" error.
+type AssignItemVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// AssignItemConflictResponseBody is the type of the "lfx_v2_formation_service"
+// service "assign_item" endpoint HTTP response body for the "Conflict" error.
+type AssignItemConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// AssignItemBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "assign_item" endpoint HTTP response body
+// for the "BadRequest" error.
+type AssignItemBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// AssignItemUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "assign_item" endpoint HTTP response body
+// for the "Unauthorized" error.
+type AssignItemUnauthorizedResponseBody struct {
 	// HTTP status code
 	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
 	// Error message
@@ -200,210 +325,6 @@ type UpdateItemUnauthorizedResponseBody struct {
 	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
 }
 
-// AcceptItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
-// service "accept_item" endpoint HTTP response body for the "NotFound" error.
-type AcceptItemNotFoundResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// AcceptItemVersionMismatchResponseBody is the type of the
-// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
-// for the "VersionMismatch" error.
-type AcceptItemVersionMismatchResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// AcceptItemConflictResponseBody is the type of the "lfx_v2_formation_service"
-// service "accept_item" endpoint HTTP response body for the "Conflict" error.
-type AcceptItemConflictResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// AcceptItemBadRequestResponseBody is the type of the
-// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
-// for the "BadRequest" error.
-type AcceptItemBadRequestResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// AcceptItemUnauthorizedResponseBody is the type of the
-// "lfx_v2_formation_service" service "accept_item" endpoint HTTP response body
-// for the "Unauthorized" error.
-type AcceptItemUnauthorizedResponseBody struct {
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Error message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-}
-
-// RejectItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
-// service "reject_item" endpoint HTTP response body for the "NotFound" error.
-type RejectItemNotFoundResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// RejectItemVersionMismatchResponseBody is the type of the
-// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
-// for the "VersionMismatch" error.
-type RejectItemVersionMismatchResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// RejectItemConflictResponseBody is the type of the "lfx_v2_formation_service"
-// service "reject_item" endpoint HTTP response body for the "Conflict" error.
-type RejectItemConflictResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// RejectItemBadRequestResponseBody is the type of the
-// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
-// for the "BadRequest" error.
-type RejectItemBadRequestResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// RejectItemUnauthorizedResponseBody is the type of the
-// "lfx_v2_formation_service" service "reject_item" endpoint HTTP response body
-// for the "Unauthorized" error.
-type RejectItemUnauthorizedResponseBody struct {
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Error message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-}
-
-// ReopenItemNotFoundResponseBody is the type of the "lfx_v2_formation_service"
-// service "reopen_item" endpoint HTTP response body for the "NotFound" error.
-type ReopenItemNotFoundResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// ReopenItemVersionMismatchResponseBody is the type of the
-// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
-// for the "VersionMismatch" error.
-type ReopenItemVersionMismatchResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// ReopenItemConflictResponseBody is the type of the "lfx_v2_formation_service"
-// service "reopen_item" endpoint HTTP response body for the "Conflict" error.
-type ReopenItemConflictResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// ReopenItemBadRequestResponseBody is the type of the
-// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
-// for the "BadRequest" error.
-type ReopenItemBadRequestResponseBody struct {
-	// Which declared error this is — matches the Error() name (e.g. "Conflict").
-	// Transport dispatch only; switch on reason, not this.
-	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Human-readable message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-	// Machine-readable; switch on this, not on status.
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
-}
-
-// ReopenItemUnauthorizedResponseBody is the type of the
-// "lfx_v2_formation_service" service "reopen_item" endpoint HTTP response body
-// for the "Unauthorized" error.
-type ReopenItemUnauthorizedResponseBody struct {
-	// HTTP status code
-	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
-	// Error message
-	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
-}
-
 // ReadyzServiceUnavailableResponseBody is the type of the
 // "lfx_v2_formation_service" service "readyz" endpoint HTTP response body for
 // the "ServiceUnavailable" error.
@@ -444,7 +365,7 @@ type FormationItemResponseBody struct {
 	ActionLink *string `form:"action_link,omitempty" json:"action_link,omitempty" xml:"action_link,omitempty"`
 	// Writer-set; feeds Quick Links.
 	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
-	// Six values.
+	// Five values.
 	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
 	// Username. Nothing is granted.
 	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty" xml:"assignee,omitempty"`
@@ -455,6 +376,11 @@ type FormationItemResponseBody struct {
 	// Set by the service.
 	ResolvedRef *FormationResolvedRefResponseBody `form:"resolved_ref,omitempty" json:"resolved_ref,omitempty" xml:"resolved_ref,omitempty"`
 	SubItems    []*FormationSubItemResponseBody   `form:"sub_items,omitempty" json:"sub_items,omitempty" xml:"sub_items,omitempty"`
+	// What this item's current state permits, and what each action requires.
+	// Describes the item, not the caller: two people reading the same item receive
+	// the same list, and a browser intersects it with the standing it already
+	// holds. Empty, never absent, when the item permits nothing.
+	AvailableActions []*FormationAvailableActionResponseBody `form:"available_actions,omitempty" json:"available_actions,omitempty" xml:"available_actions,omitempty"`
 	// Echo as If-Match on every mutation. Per item, not per formation.
 	Version *int64 `form:"version,omitempty" json:"version,omitempty" xml:"version,omitempty"`
 }
@@ -480,15 +406,28 @@ type FormationSubItemResponseBody struct {
 	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
 }
 
+// FormationAvailableActionResponseBody is used to define fields on response
+// body types.
+type FormationAvailableActionResponseBody struct {
+	// Stable identifier, never display text.
+	Action *string `form:"action,omitempty" json:"action,omitempty" xml:"action,omitempty"`
+	// Whether taking this action must carry a reason or note, so a browser can
+	// render the input without knowing which actions need one.
+	RequiresReason *bool `form:"requires_reason,omitempty" json:"requires_reason,omitempty" xml:"requires_reason,omitempty"`
+	// What the caller must hold for the gateway to admit the call — a relation on
+	// the project, or a team membership. Names a guard the deployed rules already
+	// publish; it discloses nothing about the caller.
+	RequiresRelation *string `form:"requires_relation,omitempty" json:"requires_relation,omitempty" xml:"requires_relation,omitempty"`
+}
+
 // FormationProgressResponseBody is used to define fields on response body
 // types.
 type FormationProgressResponseBody struct {
-	NotStarted         *int `form:"not_started,omitempty" json:"not_started,omitempty" xml:"not_started,omitempty"`
-	InProgress         *int `form:"in_progress,omitempty" json:"in_progress,omitempty" xml:"in_progress,omitempty"`
-	Blocked            *int `form:"blocked,omitempty" json:"blocked,omitempty" xml:"blocked,omitempty"`
-	AwaitingAcceptance *int `form:"awaiting_acceptance,omitempty" json:"awaiting_acceptance,omitempty" xml:"awaiting_acceptance,omitempty"`
-	Done               *int `form:"done,omitempty" json:"done,omitempty" xml:"done,omitempty"`
-	Skipped            *int `form:"skipped,omitempty" json:"skipped,omitempty" xml:"skipped,omitempty"`
+	NotStarted *int `form:"not_started,omitempty" json:"not_started,omitempty" xml:"not_started,omitempty"`
+	InProgress *int `form:"in_progress,omitempty" json:"in_progress,omitempty" xml:"in_progress,omitempty"`
+	Blocked    *int `form:"blocked,omitempty" json:"blocked,omitempty" xml:"blocked,omitempty"`
+	Done       *int `form:"done,omitempty" json:"done,omitempty" xml:"done,omitempty"`
+	Skipped    *int `form:"skipped,omitempty" json:"skipped,omitempty" xml:"skipped,omitempty"`
 }
 
 // FormationActivityEntryResponseBody is used to define fields on response body
@@ -518,16 +457,12 @@ type FormationSubItemUpdateRequestBody struct {
 	Status string `form:"status" json:"status" xml:"status"`
 }
 
-// NewUpdateItemRequestBody builds the HTTP request body from the payload of
-// the "update_item" endpoint of the "lfx_v2_formation_service" service.
-func NewUpdateItemRequestBody(p *lfxv2formationservice.UpdateItemPayload) *UpdateItemRequestBody {
-	body := &UpdateItemRequestBody{
-		Status:       p.Status,
-		Assignee:     p.Assignee,
-		DueDate:      p.DueDate,
-		Note:         p.Note,
-		SkipReason:   p.SkipReason,
-		EvidenceLink: p.EvidenceLink,
+// NewSetItemStatusRequestBody builds the HTTP request body from the payload of
+// the "set_item_status" endpoint of the "lfx_v2_formation_service" service.
+func NewSetItemStatusRequestBody(p *lfxv2formationservice.SetItemStatusPayload) *SetItemStatusRequestBody {
+	body := &SetItemStatusRequestBody{
+		Status: p.Status,
+		Reason: p.Reason,
 	}
 	if p.SubItems != nil {
 		body.SubItems = make([]*FormationSubItemUpdateRequestBody, len(p.SubItems))
@@ -542,29 +477,22 @@ func NewUpdateItemRequestBody(p *lfxv2formationservice.UpdateItemPayload) *Updat
 	return body
 }
 
-// NewAcceptItemRequestBody builds the HTTP request body from the payload of
-// the "accept_item" endpoint of the "lfx_v2_formation_service" service.
-func NewAcceptItemRequestBody(p *lfxv2formationservice.AcceptItemPayload) *AcceptItemRequestBody {
-	body := &AcceptItemRequestBody{
-		Note: p.Note,
+// NewAssignItemRequestBody builds the HTTP request body from the payload of
+// the "assign_item" endpoint of the "lfx_v2_formation_service" service.
+func NewAssignItemRequestBody(p *lfxv2formationservice.AssignItemPayload) *AssignItemRequestBody {
+	body := &AssignItemRequestBody{
+		Assignee: p.Assignee,
+		DueDate:  p.DueDate,
 	}
 	return body
 }
 
-// NewRejectItemRequestBody builds the HTTP request body from the payload of
-// the "reject_item" endpoint of the "lfx_v2_formation_service" service.
-func NewRejectItemRequestBody(p *lfxv2formationservice.RejectItemPayload) *RejectItemRequestBody {
-	body := &RejectItemRequestBody{
-		Note: p.Note,
-	}
-	return body
-}
-
-// NewReopenItemRequestBody builds the HTTP request body from the payload of
-// the "reopen_item" endpoint of the "lfx_v2_formation_service" service.
-func NewReopenItemRequestBody(p *lfxv2formationservice.ReopenItemPayload) *ReopenItemRequestBody {
-	body := &ReopenItemRequestBody{
-		Note: p.Note,
+// NewUpdateItemRequestBody builds the HTTP request body from the payload of
+// the "update_item" endpoint of the "lfx_v2_formation_service" service.
+func NewUpdateItemRequestBody(p *lfxv2formationservice.UpdateItemPayload) *UpdateItemRequestBody {
+	body := &UpdateItemRequestBody{
+		Note:         p.Note,
+		EvidenceLink: p.EvidenceLink,
 	}
 	return body
 }
@@ -663,6 +591,244 @@ func NewGetFormationActivityUnauthorized(body *GetFormationActivityUnauthorizedR
 	return v
 }
 
+// NewSetItemStatusResultOK builds a "lfx_v2_formation_service" service
+// "set_item_status" endpoint result from a HTTP "OK" response.
+func NewSetItemStatusResultOK(body *SetItemStatusResponseBody, etag *string) *lfxv2formationservice.SetItemStatusResult {
+	v := &lfxv2formationservice.FormationItem{
+		UID:            *body.UID,
+		ItemKey:        *body.ItemKey,
+		SectionKey:     *body.SectionKey,
+		Position:       *body.Position,
+		Title:          *body.Title,
+		OwnerTeam:      body.OwnerTeam,
+		Gate:           *body.Gate,
+		RequiresWriter: *body.RequiresWriter,
+		StatusSource:   *body.StatusSource,
+		IsRequired:     *body.IsRequired,
+		ChecklistType:  *body.ChecklistType,
+		ActionLink:     body.ActionLink,
+		EvidenceLink:   body.EvidenceLink,
+		Status:         *body.Status,
+		Assignee:       body.Assignee,
+		DueDate:        body.DueDate,
+		Note:           body.Note,
+		SkipReason:     body.SkipReason,
+		Version:        *body.Version,
+	}
+	if body.PlatformCheck != nil {
+		v.PlatformCheck = unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(body.PlatformCheck)
+	}
+	if body.ResolvedRef != nil {
+		v.ResolvedRef = unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(body.ResolvedRef)
+	}
+	if body.SubItems != nil {
+		v.SubItems = make([]*lfxv2formationservice.FormationSubItem, len(body.SubItems))
+		for i, val := range body.SubItems {
+			if val == nil {
+				v.SubItems[i] = nil
+				continue
+			}
+			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
+		}
+	}
+	v.AvailableActions = make([]*lfxv2formationservice.FormationAvailableAction, len(body.AvailableActions))
+	for i, val := range body.AvailableActions {
+		if val == nil {
+			v.AvailableActions[i] = nil
+			continue
+		}
+		v.AvailableActions[i] = unmarshalFormationAvailableActionResponseBodyToLfxv2formationserviceFormationAvailableAction(val)
+	}
+	res := &lfxv2formationservice.SetItemStatusResult{
+		Item: v,
+	}
+	res.Etag = etag
+
+	return res
+}
+
+// NewSetItemStatusNotFound builds a lfx_v2_formation_service service
+// set_item_status endpoint NotFound error.
+func NewSetItemStatusNotFound(body *SetItemStatusNotFoundResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewSetItemStatusVersionMismatch builds a lfx_v2_formation_service service
+// set_item_status endpoint VersionMismatch error.
+func NewSetItemStatusVersionMismatch(body *SetItemStatusVersionMismatchResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewSetItemStatusConflict builds a lfx_v2_formation_service service
+// set_item_status endpoint Conflict error.
+func NewSetItemStatusConflict(body *SetItemStatusConflictResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewSetItemStatusBadRequest builds a lfx_v2_formation_service service
+// set_item_status endpoint BadRequest error.
+func NewSetItemStatusBadRequest(body *SetItemStatusBadRequestResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewSetItemStatusUnauthorized builds a lfx_v2_formation_service service
+// set_item_status endpoint Unauthorized error.
+func NewSetItemStatusUnauthorized(body *SetItemStatusUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewAssignItemResultOK builds a "lfx_v2_formation_service" service
+// "assign_item" endpoint result from a HTTP "OK" response.
+func NewAssignItemResultOK(body *AssignItemResponseBody, etag *string) *lfxv2formationservice.AssignItemResult {
+	v := &lfxv2formationservice.FormationItem{
+		UID:            *body.UID,
+		ItemKey:        *body.ItemKey,
+		SectionKey:     *body.SectionKey,
+		Position:       *body.Position,
+		Title:          *body.Title,
+		OwnerTeam:      body.OwnerTeam,
+		Gate:           *body.Gate,
+		RequiresWriter: *body.RequiresWriter,
+		StatusSource:   *body.StatusSource,
+		IsRequired:     *body.IsRequired,
+		ChecklistType:  *body.ChecklistType,
+		ActionLink:     body.ActionLink,
+		EvidenceLink:   body.EvidenceLink,
+		Status:         *body.Status,
+		Assignee:       body.Assignee,
+		DueDate:        body.DueDate,
+		Note:           body.Note,
+		SkipReason:     body.SkipReason,
+		Version:        *body.Version,
+	}
+	if body.PlatformCheck != nil {
+		v.PlatformCheck = unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(body.PlatformCheck)
+	}
+	if body.ResolvedRef != nil {
+		v.ResolvedRef = unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(body.ResolvedRef)
+	}
+	if body.SubItems != nil {
+		v.SubItems = make([]*lfxv2formationservice.FormationSubItem, len(body.SubItems))
+		for i, val := range body.SubItems {
+			if val == nil {
+				v.SubItems[i] = nil
+				continue
+			}
+			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
+		}
+	}
+	v.AvailableActions = make([]*lfxv2formationservice.FormationAvailableAction, len(body.AvailableActions))
+	for i, val := range body.AvailableActions {
+		if val == nil {
+			v.AvailableActions[i] = nil
+			continue
+		}
+		v.AvailableActions[i] = unmarshalFormationAvailableActionResponseBodyToLfxv2formationserviceFormationAvailableAction(val)
+	}
+	res := &lfxv2formationservice.AssignItemResult{
+		Item: v,
+	}
+	res.Etag = etag
+
+	return res
+}
+
+// NewAssignItemNotFound builds a lfx_v2_formation_service service assign_item
+// endpoint NotFound error.
+func NewAssignItemNotFound(body *AssignItemNotFoundResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAssignItemVersionMismatch builds a lfx_v2_formation_service service
+// assign_item endpoint VersionMismatch error.
+func NewAssignItemVersionMismatch(body *AssignItemVersionMismatchResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAssignItemConflict builds a lfx_v2_formation_service service assign_item
+// endpoint Conflict error.
+func NewAssignItemConflict(body *AssignItemConflictResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAssignItemBadRequest builds a lfx_v2_formation_service service
+// assign_item endpoint BadRequest error.
+func NewAssignItemBadRequest(body *AssignItemBadRequestResponseBody) *lfxv2formationservice.FormationError {
+	v := &lfxv2formationservice.FormationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAssignItemUnauthorized builds a lfx_v2_formation_service service
+// assign_item endpoint Unauthorized error.
+func NewAssignItemUnauthorized(body *AssignItemUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
 // NewUpdateItemResultOK builds a "lfx_v2_formation_service" service
 // "update_item" endpoint result from a HTTP "OK" response.
 func NewUpdateItemResultOK(body *UpdateItemResponseBody, etag *string) *lfxv2formationservice.UpdateItemResult {
@@ -702,6 +868,14 @@ func NewUpdateItemResultOK(body *UpdateItemResponseBody, etag *string) *lfxv2for
 			}
 			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
 		}
+	}
+	v.AvailableActions = make([]*lfxv2formationservice.FormationAvailableAction, len(body.AvailableActions))
+	for i, val := range body.AvailableActions {
+		if val == nil {
+			v.AvailableActions[i] = nil
+			continue
+		}
+		v.AvailableActions[i] = unmarshalFormationAvailableActionResponseBodyToLfxv2formationserviceFormationAvailableAction(val)
 	}
 	res := &lfxv2formationservice.UpdateItemResult{
 		Item: v,
@@ -774,339 +948,6 @@ func NewUpdateItemUnauthorized(body *UpdateItemUnauthorizedResponseBody) *lfxv2f
 	return v
 }
 
-// NewAcceptItemResultOK builds a "lfx_v2_formation_service" service
-// "accept_item" endpoint result from a HTTP "OK" response.
-func NewAcceptItemResultOK(body *AcceptItemResponseBody, etag *string) *lfxv2formationservice.AcceptItemResult {
-	v := &lfxv2formationservice.FormationItem{
-		UID:            *body.UID,
-		ItemKey:        *body.ItemKey,
-		SectionKey:     *body.SectionKey,
-		Position:       *body.Position,
-		Title:          *body.Title,
-		OwnerTeam:      body.OwnerTeam,
-		Gate:           *body.Gate,
-		RequiresWriter: *body.RequiresWriter,
-		StatusSource:   *body.StatusSource,
-		IsRequired:     *body.IsRequired,
-		ChecklistType:  *body.ChecklistType,
-		ActionLink:     body.ActionLink,
-		EvidenceLink:   body.EvidenceLink,
-		Status:         *body.Status,
-		Assignee:       body.Assignee,
-		DueDate:        body.DueDate,
-		Note:           body.Note,
-		SkipReason:     body.SkipReason,
-		Version:        *body.Version,
-	}
-	if body.PlatformCheck != nil {
-		v.PlatformCheck = unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(body.PlatformCheck)
-	}
-	if body.ResolvedRef != nil {
-		v.ResolvedRef = unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(body.ResolvedRef)
-	}
-	if body.SubItems != nil {
-		v.SubItems = make([]*lfxv2formationservice.FormationSubItem, len(body.SubItems))
-		for i, val := range body.SubItems {
-			if val == nil {
-				v.SubItems[i] = nil
-				continue
-			}
-			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
-		}
-	}
-	res := &lfxv2formationservice.AcceptItemResult{
-		Item: v,
-	}
-	res.Etag = etag
-
-	return res
-}
-
-// NewAcceptItemNotFound builds a lfx_v2_formation_service service accept_item
-// endpoint NotFound error.
-func NewAcceptItemNotFound(body *AcceptItemNotFoundResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewAcceptItemVersionMismatch builds a lfx_v2_formation_service service
-// accept_item endpoint VersionMismatch error.
-func NewAcceptItemVersionMismatch(body *AcceptItemVersionMismatchResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewAcceptItemConflict builds a lfx_v2_formation_service service accept_item
-// endpoint Conflict error.
-func NewAcceptItemConflict(body *AcceptItemConflictResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewAcceptItemBadRequest builds a lfx_v2_formation_service service
-// accept_item endpoint BadRequest error.
-func NewAcceptItemBadRequest(body *AcceptItemBadRequestResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewAcceptItemUnauthorized builds a lfx_v2_formation_service service
-// accept_item endpoint Unauthorized error.
-func NewAcceptItemUnauthorized(body *AcceptItemUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
-	v := &lfxv2formationservice.UnauthorizedError{
-		Code:    *body.Code,
-		Message: *body.Message,
-	}
-
-	return v
-}
-
-// NewRejectItemResultOK builds a "lfx_v2_formation_service" service
-// "reject_item" endpoint result from a HTTP "OK" response.
-func NewRejectItemResultOK(body *RejectItemResponseBody, etag *string) *lfxv2formationservice.RejectItemResult {
-	v := &lfxv2formationservice.FormationItem{
-		UID:            *body.UID,
-		ItemKey:        *body.ItemKey,
-		SectionKey:     *body.SectionKey,
-		Position:       *body.Position,
-		Title:          *body.Title,
-		OwnerTeam:      body.OwnerTeam,
-		Gate:           *body.Gate,
-		RequiresWriter: *body.RequiresWriter,
-		StatusSource:   *body.StatusSource,
-		IsRequired:     *body.IsRequired,
-		ChecklistType:  *body.ChecklistType,
-		ActionLink:     body.ActionLink,
-		EvidenceLink:   body.EvidenceLink,
-		Status:         *body.Status,
-		Assignee:       body.Assignee,
-		DueDate:        body.DueDate,
-		Note:           body.Note,
-		SkipReason:     body.SkipReason,
-		Version:        *body.Version,
-	}
-	if body.PlatformCheck != nil {
-		v.PlatformCheck = unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(body.PlatformCheck)
-	}
-	if body.ResolvedRef != nil {
-		v.ResolvedRef = unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(body.ResolvedRef)
-	}
-	if body.SubItems != nil {
-		v.SubItems = make([]*lfxv2formationservice.FormationSubItem, len(body.SubItems))
-		for i, val := range body.SubItems {
-			if val == nil {
-				v.SubItems[i] = nil
-				continue
-			}
-			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
-		}
-	}
-	res := &lfxv2formationservice.RejectItemResult{
-		Item: v,
-	}
-	res.Etag = etag
-
-	return res
-}
-
-// NewRejectItemNotFound builds a lfx_v2_formation_service service reject_item
-// endpoint NotFound error.
-func NewRejectItemNotFound(body *RejectItemNotFoundResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewRejectItemVersionMismatch builds a lfx_v2_formation_service service
-// reject_item endpoint VersionMismatch error.
-func NewRejectItemVersionMismatch(body *RejectItemVersionMismatchResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewRejectItemConflict builds a lfx_v2_formation_service service reject_item
-// endpoint Conflict error.
-func NewRejectItemConflict(body *RejectItemConflictResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewRejectItemBadRequest builds a lfx_v2_formation_service service
-// reject_item endpoint BadRequest error.
-func NewRejectItemBadRequest(body *RejectItemBadRequestResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewRejectItemUnauthorized builds a lfx_v2_formation_service service
-// reject_item endpoint Unauthorized error.
-func NewRejectItemUnauthorized(body *RejectItemUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
-	v := &lfxv2formationservice.UnauthorizedError{
-		Code:    *body.Code,
-		Message: *body.Message,
-	}
-
-	return v
-}
-
-// NewReopenItemResultOK builds a "lfx_v2_formation_service" service
-// "reopen_item" endpoint result from a HTTP "OK" response.
-func NewReopenItemResultOK(body *ReopenItemResponseBody, etag *string) *lfxv2formationservice.ReopenItemResult {
-	v := &lfxv2formationservice.FormationItem{
-		UID:            *body.UID,
-		ItemKey:        *body.ItemKey,
-		SectionKey:     *body.SectionKey,
-		Position:       *body.Position,
-		Title:          *body.Title,
-		OwnerTeam:      body.OwnerTeam,
-		Gate:           *body.Gate,
-		RequiresWriter: *body.RequiresWriter,
-		StatusSource:   *body.StatusSource,
-		IsRequired:     *body.IsRequired,
-		ChecklistType:  *body.ChecklistType,
-		ActionLink:     body.ActionLink,
-		EvidenceLink:   body.EvidenceLink,
-		Status:         *body.Status,
-		Assignee:       body.Assignee,
-		DueDate:        body.DueDate,
-		Note:           body.Note,
-		SkipReason:     body.SkipReason,
-		Version:        *body.Version,
-	}
-	if body.PlatformCheck != nil {
-		v.PlatformCheck = unmarshalFormationPlatformCheckResponseBodyToLfxv2formationserviceFormationPlatformCheck(body.PlatformCheck)
-	}
-	if body.ResolvedRef != nil {
-		v.ResolvedRef = unmarshalFormationResolvedRefResponseBodyToLfxv2formationserviceFormationResolvedRef(body.ResolvedRef)
-	}
-	if body.SubItems != nil {
-		v.SubItems = make([]*lfxv2formationservice.FormationSubItem, len(body.SubItems))
-		for i, val := range body.SubItems {
-			if val == nil {
-				v.SubItems[i] = nil
-				continue
-			}
-			v.SubItems[i] = unmarshalFormationSubItemResponseBodyToLfxv2formationserviceFormationSubItem(val)
-		}
-	}
-	res := &lfxv2formationservice.ReopenItemResult{
-		Item: v,
-	}
-	res.Etag = etag
-
-	return res
-}
-
-// NewReopenItemNotFound builds a lfx_v2_formation_service service reopen_item
-// endpoint NotFound error.
-func NewReopenItemNotFound(body *ReopenItemNotFoundResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewReopenItemVersionMismatch builds a lfx_v2_formation_service service
-// reopen_item endpoint VersionMismatch error.
-func NewReopenItemVersionMismatch(body *ReopenItemVersionMismatchResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewReopenItemConflict builds a lfx_v2_formation_service service reopen_item
-// endpoint Conflict error.
-func NewReopenItemConflict(body *ReopenItemConflictResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewReopenItemBadRequest builds a lfx_v2_formation_service service
-// reopen_item endpoint BadRequest error.
-func NewReopenItemBadRequest(body *ReopenItemBadRequestResponseBody) *lfxv2formationservice.FormationError {
-	v := &lfxv2formationservice.FormationError{
-		Name:    *body.Name,
-		Code:    *body.Code,
-		Message: *body.Message,
-		Reason:  *body.Reason,
-	}
-
-	return v
-}
-
-// NewReopenItemUnauthorized builds a lfx_v2_formation_service service
-// reopen_item endpoint Unauthorized error.
-func NewReopenItemUnauthorized(body *ReopenItemUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
-	v := &lfxv2formationservice.UnauthorizedError{
-		Code:    *body.Code,
-		Message: *body.Message,
-	}
-
-	return v
-}
-
 // NewReadyzServiceUnavailable builds a lfx_v2_formation_service service readyz
 // endpoint ServiceUnavailable error.
 func NewReadyzServiceUnavailable(body *ReadyzServiceUnavailableResponseBody) *lfxv2formationservice.ServiceUnavailableError {
@@ -1116,6 +957,160 @@ func NewReadyzServiceUnavailable(body *ReadyzServiceUnavailableResponseBody) *lf
 	}
 
 	return v
+}
+
+// ValidateSetItemStatusResponseBody runs the validations defined on
+// set_item_status_response_body
+func ValidateSetItemStatusResponseBody(body *SetItemStatusResponseBody) (err error) {
+	if body.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
+	}
+	if body.ItemKey == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("item_key", "body"))
+	}
+	if body.SectionKey == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("section_key", "body"))
+	}
+	if body.Position == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("position", "body"))
+	}
+	if body.Title == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("title", "body"))
+	}
+	if body.Gate == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("gate", "body"))
+	}
+	if body.RequiresWriter == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_writer", "body"))
+	}
+	if body.StatusSource == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
+	}
+	if body.IsRequired == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
+	}
+	if body.ChecklistType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
+	}
+	if body.Status == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
+	}
+	if body.AvailableActions == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("available_actions", "body"))
+	}
+	if body.Version == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
+	}
+	if body.StatusSource != nil {
+		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
+		}
+	}
+	if body.ChecklistType != nil {
+		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
+		}
+	}
+	if body.Status != nil {
+		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
+		}
+	}
+	if body.DueDate != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.due_date", *body.DueDate, goa.FormatDate))
+	}
+	for _, e := range body.SubItems {
+		if e != nil {
+			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	for _, e := range body.AvailableActions {
+		if e != nil {
+			if err2 := ValidateFormationAvailableActionResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	return
+}
+
+// ValidateAssignItemResponseBody runs the validations defined on
+// assign_item_response_body
+func ValidateAssignItemResponseBody(body *AssignItemResponseBody) (err error) {
+	if body.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
+	}
+	if body.ItemKey == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("item_key", "body"))
+	}
+	if body.SectionKey == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("section_key", "body"))
+	}
+	if body.Position == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("position", "body"))
+	}
+	if body.Title == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("title", "body"))
+	}
+	if body.Gate == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("gate", "body"))
+	}
+	if body.RequiresWriter == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_writer", "body"))
+	}
+	if body.StatusSource == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
+	}
+	if body.IsRequired == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
+	}
+	if body.ChecklistType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
+	}
+	if body.Status == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
+	}
+	if body.AvailableActions == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("available_actions", "body"))
+	}
+	if body.Version == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
+	}
+	if body.StatusSource != nil {
+		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
+		}
+	}
+	if body.ChecklistType != nil {
+		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
+		}
+	}
+	if body.Status != nil {
+		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
+		}
+	}
+	if body.DueDate != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.due_date", *body.DueDate, goa.FormatDate))
+	}
+	for _, e := range body.SubItems {
+		if e != nil {
+			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	for _, e := range body.AvailableActions {
+		if e != nil {
+			if err2 := ValidateFormationAvailableActionResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	return
 }
 
 // ValidateUpdateItemResponseBody runs the validations defined on
@@ -1154,6 +1149,9 @@ func ValidateUpdateItemResponseBody(body *UpdateItemResponseBody) (err error) {
 	if body.Status == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
 	}
+	if body.AvailableActions == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("available_actions", "body"))
+	}
 	if body.Version == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
 	}
@@ -1168,8 +1166,8 @@ func ValidateUpdateItemResponseBody(body *UpdateItemResponseBody) (err error) {
 		}
 	}
 	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 		}
 	}
 	if body.DueDate != nil {
@@ -1182,203 +1180,9 @@ func ValidateUpdateItemResponseBody(body *UpdateItemResponseBody) (err error) {
 			}
 		}
 	}
-	return
-}
-
-// ValidateAcceptItemResponseBody runs the validations defined on
-// accept_item_response_body
-func ValidateAcceptItemResponseBody(body *AcceptItemResponseBody) (err error) {
-	if body.UID == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
-	}
-	if body.ItemKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("item_key", "body"))
-	}
-	if body.SectionKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("section_key", "body"))
-	}
-	if body.Position == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("position", "body"))
-	}
-	if body.Title == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("title", "body"))
-	}
-	if body.Gate == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("gate", "body"))
-	}
-	if body.RequiresWriter == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("requires_writer", "body"))
-	}
-	if body.StatusSource == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
-	}
-	if body.IsRequired == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
-	}
-	if body.ChecklistType == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
-	}
-	if body.Status == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
-	}
-	if body.Version == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
-	}
-	if body.StatusSource != nil {
-		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
-		}
-	}
-	if body.ChecklistType != nil {
-		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
-		}
-	}
-	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
-		}
-	}
-	if body.DueDate != nil {
-		err = goa.MergeErrors(err, goa.ValidateFormat("body.due_date", *body.DueDate, goa.FormatDate))
-	}
-	for _, e := range body.SubItems {
+	for _, e := range body.AvailableActions {
 		if e != nil {
-			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
-				err = goa.MergeErrors(err, err2)
-			}
-		}
-	}
-	return
-}
-
-// ValidateRejectItemResponseBody runs the validations defined on
-// reject_item_response_body
-func ValidateRejectItemResponseBody(body *RejectItemResponseBody) (err error) {
-	if body.UID == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
-	}
-	if body.ItemKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("item_key", "body"))
-	}
-	if body.SectionKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("section_key", "body"))
-	}
-	if body.Position == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("position", "body"))
-	}
-	if body.Title == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("title", "body"))
-	}
-	if body.Gate == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("gate", "body"))
-	}
-	if body.RequiresWriter == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("requires_writer", "body"))
-	}
-	if body.StatusSource == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
-	}
-	if body.IsRequired == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
-	}
-	if body.ChecklistType == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
-	}
-	if body.Status == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
-	}
-	if body.Version == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
-	}
-	if body.StatusSource != nil {
-		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
-		}
-	}
-	if body.ChecklistType != nil {
-		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
-		}
-	}
-	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
-		}
-	}
-	if body.DueDate != nil {
-		err = goa.MergeErrors(err, goa.ValidateFormat("body.due_date", *body.DueDate, goa.FormatDate))
-	}
-	for _, e := range body.SubItems {
-		if e != nil {
-			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
-				err = goa.MergeErrors(err, err2)
-			}
-		}
-	}
-	return
-}
-
-// ValidateReopenItemResponseBody runs the validations defined on
-// reopen_item_response_body
-func ValidateReopenItemResponseBody(body *ReopenItemResponseBody) (err error) {
-	if body.UID == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
-	}
-	if body.ItemKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("item_key", "body"))
-	}
-	if body.SectionKey == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("section_key", "body"))
-	}
-	if body.Position == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("position", "body"))
-	}
-	if body.Title == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("title", "body"))
-	}
-	if body.Gate == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("gate", "body"))
-	}
-	if body.RequiresWriter == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("requires_writer", "body"))
-	}
-	if body.StatusSource == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status_source", "body"))
-	}
-	if body.IsRequired == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("is_required", "body"))
-	}
-	if body.ChecklistType == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("checklist_type", "body"))
-	}
-	if body.Status == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
-	}
-	if body.Version == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
-	}
-	if body.StatusSource != nil {
-		if !(*body.StatusSource == "manual" || *body.StatusSource == "platform") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status_source", *body.StatusSource, []any{"manual", "platform"}))
-		}
-	}
-	if body.ChecklistType != nil {
-		if !(*body.ChecklistType == "internal" || *body.ChecklistType == "external" || *body.ChecklistType == "both") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.checklist_type", *body.ChecklistType, []any{"internal", "external", "both"}))
-		}
-	}
-	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
-		}
-	}
-	if body.DueDate != nil {
-		err = goa.MergeErrors(err, goa.ValidateFormat("body.due_date", *body.DueDate, goa.FormatDate))
-	}
-	for _, e := range body.SubItems {
-		if e != nil {
-			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
+			if err2 := ValidateFormationAvailableActionResponseBody(e); err2 != nil {
 				err = goa.MergeErrors(err, err2)
 			}
 		}
@@ -1434,6 +1238,214 @@ func ValidateGetFormationActivityUnauthorizedResponseBody(body *GetFormationActi
 	return
 }
 
+// ValidateSetItemStatusNotFoundResponseBody runs the validations defined on
+// set_item_status_NotFound_response_body
+func ValidateSetItemStatusNotFoundResponseBody(body *SetItemStatusNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateSetItemStatusVersionMismatchResponseBody runs the validations
+// defined on set_item_status_VersionMismatch_response_body
+func ValidateSetItemStatusVersionMismatchResponseBody(body *SetItemStatusVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateSetItemStatusConflictResponseBody runs the validations defined on
+// set_item_status_Conflict_response_body
+func ValidateSetItemStatusConflictResponseBody(body *SetItemStatusConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateSetItemStatusBadRequestResponseBody runs the validations defined on
+// set_item_status_BadRequest_response_body
+func ValidateSetItemStatusBadRequestResponseBody(body *SetItemStatusBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateSetItemStatusUnauthorizedResponseBody runs the validations defined
+// on set_item_status_Unauthorized_response_body
+func ValidateSetItemStatusUnauthorizedResponseBody(body *SetItemStatusUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateAssignItemNotFoundResponseBody runs the validations defined on
+// assign_item_NotFound_response_body
+func ValidateAssignItemNotFoundResponseBody(body *AssignItemNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateAssignItemVersionMismatchResponseBody runs the validations defined
+// on assign_item_VersionMismatch_response_body
+func ValidateAssignItemVersionMismatchResponseBody(body *AssignItemVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateAssignItemConflictResponseBody runs the validations defined on
+// assign_item_Conflict_response_body
+func ValidateAssignItemConflictResponseBody(body *AssignItemConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateAssignItemBadRequestResponseBody runs the validations defined on
+// assign_item_BadRequest_response_body
+func ValidateAssignItemBadRequestResponseBody(body *AssignItemBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		}
+	}
+	return
+}
+
+// ValidateAssignItemUnauthorizedResponseBody runs the validations defined on
+// assign_item_Unauthorized_response_body
+func ValidateAssignItemUnauthorizedResponseBody(body *AssignItemUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
 // ValidateUpdateItemNotFoundResponseBody runs the validations defined on
 // update_item_NotFound_response_body
 func ValidateUpdateItemNotFoundResponseBody(body *UpdateItemNotFoundResponseBody) (err error) {
@@ -1450,8 +1462,8 @@ func ValidateUpdateItemNotFoundResponseBody(body *UpdateItemNotFoundResponseBody
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
 		}
 	}
 	return
@@ -1473,8 +1485,8 @@ func ValidateUpdateItemVersionMismatchResponseBody(body *UpdateItemVersionMismat
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
 		}
 	}
 	return
@@ -1496,8 +1508,8 @@ func ValidateUpdateItemConflictResponseBody(body *UpdateItemConflictResponseBody
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
 		}
 	}
 	return
@@ -1519,8 +1531,8 @@ func ValidateUpdateItemBadRequestResponseBody(body *UpdateItemBadRequestResponse
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "blocked_reason_required" || *body.Reason == "skip_reason_required" || *body.Reason == "return_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "blocked_reason_required", "skip_reason_required", "return_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
 		}
 	}
 	return
@@ -1529,318 +1541,6 @@ func ValidateUpdateItemBadRequestResponseBody(body *UpdateItemBadRequestResponse
 // ValidateUpdateItemUnauthorizedResponseBody runs the validations defined on
 // update_item_Unauthorized_response_body
 func ValidateUpdateItemUnauthorizedResponseBody(body *UpdateItemUnauthorizedResponseBody) (err error) {
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	return
-}
-
-// ValidateAcceptItemNotFoundResponseBody runs the validations defined on
-// accept_item_NotFound_response_body
-func ValidateAcceptItemNotFoundResponseBody(body *AcceptItemNotFoundResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateAcceptItemVersionMismatchResponseBody runs the validations defined
-// on accept_item_VersionMismatch_response_body
-func ValidateAcceptItemVersionMismatchResponseBody(body *AcceptItemVersionMismatchResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateAcceptItemConflictResponseBody runs the validations defined on
-// accept_item_Conflict_response_body
-func ValidateAcceptItemConflictResponseBody(body *AcceptItemConflictResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateAcceptItemBadRequestResponseBody runs the validations defined on
-// accept_item_BadRequest_response_body
-func ValidateAcceptItemBadRequestResponseBody(body *AcceptItemBadRequestResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateAcceptItemUnauthorizedResponseBody runs the validations defined on
-// accept_item_Unauthorized_response_body
-func ValidateAcceptItemUnauthorizedResponseBody(body *AcceptItemUnauthorizedResponseBody) (err error) {
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	return
-}
-
-// ValidateRejectItemNotFoundResponseBody runs the validations defined on
-// reject_item_NotFound_response_body
-func ValidateRejectItemNotFoundResponseBody(body *RejectItemNotFoundResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateRejectItemVersionMismatchResponseBody runs the validations defined
-// on reject_item_VersionMismatch_response_body
-func ValidateRejectItemVersionMismatchResponseBody(body *RejectItemVersionMismatchResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateRejectItemConflictResponseBody runs the validations defined on
-// reject_item_Conflict_response_body
-func ValidateRejectItemConflictResponseBody(body *RejectItemConflictResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateRejectItemBadRequestResponseBody runs the validations defined on
-// reject_item_BadRequest_response_body
-func ValidateRejectItemBadRequestResponseBody(body *RejectItemBadRequestResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateRejectItemUnauthorizedResponseBody runs the validations defined on
-// reject_item_Unauthorized_response_body
-func ValidateRejectItemUnauthorizedResponseBody(body *RejectItemUnauthorizedResponseBody) (err error) {
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	return
-}
-
-// ValidateReopenItemNotFoundResponseBody runs the validations defined on
-// reopen_item_NotFound_response_body
-func ValidateReopenItemNotFoundResponseBody(body *ReopenItemNotFoundResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateReopenItemVersionMismatchResponseBody runs the validations defined
-// on reopen_item_VersionMismatch_response_body
-func ValidateReopenItemVersionMismatchResponseBody(body *ReopenItemVersionMismatchResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateReopenItemConflictResponseBody runs the validations defined on
-// reopen_item_Conflict_response_body
-func ValidateReopenItemConflictResponseBody(body *ReopenItemConflictResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateReopenItemBadRequestResponseBody runs the validations defined on
-// reopen_item_BadRequest_response_body
-func ValidateReopenItemBadRequestResponseBody(body *ReopenItemBadRequestResponseBody) (err error) {
-	if body.Name == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
-	}
-	if body.Code == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
-	}
-	if body.Message == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
-	}
-	if body.Reason == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
-	}
-	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "version_mismatch" || *body.Reason == "unknown_item_key" || *body.Reason == "checklist_read_only" || *body.Reason == "invalid_transition" || *body.Reason == "self_acceptance_forbidden" || *body.Reason == "skip_reason_required" || *body.Reason == "assignee_not_on_project" || *body.Reason == "link_scheme_invalid" || *body.Reason == "due_date_invalid" || *body.Reason == "sub_item_null" || *body.Reason == "unknown_sub_item_key" || *body.Reason == "no_fields_to_update") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "version_mismatch", "unknown_item_key", "checklist_read_only", "invalid_transition", "self_acceptance_forbidden", "skip_reason_required", "assignee_not_on_project", "link_scheme_invalid", "due_date_invalid", "sub_item_null", "unknown_sub_item_key", "no_fields_to_update"}))
-		}
-	}
-	return
-}
-
-// ValidateReopenItemUnauthorizedResponseBody runs the validations defined on
-// reopen_item_Unauthorized_response_body
-func ValidateReopenItemUnauthorizedResponseBody(body *ReopenItemUnauthorizedResponseBody) (err error) {
 	if body.Code == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
 	}
@@ -1913,6 +1613,9 @@ func ValidateFormationItemResponseBody(body *FormationItemResponseBody) (err err
 	if body.Status == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
 	}
+	if body.AvailableActions == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("available_actions", "body"))
+	}
 	if body.Version == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("version", "body"))
 	}
@@ -1927,8 +1630,8 @@ func ValidateFormationItemResponseBody(body *FormationItemResponseBody) (err err
 		}
 	}
 	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 		}
 	}
 	if body.DueDate != nil {
@@ -1937,6 +1640,13 @@ func ValidateFormationItemResponseBody(body *FormationItemResponseBody) (err err
 	for _, e := range body.SubItems {
 		if e != nil {
 			if err2 := ValidateFormationSubItemResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	for _, e := range body.AvailableActions {
+		if e != nil {
+			if err2 := ValidateFormationAvailableActionResponseBody(e); err2 != nil {
 				err = goa.MergeErrors(err, err2)
 			}
 		}
@@ -1957,9 +1667,24 @@ func ValidateFormationSubItemResponseBody(body *FormationSubItemResponseBody) (e
 		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
 	}
 	if body.Status != nil {
-		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "awaiting_acceptance" || *body.Status == "done" || *body.Status == "skipped") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+		if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 		}
+	}
+	return
+}
+
+// ValidateFormationAvailableActionResponseBody runs the validations defined on
+// FormationAvailableActionResponseBody
+func ValidateFormationAvailableActionResponseBody(body *FormationAvailableActionResponseBody) (err error) {
+	if body.Action == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("action", "body"))
+	}
+	if body.RequiresReason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_reason", "body"))
+	}
+	if body.RequiresRelation == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("requires_relation", "body"))
 	}
 	return
 }
@@ -1975,9 +1700,6 @@ func ValidateFormationProgressResponseBody(body *FormationProgressResponseBody) 
 	}
 	if body.Blocked == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("blocked", "body"))
-	}
-	if body.AwaitingAcceptance == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("awaiting_acceptance", "body"))
 	}
 	if body.Done == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("done", "body"))
@@ -2020,8 +1742,8 @@ func ValidateFormationActivityEntryResponseBody(body *FormationActivityEntryResp
 // ValidateFormationSubItemUpdateRequestBody runs the validations defined on
 // FormationSubItemUpdateRequestBody
 func ValidateFormationSubItemUpdateRequestBody(body *FormationSubItemUpdateRequestBody) (err error) {
-	if !(body.Status == "not_started" || body.Status == "in_progress" || body.Status == "blocked" || body.Status == "awaiting_acceptance" || body.Status == "done" || body.Status == "skipped") {
-		err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", body.Status, []any{"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped"}))
+	if !(body.Status == "not_started" || body.Status == "in_progress" || body.Status == "blocked" || body.Status == "done" || body.Status == "skipped") {
+		err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
 	}
 	return
 }
