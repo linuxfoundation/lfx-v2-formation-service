@@ -143,6 +143,18 @@ shape persisted, with no retry, sweep or repair command able to clear it. A dele
 one to watch: the row keeps the dead parent's UID in its chain and so stays under the foundations
 below the break, but it will not reappear under the ones above it until the project is reparented.
 
+One consequence of that split is worth stating, because the sweep runs on every replica with no
+leader election. The creating pass is now the only publish that can emit a prefix from a shortfall
+that would have resolved on a retry — every other publish withholds instead. So the one window where
+two replicas can disagree about a chain is the pass that creates the checklist: the replica that
+wins the insert may publish a prefix while a replica that lost it publishes the full chain, and
+these are ordinary sends with no ordering between them. A prefix landing last leaves the row
+narrowed until the next publish that resolves fully, which is the next project event or the next
+sweep. Deliberately not solved with generation tokens or conditional index updates: concurrency here
+is handled by an idempotent operation over the `UNIQUE (project_uid)` constraint, and an ordering
+guarantee would be a change to the indexer wire shared by every producer, not a formation-service
+decision.
+
 Every short chain, withheld or published, increments `partial_chains_total` on the sweep's closing
 log line. That counter is the only place the shortfall surfaces: a row scoped to less than its
 parentage does not appear under the foundation it belongs to, and that is indistinguishable in a
