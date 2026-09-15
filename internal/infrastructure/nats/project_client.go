@@ -33,19 +33,6 @@ import (
 // Nothing here is stored. Every reply is used and discarded, so a stage change
 // upstream is visible on the next read rather than after an invalidation this
 // service would have to get right.
-// projectServiceErrorCode returns the error code from a project-service error
-// envelope ({"error":"not_found",...} or {"error":"internal",...}), or "" if
-// data is a normal success payload (plain string, JSON array, or JSON object
-// without an "error" key).
-func projectServiceErrorCode(data []byte) string {
-	var env struct {
-		Error string `json:"error"`
-	}
-	if json.Unmarshal(data, &env) != nil {
-		return ""
-	}
-	return env.Error
-}
 
 type ProjectClient struct {
 	client *Client
@@ -77,9 +64,9 @@ func (p *ProjectClient) Slug(ctx context.Context, projectUID string) (string, er
 //
 // A project with no writers configured is a real state and not an error: it
 // replies with an empty JSON array. That is distinct from a zero-byte reply,
-// which is how the project service reports every handler failure — an unknown
-// project, an unparseable UID and a store outage all arrive that way, so it is
-// read as not-found rather than decoded.
+// which is a transport/dispatch failure — under the coordinated project-service
+// RPC contract a confirmed absence arrives as {"error":"not_found"}, not as an
+// empty body, so a zero-byte reply cannot be treated as not-found.
 func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]string, error) {
 	if projectUID == "" {
 		return nil, fmt.Errorf("project_uid is required: %w", domain.ErrInvalidRequest)
@@ -323,6 +310,15 @@ func (p *ProjectClient) GetRef(ctx context.Context, projectUID string) (port.Pro
 	if err != nil {
 		return port.ProjectRef{}, err
 	}
+	// A nil/empty body is not the same as a missing project: an empty array is
+	// the legitimate "project deleted" answer; an absent body means the upstream
+	// could not answer. Under the coordinated project-service RPC contract,
+	// a confirmed absence arrives as {"error":"not_found"} or as an empty array
+	// — not as an empty body — so an empty body is an unresolvable
+	// transport/dispatch failure.
+	if len(bytes.TrimSpace(reply)) == 0 {
+		return port.ProjectRef{}, fmt.Errorf("project %s ref returned no reply (transport failure)", projectUID)
+	}
 	// Project-service returns {"error":"not_found",...} or {"error":"internal",...}
 	// on errors. Deliberately not ErrNotFound here: the empty-array case below
 	// is ErrNotFound (project deleted), while an error envelope means the
@@ -396,6 +392,32 @@ func userEmailMap(users []projectUser) map[string]string {
 		}
 	}
 	return out
+}
+
+// get performs a single-attribute lookup, where the reply is the value as raw
+// bytes and an empty reply means the project has no such attribute.
+
+// projectServiceErrorCode returns the error code from a project-service error
+// envelope ({"error":"not_found",...} or {"error":"internal",...}), or "" when
+// no error code could be extracted (success payload, empty body, or JSON
+// without an "error" key).
+//
+// Only bytes whose first non-whitespace character is '{' are tested as JSON
+// objects — success payloads for writers (JSON array) and the single-attribute
+// subjects (plain strings) never begin with '{', so the full Unmarshal is
+// bypassed for them.
+func projectServiceErrorCode(data []byte) string {
+	t := bytes.TrimLeft(data, " \t\r\n")
+	if len(t) == 0 || t[0] != '{' {
+		return ""
+	}
+	var env struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(data, &env) != nil {
+		return ""
+	}
+	return env.Error
 }
 
 // get performs a single-attribute lookup, where the reply is the value as raw

@@ -47,7 +47,9 @@ func TestProjectServiceErrorCode(t *testing.T) {
 }
 
 // TestProjectClientNotFoundEnvelope pins that a {"error":"not_found"} reply
-// maps to domain.ErrNotFound for Name/Slug lookups and Writers.
+// maps to domain.ErrNotFound for Name/Slug lookups, Writers, and GetSettings;
+// and to domain.ErrNotFound for ListFormingProjects but NOT for GetRef (which
+// distinguishes envelope errors from the empty-array "project deleted" case).
 func TestProjectClientNotFoundEnvelope(t *testing.T) {
 	ctx := context.Background()
 
@@ -84,6 +86,40 @@ func TestProjectClientNotFoundEnvelope(t *testing.T) {
 		_, err := p.GetSettings(ctx, "project-1")
 		if !errors.Is(err, domain.ErrNotFound) {
 			t.Errorf("GetSettings() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	// ListFormingProjects maps not_found to ErrNotFound: the project list not
+	// existing is a confirmed absence the caller can react to.
+	t.Run("ListFormingProjects", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectListProjectsSubject, func(string) []byte {
+			return []byte(`{"error":"not_found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.ListFormingProjects(ctx, nil)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("ListFormingProjects() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	// GetRef deliberately does NOT map not_found to ErrNotFound: an error
+	// envelope means the upstream could not answer, while the empty-array reply
+	// is the ErrNotFound path (project deleted). The refresher and projector
+	// branch on ErrNotFound vs a retryable failure, so the distinction is
+	// load-bearing.
+	t.Run("GetRef_not_found_envelope_is_not_ErrNotFound", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectListProjectsSubject, func(string) []byte {
+			return []byte(`{"error":"not_found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.GetRef(ctx, "project-1")
+		if err == nil {
+			t.Fatal("GetRef() with not_found envelope = nil, want an error")
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("GetRef() with not_found envelope = domain.ErrNotFound, must NOT be ErrNotFound (envelope != empty-array)")
 		}
 	})
 }
@@ -605,6 +641,7 @@ func TestProjectClientGetRefRejectsUnusableReplies(t *testing.T) {
 	}{
 		{"an entry naming no project", []byte(`[{"uid":"","slug":"nameless"}]`), true},
 		{"a zero-byte reply", nil, false},
+		{"an error envelope", []byte(`{"error":"not_found"}`), false},
 	}
 
 	for _, tc := range tests {

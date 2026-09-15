@@ -12,6 +12,17 @@ import (
 // this service invents is a request nothing answers — which surfaces as a
 // request timeout rather than as anything naming the mistake.
 //
+// # Error-envelope contract (lfx-v2-project-service PR #121)
+//
+// All subjects below share a common error-envelope format:
+//   - Success: subject-specific bytes (raw string, JSON array, or JSON object).
+//   - Error: {"error":"<code>"[,"message":"..."]} where code is one of:
+//     "not_found" — confirmed absence (the project or record does not exist);
+//     "internal"  — upstream failure (store error, decode error, etc.).
+//   - Unknown codes should be treated as "internal" (retryable upstream failure).
+//   - Empty body: transport/dispatch failure — project-service always returns
+//     {"error":"not_found"} for confirmed absences, never an empty body.
+//
 // Each takes the project UID as the raw request body. Replies are raw bytes for
 // the single-attribute lookups and JSON for the writers list.
 const (
