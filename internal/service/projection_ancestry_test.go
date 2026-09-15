@@ -166,7 +166,11 @@ func TestAChainLongerThanTheCapStopsAtTheCap(t *testing.T) {
 // An ancestor that cannot be read stops the walk but does not discard what was
 // already established: the row is scoped to the foundations it is known to sit
 // under, rather than to none of them.
-func TestAnUnreadableAncestorLeavesTheResolvedPrefix(t *testing.T) {
+//
+// A deleted ancestor is final rather than retryable. The project service
+// answered — it said there is no such project — and it will answer the same way
+// on every later pass, so holding the row back would hold it back for good.
+func TestADeletedAncestorLeavesTheResolvedPrefix(t *testing.T) {
 	projects := mock.NewProjectReader()
 	projects.SetProjectsByUID([]port.ProjectRef{
 		{UID: "project-1", ParentUID: "intermediate-1"},
@@ -177,8 +181,8 @@ func TestAnUnreadableAncestorLeavesTheResolvedPrefix(t *testing.T) {
 
 	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
 
-	if outcome != chainRetryable {
-		t.Error("an unreadable ancestor may answer next time, so the walk is retryable")
+	if outcome != chainFinal {
+		t.Error("a deleted ancestor reads the same way every time, so the walk is final")
 	}
 	want := []string{"project-1", "intermediate-1", "missing-1"}
 	if len(chain) != len(want) {
@@ -188,6 +192,33 @@ func TestAnUnreadableAncestorLeavesTheResolvedPrefix(t *testing.T) {
 		if chain[i] != want[i] {
 			t.Fatalf("chain = %v, want %v", chain, want)
 		}
+	}
+}
+
+// Its counterpart: the project service could not answer at all, which may go
+// away on its own. That is the one shortfall worth holding a republish for.
+//
+// The distinction is the project client's, not this walk's — a reply naming no
+// project is ErrNotFound, while an unreachable service or a failed handler
+// arrives as an ordinary error. Collapsing the two here would freeze every row
+// beneath a deleted project.
+func TestAnUnreachableProjectServiceLeavesTheWalkRetryable(t *testing.T) {
+	projects := mock.NewProjectReader()
+	projects.SetProjectsByUID([]port.ProjectRef{
+		{UID: "project-1", ParentUID: "intermediate-1"},
+		{UID: "intermediate-1", ParentUID: "foundation-1"},
+		{UID: "foundation-1"},
+	})
+	projects.SetRefErrorFor("foundation-1", errors.New("no responders available"))
+	projector := NewProjector(nil, nil, projects, nil)
+
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
+
+	if outcome != chainRetryable {
+		t.Error("an unreachable service may answer next time, so the walk is retryable")
+	}
+	if !chainIs(chain, "project-1", "intermediate-1", "foundation-1") {
+		t.Errorf("chain = %v, want the resolved prefix", chain)
 	}
 }
 
@@ -242,8 +273,11 @@ func TestTheWritePathLeavesTheExistingRowRatherThanShorteningIt(t *testing.T) {
 	publisher := mock.NewIndexerPublisher()
 	projects := mock.NewProjectReader()
 	projects.SetProjectsByUID([]port.ProjectRef{
-		{UID: "project-1", ParentUID: "missing-1"},
+		{UID: "project-1", ParentUID: "unreachable-1"},
 	})
+	// Unreachable rather than absent: only a shortfall a later pass could
+	// resolve is worth withholding a row over.
+	projects.SetRefErrorFor("unreachable-1", errors.New("no responders available"))
 	projector := NewProjector(formations, items, projects, publisher)
 
 	if _, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"}); err != nil {
@@ -277,8 +311,11 @@ func TestWithholdingTheRowStillPublishesTheItemRows(t *testing.T) {
 	publisher := mock.NewIndexerPublisher()
 	projects := mock.NewProjectReader()
 	projects.SetProjectsByUID([]port.ProjectRef{
-		{UID: "project-1", ParentUID: "missing-1"},
+		{UID: "project-1", ParentUID: "unreachable-1"},
 	})
+	// Unreachable rather than absent: only a shortfall a later pass could
+	// resolve is worth withholding a row over.
+	projects.SetRefErrorFor("unreachable-1", errors.New("no responders available"))
 	projector := NewProjector(formations, items, projects, publisher)
 
 	formation, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"})
@@ -523,5 +560,46 @@ func TestAChainStoppedByTheDepthCapStillPublishesOnRepublish(t *testing.T) {
 	}
 	if got := projector.PartialChains(); got != 1 {
 		t.Errorf("PartialChains() = %d, want 1 — a capped chain is still a shortfall to report", got)
+	}
+}
+
+// A deleted ancestor must not freeze the row either.
+//
+// This is the same hazard the depth cap has, arriving by a different route: the
+// project service answers, and keeps answering, that the ancestor is gone. A
+// child left pointing at it would be withheld on every republish for as long as
+// the reference stood, so counts and stage would stop updating with no retry,
+// sweep or repair able to clear it. Only reparenting would, and nothing would
+// say that was needed.
+func TestADeletedAncestorStillPublishesOnRepublish(t *testing.T) {
+	ctx := context.Background()
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	publisher := mock.NewIndexerPublisher()
+	projects := mock.NewProjectReader()
+	projects.SetProjectsByUID([]port.ProjectRef{
+		{UID: "project-1", ParentUID: "deleted-1"},
+		// deleted-1 is unseeded, so the reader answers not-found for it.
+	})
+	projector := NewProjector(formations, items, projects, publisher)
+
+	if _, err := formations.Create(ctx, &model.Formation{ProjectUID: "project-1"}); err != nil {
+		t.Fatalf("seeding formation = %v", err)
+	}
+
+	published, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), Republish)
+
+	if err != nil {
+		t.Fatalf("Refresh() = %v, want no error — the answer will not improve on a retry", err)
+	}
+	if !published {
+		t.Error("published = false, want true — withholding here freezes the row for good")
+	}
+	doc := publisher.Latest("project-1")
+	if doc == nil {
+		t.Fatal("no document published")
+	}
+	if !chainIs(doc.AncestorUIDs, "project-1", "deleted-1") {
+		t.Errorf("ancestor_uids = %v, want the known prefix kept", doc.AncestorUIDs)
 	}
 }

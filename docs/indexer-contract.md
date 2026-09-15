@@ -126,19 +126,22 @@ consumer asks for it, not to make the two document types match.
 That chain is what the service could resolve when it published, not a guarantee. The walk ends early
 for two quite different reasons, and only one of them is worth holding a publish over.
 
-An **ancestor that cannot be read** may well answer next time, so there is a better chain to wait
-for. What happens then turns on whether a document for the row can already exist. A checklist
-created in that same pass has none, so it publishes the prefix that resolved: present under fewer
-foundations beats absent from all of them. Every other publish — a sweep revisiting a checklist, a
-project event, an operator repair, a refresh after an item write — is replacing a document that may
-already carry the full chain, so it is withheld and what is in the index stands until a later pass
-resolves the whole chain.
+An **ancestor the project service could not answer for** — unreachable, timed out, or a failed
+handler — may well answer next time, so there is a better chain to wait for. What happens then turns
+on whether a document for the row can already exist. A checklist created in that same pass has none,
+so it publishes the prefix that resolved: present under fewer foundations beats absent from all of
+them. Every other publish — a sweep revisiting a checklist, a project event, an operator repair, a
+refresh after an item write — is replacing a document that may already carry the full chain, so it
+is withheld and what is in the index stands until a later pass resolves the whole chain.
 
-A walk stopped by the **depth cap or a cycle** is as long as it will ever be: both are properties of
-the data, so every later walk returns the identical prefix. These always publish, whatever the
-posture. Withholding would not be waiting for anything — it would freeze the document entirely,
-counts and stage included, for as long as the shape persisted, and no retry, sweep or repair command
-could clear it.
+Everything else that shortens a chain is **as long as it will ever be**, and always publishes,
+whatever the posture: the depth cap, a cycle, and an ancestor the project service answered about by
+saying there is no such project. All three are properties of the data rather than of the attempt, so
+every later walk returns the identical prefix. Withholding for them would not be waiting for
+anything — it would freeze the document entirely, counts and stage included, for as long as the
+shape persisted, with no retry, sweep or repair command able to clear it. A deleted ancestor is the
+one to watch: the row keeps the dead parent's UID in its chain and so stays under the foundations
+below the break, but it will not reappear under the ones above it until the project is reparented.
 
 Every short chain, withheld or published, increments `partial_chains_total` on the sweep's closing
 log line. That counter is the only place the shortfall surfaces: a row scoped to less than its

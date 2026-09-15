@@ -261,8 +261,10 @@ const (
 	// later walk returns the same prefix and there is nothing to wait for.
 	chainFinal
 
-	// chainRetryable stopped because an ancestor could not be read. The next
-	// pass may well get further.
+	// chainRetryable stopped because the project service could not answer for
+	// an ancestor. The next pass may well get further. An ancestor it answered
+	// about by saying there is no such project is chainFinal instead — that
+	// answer does not change on a retry.
 	chainRetryable
 )
 
@@ -287,7 +289,8 @@ const (
 //
 // Both bounds — a project seen twice, and the depth cap — return what has been
 // resolved so far rather than an error, and both are chainFinal: bad data, not
-// a bad moment. Only an unreadable ancestor is worth waiting on.
+// a bad moment. So is a deleted ancestor. Only an ancestor the project service
+// could not answer for is worth waiting on.
 func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) (chain []string, outcome chainOutcome) {
 	chain = []string{project.UID}
 	if p.projects == nil {
@@ -326,6 +329,16 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 
 		ref, err := p.projects.GetRef(ctx, next)
 		if err != nil {
+			// A not-found is a successful read of a project that is not there,
+			// which ProjectClient.GetRef keeps deliberately distinct from an
+			// upstream that could not answer. A deleted ancestor reads the same
+			// way on every later pass, so waiting for it holds the row back for
+			// good.
+			if errors.Is(err, domain.ErrNotFound) {
+				slog.WarnContext(ctx, "an ancestor no longer exists; scoping the row to what resolved",
+					"project_uid", project.UID, "ancestor_uid", next)
+				return chain, chainFinal
+			}
 			slog.WarnContext(ctx, "could not read an ancestor while resolving parentage; scoping the row to what resolved",
 				"project_uid", project.UID, "ancestor_uid", next, "error", err)
 			return chain, chainRetryable

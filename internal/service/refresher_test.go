@@ -434,12 +434,15 @@ func TestReportEveryToleratesANonPositiveInterval(t *testing.T) {
 func TestAWithheldRowCountsAsAFailureRatherThanASkip(t *testing.T) {
 	f := newRefresherFixture(t)
 
-	// Give the project a parent nothing can resolve, so the chain comes back
-	// shorter than the document already indexed.
+	// Give the project a parent the owning service cannot answer for, so the
+	// chain comes back shorter than the document already indexed. Unreachable
+	// rather than deleted: a deleted ancestor reads the same way forever, and
+	// withholding for it would freeze the row rather than wait for anything.
 	f.projects.SetProjectsByUID([]port.ProjectRef{{
 		UID: "project-1", Slug: "a-project",
-		SubStage: model.StageFormationEngaged, ParentUID: "missing-1",
+		SubStage: model.StageFormationEngaged, ParentUID: "unreachable-1",
 	}})
+	f.projects.SetRefErrorFor("unreachable-1", errors.New("no responders available"))
 
 	f.refresher.AfterItemWrite(context.Background(), "project-1")
 	f.drain(t)

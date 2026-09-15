@@ -33,6 +33,11 @@ type ProjectReader struct {
 	// refresh against a project it has nothing to publish for.
 	refErr error
 
+	// refErrByUID scopes that failure to named projects, which is what a test
+	// resolving an ancestor chain needs: the project under test still has to be
+	// readable while one of the projects above it is not.
+	refErrByUID map[string]error
+
 	nameCalls     int
 	getRefCalls   int
 	settingsCalls int
@@ -187,6 +192,16 @@ func (r *ProjectReader) SetRefError(err error) {
 	r.refErr = err
 }
 
+// SetRefErrorFor arms that failure for one project only.
+func (r *ProjectReader) SetRefErrorFor(projectUID string, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.refErrByUID == nil {
+		r.refErrByUID = make(map[string]error)
+	}
+	r.refErrByUID[projectUID] = err
+}
+
 // GetRef returns one project's ref from either seeded set, or
 // domain.ErrNotFound.
 //
@@ -200,6 +215,9 @@ func (r *ProjectReader) GetRef(_ context.Context, projectUID string) (port.Proje
 	defer r.mu.Unlock()
 
 	r.getRefCalls++
+	if err, ok := r.refErrByUID[projectUID]; ok {
+		return port.ProjectRef{}, err
+	}
 	if r.refErr != nil {
 		return port.ProjectRef{}, r.refErr
 	}
