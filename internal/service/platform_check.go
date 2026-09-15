@@ -116,7 +116,11 @@ func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*P
 	}
 
 	txErr := c.uow.Do(ctx, func(tx port.Tx) error {
-		formation, err := tx.Formations().GetByProject(ctx, projectUID)
+		// Locked for the same reason the three write routes lock it: the
+		// lifecycle read below is a precondition for writing other rows, and
+		// nothing else stops a freeze committing in between. The pass is one
+		// project's checklist, so the lock it holds is narrow.
+		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
 		if err != nil {
 			return err
 		}

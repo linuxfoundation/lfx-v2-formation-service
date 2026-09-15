@@ -339,6 +339,24 @@ func TestAPersonSettingAPlatformItemsStatusTakesItOverFromTheCheck(t *testing.T)
 		"a person set this status, so the row is no longer the platform's to move")
 }
 
+// The sweep is a writer too, so it takes the same row lock the three write
+// routes take. Reading the lifecycle unlocked and then writing items lets a
+// freeze commit in between, and this pass writes more rows per transaction than
+// any of them.
+func TestTheSweepReadsTheChecklistsLifecycleUnderARowLock(t *testing.T) {
+	checker, repos, _ := platformFixture(t, model.StatusNotStarted, foundCommittee)
+	repos.formations.ResetCalls()
+
+	_, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+
+	calls := repos.formations.Calls()
+	assert.Equal(t, 1, calls["formations.GetByProjectForUpdate"],
+		"the sweep did not lock the formation row it checked the lifecycle on")
+	assert.Zero(t, calls["formations.GetByProject"],
+		"the sweep took the unlocked read, which a concurrent freeze can overtake")
+}
+
 // A project with no checklist is not an error. The reconcile may not have created
 // one yet.
 func TestAProjectWithNoChecklistIsNotAFailure(t *testing.T) {

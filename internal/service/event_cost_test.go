@@ -143,11 +143,18 @@ func TestOneSweepOfASettledProjectCostsAKnownAmountOfIO(t *testing.T) {
 	// the event path's, and it is deliberate. The pass is what measures how many
 	// rows are waiting on a lookup nobody has written yet, and once a day per
 	// project is what that measurement costs.
+	//
+	// One of the three formation reads is the locking one, which is the
+	// platform pass's: it writes rows after checking the lifecycle, so it takes
+	// the row for the length of its transaction the same way the write routes
+	// do. Same count either way — the lock changes what the read costs the rest
+	// of the system, not what it costs here.
 	want := map[string]int{
-		"formations.ListProjectUIDs": 1,
-		"formations.GetByProject":    3,
-		"items.ListByFormation":      2,
-		"uow.Do":                     1,
+		"formations.ListProjectUIDs":       1,
+		"formations.GetByProject":          2,
+		"formations.GetByProjectForUpdate": 1,
+		"items.ListByFormation":            2,
+		"uow.Do":                           1,
 	}
 	for name, wantCount := range want {
 		if ledger[name] != wantCount {
