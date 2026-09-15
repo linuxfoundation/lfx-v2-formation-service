@@ -394,9 +394,6 @@ func userEmailMap(users []projectUser) map[string]string {
 	return out
 }
 
-// get performs a single-attribute lookup, where the reply is the value as raw
-// bytes and an empty reply means the project has no such attribute.
-
 // projectServiceErrorCode returns the error code from a project-service error
 // envelope ({"error":"not_found",...} or {"error":"internal",...}), or "" when
 // no error code could be extracted (success payload, empty body, or JSON

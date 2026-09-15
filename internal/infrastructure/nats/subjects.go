@@ -19,7 +19,10 @@ import (
 //   - Error: {"error":"<code>"[,"message":"..."]} where code is one of:
 //     "not_found" — confirmed absence (the project or record does not exist);
 //     "internal"  — upstream failure (store error, decode error, etc.).
-//   - Unknown codes should be treated as "internal" (retryable upstream failure).
+//   - Unknown codes should be treated as a non-not-found upstream failure;
+//     callers may only infer "confirmed absence did not occur" — they must
+//     not assume the error is retryable, as codes may indicate permanent
+//     conditions (e.g. bad request).
 //   - Empty body: transport/dispatch failure — project-service always returns
 //     {"error":"not_found"} for confirmed absences, never an empty body.
 //
