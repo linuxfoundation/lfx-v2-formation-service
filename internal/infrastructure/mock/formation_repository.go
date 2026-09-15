@@ -80,6 +80,27 @@ func (r *FormationRepository) GetByProject(_ context.Context, projectUID string)
 	return &out, nil
 }
 
+// GetByProjectForUpdate returns the formation for a project, or
+// domain.ErrNotFound.
+//
+// The lock is the real repository's to take; here the mutex that guards every
+// call already serialises the doubles. What this double carries is the call
+// name, so a test can see which of the two reads the write path took — which
+// is why it repeats the lookup rather than delegating to GetByProject and
+// recording that name too.
+func (r *FormationRepository) GetByProjectForUpdate(_ context.Context, projectUID string) (*model.Formation, error) {
+	r.record("formations.GetByProjectForUpdate")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	uid, ok := r.byProject[projectUID]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	out := *r.byUID[uid]
+	return &out, nil
+}
+
 // UpdateLifecycle moves the formation's lifecycle, refusing the write when
 // revision is stale (domain.ErrVersionMismatch).
 func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error) {

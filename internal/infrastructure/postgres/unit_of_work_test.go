@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -258,5 +259,114 @@ func TestUnitOfWorkCommitsBothTogether(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Errorf("activity entries: got %d, want 1", len(entries))
+	}
+}
+
+// TestALockedFormationHoldsOffALifecycleChange is the race the item write path
+// takes the row lock for.
+//
+// An item write checks the checklist's lifecycle and then writes a different
+// row. The item's revision guards the item and says nothing about the
+// formation, so with an unlocked read a freeze committing in between leaves the
+// check true when it was made and false when the write lands — a mutation on a
+// checklist that is no longer accepting them, with nothing in the response to
+// say so. Only a real database shows it: an in-memory double has no row lock to
+// take and no second connection to be blocked on.
+func TestALockedFormationHoldsOffALifecycleChange(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	uow := NewUnitOfWork(db)
+
+	templateRepo := NewTemplateRepo(db)
+	template, err := templateRepo.Upsert(ctx, &model.Template{
+		Name:     "tx-test-template-lock",
+		Version:  1,
+		State:    model.TemplatePublished,
+		Priority: 100,
+		Match:    "always",
+		Sections: []model.TemplateSection{},
+	})
+	if err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+
+	const projectUID = "tx-test-project-lock"
+	formationRepo := NewFormationRepo(db)
+	formation, err := formationRepo.Create(ctx, &model.Formation{
+		ProjectUID:      projectUID,
+		TemplateUID:     template.UID,
+		TemplateVersion: template.Version,
+	})
+	if err != nil {
+		t.Fatalf("seed formation: %v", err)
+	}
+
+	itemRepo := NewItemRepo(db)
+	item := &model.Item{
+		FormationUID: formation.UID,
+		ItemKey:      "tx_test_item_lock",
+		SectionKey:   "legal_and_entity",
+		Position:     1,
+		Title:        "TX test item",
+		Status:       model.StatusNotStarted,
+	}
+	if _, err := itemRepo.InsertMany(ctx, []*model.Item{item}); err != nil {
+		t.Fatalf("seed item: %v", err)
+	}
+
+	// The competing freeze, on its own connection, released the moment the
+	// write path has read the lifecycle and believes it.
+	locked := make(chan struct{})
+	frozen := make(chan error, 1)
+	go func() {
+		<-locked
+		_, freezeErr := NewFormationRepo(db).UpdateLifecycle(
+			ctx, formation.UID, model.LifecycleFrozen, formation.Revision)
+		frozen <- freezeErr
+	}()
+
+	inProgress := model.StatusInProgress
+	err = uow.Do(ctx, func(tx port.Tx) error {
+		held, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
+		if err != nil {
+			return fmt.Errorf("locking read: %w", err)
+		}
+		if !held.Lifecycle.Mutable() {
+			return fmt.Errorf("lifecycle %q is not mutable at the start of the write", held.Lifecycle)
+		}
+		close(locked)
+
+		select {
+		case freezeErr := <-frozen:
+			return fmt.Errorf(
+				"the freeze committed (err=%v) while the row was locked: the item write is about to land on a checklist that is no longer live",
+				freezeErr)
+		case <-time.After(500 * time.Millisecond):
+			// Blocked, which is the whole point.
+		}
+
+		_, err = tx.Items().Update(ctx, item.UID, item.Revision, port.ItemPatch{Status: &inProgress})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("the write must complete against a live checklist: %v", err)
+	}
+
+	// And the freeze is not lost, only made to wait its turn.
+	select {
+	case freezeErr := <-frozen:
+		if freezeErr != nil {
+			t.Fatalf("the freeze must succeed once the lock is released, got %v", freezeErr)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the freeze never completed after the lock was released")
+	}
+
+	after, err := formationRepo.GetByProject(ctx, projectUID)
+	if err != nil {
+		t.Fatalf("re-fetch formation: %v", err)
+	}
+	if after.Lifecycle != model.LifecycleFrozen {
+		t.Errorf("lifecycle after: got %q, want %q", after.Lifecycle, model.LifecycleFrozen)
 	}
 }

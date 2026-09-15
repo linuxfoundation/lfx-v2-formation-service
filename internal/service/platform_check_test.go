@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
@@ -66,17 +67,22 @@ func platformFixtureRequiring(
 		checker.lookups["committee"] = lookup
 	}
 	return checker, &platformRepos{
-		formations: formations, items: items, activity: activity,
+		formations: formations, items: items, activity: activity, uow: uow,
 	}, formation
 }
 
 // platformRepos are the doubles a test asserts against, handed back rather than
 // reached through the checker: the checker holds a unit of work, not the
 // repositories, and a test that reached inside it would be asserting on wiring.
+//
+// The unit of work travels with them so a test can put the write path and the
+// sweep over the same storage, which is the only way to observe what one does
+// to the other.
 type platformRepos struct {
 	formations *mock.FormationRepository
 	items      *mock.ItemRepository
 	activity   *mock.ActivityRepository
+	uow        *mock.UnitOfWork
 }
 
 func foundCommittee(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
@@ -293,6 +299,44 @@ func TestAReadOnlyChecklistIsNotAdvanced(t *testing.T) {
 	after, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusInProgress, after.Status)
+}
+
+// The forward-only rule reaches the row a person has just taken over.
+//
+// Sending a platform row back is the reviewer saying the resource the check
+// found does not actually satisfy the item — created against the wrong project,
+// or wrong in a way no lookup can see. If the row stayed marked platform, the
+// next sweep would find the same resource and put it straight back to done,
+// which is the regression the rule forbids, arriving one sweep late.
+func TestAPersonSettingAPlatformItemsStatusTakesItOverFromTheCheck(t *testing.T) {
+	checker, repos, formation := platformFixture(t, model.StatusDone, foundCommittee)
+
+	s := NewService(
+		WithFormations(repos.formations),
+		WithItems(repos.items),
+		WithActivity(repos.activity),
+		WithUnitOfWork(repos.uow),
+	)
+
+	before, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
+	require.NoError(t, err)
+
+	sent, err := setStatus(s, asPrincipal("reviewer"), &svc.SetItemStatusPayload{
+		ProjectUID: formation.ProjectUID, ItemKey: before.ItemKey, IfMatch: before.Revision,
+		Status: ptr("not_started"), Reason: ptr("the committee was created against the wrong project"),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "not_started", sent.Status)
+
+	report, err := checker.ResolveFor(context.Background(), formation.ProjectUID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, report.Advanced, "a sweep re-advanced a row a person had just sent back")
+
+	after, err := repos.items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusNotStarted, after.Status)
+	assert.Equal(t, model.SourceManual, after.StatusSource,
+		"a person set this status, so the row is no longer the platform's to move")
 }
 
 // A project with no checklist is not an error. The reconcile may not have created

@@ -101,6 +101,31 @@ func (r *FormationRepo) GetByProject(ctx context.Context, projectUID string) (*m
 	return f, nil
 }
 
+// GetByProjectForUpdate returns the formation for a project, holding the row
+// until the transaction ends.
+//
+// SELECT ... FOR UPDATE rather than a revision check, because the caller is not
+// writing this row: it is reading the lifecycle and then writing an item. The
+// item's optimistic lock says nothing about the formation, so without the row
+// lock a lifecycle change can commit between the two and the write lands on a
+// checklist that is no longer live. UpdateLifecycle's own UPDATE takes the same
+// row lock, so the two serialise whichever order they arrive in.
+func (r *FormationRepo) GetByProjectForUpdate(ctx context.Context, projectUID string) (*model.Formation, error) {
+	f := &model.Formation{}
+	err := r.db.NewSelect().
+		Model(f).
+		Where("project_uid = ?", projectUID).
+		For("UPDATE").
+		Scan(ctx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("select formation for update: %w", err)
+	}
+	return f, nil
+}
+
 // UpdateLifecycle moves the formation's lifecycle under an optimistic lock.
 // Zero rows affected means the caller's revision was stale.
 func (r *FormationRepo) UpdateLifecycle(ctx context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error) {

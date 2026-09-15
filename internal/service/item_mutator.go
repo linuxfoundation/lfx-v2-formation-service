@@ -136,7 +136,12 @@ func (s *Service) mutateItem(
 	var prevAssignee string // empty means no prior assignee
 
 	err := s.uow.Do(ctx, func(tx port.Tx) error {
-		formation, err := tx.Formations().GetByProject(ctx, projectUID)
+		// Locked for the life of the transaction, because the lifecycle read on
+		// the next line is a precondition for a write to a different row. The
+		// item's revision guards the item; nothing guards a freeze committing
+		// in between, so without the lock this check can be true when it is
+		// made and false when the write lands.
+		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
 		if err != nil {
 			if errors.Is(err, domain.ErrNotFound) {
 				return domain.NewReasonError(domain.ErrNotFound, reasonNotFound)

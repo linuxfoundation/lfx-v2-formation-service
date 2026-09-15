@@ -108,6 +108,16 @@ func buildStatusPatch(item *model.Item, p *svc.SetItemStatusPayload) (port.ItemP
 
 			patch.Status = &newStatus
 
+			// A person setting the status takes the row over from the platform
+			// check. Left marked platform, a row sent back because the resource
+			// the check found was wrong — created against the wrong project,
+			// say — is re-advanced to done by the next sweep, which is the
+			// regression the forward-only rule forbids, arriving a sweep late.
+			// Nothing sets it back to platform: once a person has ruled on a
+			// row, the check is no longer the authority on it.
+			manual := model.SourceManual
+			patch.StatusSource = &manual
+
 			// Where the reason comes to rest differs by transition, because
 			// the two are read back in different places: a skip reason is the
 			// standing explanation for why an item was excused and belongs on

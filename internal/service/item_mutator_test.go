@@ -437,6 +437,34 @@ func TestUpdateItem(t *testing.T) {
 		assert.Equal(t, "checklist_read_only", formationErr.Reason)
 	})
 
+	// The refusal above is only as good as the read it is made from. An
+	// unlocked read can be overtaken by a freeze committing between the check
+	// and the item write, which is the one way a mutation lands on a checklist
+	// that is no longer live — the item's own revision cannot catch it, since
+	// the lifecycle moves on the formation row and carries its own.
+	//
+	// Asserted here as the call the write path makes; that the lock actually
+	// blocks is Postgres's behaviour and is exercised against a real database
+	// in the repository tests.
+	t.Run("the mutation reads the checklist's lifecycle under a row lock", func(t *testing.T) {
+		s, formation, itemOne, _ := newItemMutatorTestService(t)
+		formations, ok := s.formations.(*mock.FormationRepository)
+		require.True(t, ok, "the fixture's formation repository is %T", s.formations)
+		formations.ResetCalls()
+
+		_, err := setStatus(s, context.Background(), &svc.SetItemStatusPayload{
+			ProjectUID: formation.ProjectUID, ItemKey: itemOne.ItemKey, IfMatch: itemOne.Revision,
+			Status: ptr("in_progress"),
+		})
+		require.NoError(t, err)
+
+		calls := formations.Calls()
+		assert.Equal(t, 1, calls["formations.GetByProjectForUpdate"],
+			"the write path did not lock the formation row it checked the lifecycle on")
+		assert.Zero(t, calls["formations.GetByProject"],
+			"the write path took the unlocked read, which a concurrent freeze can overtake")
+	})
+
 	t.Run("evidence link with an unsafe scheme is refused", func(t *testing.T) {
 		s, formation, itemOne, _ := newItemMutatorTestService(t)
 		unsafe := "javascript:alert(1)"
