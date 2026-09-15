@@ -41,26 +41,32 @@ type Projector struct {
 	partialChains atomic.Int64
 }
 
-// PublishPosture says which path is asking for a publish, which decides what
-// happens when the project's parentage cannot be fully resolved.
+// PublishPosture says whether a document for this row can already exist, which
+// decides what happens when the project's parentage cannot be fully resolved.
 //
-// The two paths need opposite answers, so this is a named argument rather than
-// something inferred at the call site. A scheduled sweep may be publishing a
-// row for the very first time and has no earlier document to fall back on, so
-// it publishes what it resolved — present under fewer foundations beats absent
-// from all of them. A write-triggered refresh always has an earlier document,
-// and republishing a shorter chain over it would drop the row out of its
-// foundation's queue until the next sweep: the same silent under-report this
-// whole change exists to remove, reintroduced as a side effect of the fix.
+// The question is whether this publish has anything to lose, not which path is
+// asking. A row whose checklist was created in this pass has no earlier
+// document to fall back on, so it publishes what it resolved — present under
+// fewer foundations beats absent from all of them. Every other publish is
+// replacing a document that may already carry the full chain, and a shorter
+// chain over it would drop the row out of its foundation's queue until the next
+// sweep: the same silent under-report this whole change exists to remove,
+// reintroduced as a side effect of the fix.
+//
+// Deliberately not inferred from the caller. The sweep and the project event
+// listener reach the publish through the same reconcile, so a listener handling
+// project.updated for a row that has existed for months arrives at the same
+// line as a sweep that has just created one.
 type PublishPosture int
 
 const (
-	// ScheduledPublish is the reconcile sweep. Publishes a partial chain.
-	ScheduledPublish PublishPosture = iota
+	// FirstPublish is a checklist created in this pass, so no document for it
+	// can exist yet. Publishes whatever chain resolved.
+	FirstPublish PublishPosture = iota
 
-	// WriteTriggeredPublish is the refresh that follows an item write. Skips
-	// the republish rather than shortening an existing chain.
-	WriteTriggeredPublish
+	// Republish is every other publish. Skips rather than narrowing the scope
+	// of a document already in the index.
+	Republish
 )
 
 // maxAncestorDepth bounds the upward walk.
@@ -122,12 +128,17 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef, postur
 	// withheld means the checklist row is deliberately left as it was
 	// published, because this pass could only build a shorter chain than the
 	// document already in the index carries.
-	ancestors, complete := p.ancestorChain(ctx, project)
-	withheld := !complete && posture == WriteTriggeredPublish
-	if !complete {
+	//
+	// Only a retryable shortfall is worth withholding over. A chain stopped by
+	// the depth cap or a cycle is as long as it will ever be, so holding the
+	// row back would not be waiting for a better answer — it would freeze every
+	// other field on the document, counts and stage included, for good.
+	ancestors, outcome := p.ancestorChain(ctx, project)
+	withheld := outcome == chainRetryable && posture == Republish
+	if outcome != chainComplete {
 		p.partialChains.Add(1)
 		if withheld {
-			slog.WarnContext(ctx, "leaving the queue row as published: parentage could not be resolved on a write-triggered refresh",
+			slog.WarnContext(ctx, "leaving the queue row as published: parentage resolved to less than the document already in the index may carry",
 				"project_uid", project.UID, "resolved_depth", len(ancestors))
 		} else {
 			slog.WarnContext(ctx, "publishing a queue row scoped to less than its full parentage",
@@ -233,8 +244,30 @@ func (p *Projector) PartialChains() int64 {
 	return p.partialChains.Load()
 }
 
+// chainOutcome says how far the upward walk got and, where it stopped short,
+// whether asking again could get further.
+//
+// The distinction decides whether a short chain is worth withholding a publish
+// over. Withholding is only ever a wait for a better answer, so it needs one to
+// be possible.
+type chainOutcome int
+
+const (
+	// chainComplete reached the platform root.
+	chainComplete chainOutcome = iota
+
+	// chainFinal stopped at a structural bound — the depth cap or a cycle.
+	// Both are properties of the data rather than of this attempt, so every
+	// later walk returns the same prefix and there is nothing to wait for.
+	chainFinal
+
+	// chainRetryable stopped because an ancestor could not be read. The next
+	// pass may well get further.
+	chainRetryable
+)
+
 // ancestorChain walks from the project up to the platform root, returning the
-// chain nearest-first and whether it reached the top.
+// chain nearest-first and how the walk ended.
 //
 // The project's own UID comes first. That is what makes scoping to a foundation
 // return the foundation's own row as well as everything beneath it, which is
@@ -253,11 +286,9 @@ func (p *Projector) PartialChains() int64 {
 // this design rules out.
 //
 // Both bounds — a project seen twice, and the depth cap — return what has been
-// resolved so far with complete false, rather than an error. There is one
-// degradation rule and the caller applies it by publish path; a reader of the
-// counters does not need to know which bound was hit to know the row is scoped
-// to less than its parentage.
-func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) (chain []string, complete bool) {
+// resolved so far rather than an error, and both are chainFinal: bad data, not
+// a bad moment. Only an unreadable ancestor is worth waiting on.
+func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) (chain []string, outcome chainOutcome) {
 	chain = []string{project.UID}
 	if p.projects == nil {
 		// No reader wired, which is the same deployment shape a nil publisher
@@ -265,9 +296,9 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 		// still emitted — dropping it would make this shape scope worse than it
 		// did before ancestry existed, which no degradation is allowed to do.
 		if project.ParentUID != "" {
-			return append(chain, project.ParentUID), false
+			return append(chain, project.ParentUID), chainFinal
 		}
-		return chain, true
+		return chain, chainComplete
 	}
 
 	visited := map[string]bool{project.UID: true}
@@ -277,12 +308,12 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 		if depth >= maxAncestorDepth {
 			slog.WarnContext(ctx, "stopped resolving parentage at the depth cap",
 				"project_uid", project.UID, "cap", maxAncestorDepth)
-			return chain, false
+			return chain, chainFinal
 		}
 		if visited[next] {
 			slog.WarnContext(ctx, "stopped resolving parentage at a cycle",
 				"project_uid", project.UID, "repeated_uid", next)
-			return chain, false
+			return chain, chainFinal
 		}
 		visited[next] = true
 
@@ -297,7 +328,7 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 		if err != nil {
 			slog.WarnContext(ctx, "could not read an ancestor while resolving parentage; scoping the row to what resolved",
 				"project_uid", project.UID, "ancestor_uid", next, "error", err)
-			return chain, false
+			return chain, chainRetryable
 		}
 		next = ref.ParentUID
 	}
@@ -305,7 +336,7 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 	// An empty parent is how the platform root answers, so the walk stops
 	// there on its own. The bounds above are guards against bad data, not the
 	// ordinary way out.
-	return chain, true
+	return chain, chainComplete
 }
 
 // formationAccessRelation is the relation a caller must hold on the project to

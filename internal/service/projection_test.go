@@ -520,7 +520,7 @@ func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
 		t.Fatalf("seeding items = %v", err)
 	}
 
-	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, ScheduledPublish)
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, FirstPublish)
 	if err != nil {
 		t.Fatalf("Refresh() = %v, want no error", err)
 	}
@@ -612,7 +612,7 @@ func TestRefreshCarriesProjectNameAndSlugOntoItemDocuments(t *testing.T) {
 		t.Fatalf("seeding items = %v", err)
 	}
 
-	if _, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1", Slug: "a-project"}, ScheduledPublish); err != nil {
+	if _, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1", Slug: "a-project"}, FirstPublish); err != nil {
 		t.Fatalf("Refresh() = %v, want no error", err)
 	}
 
@@ -653,7 +653,7 @@ func TestRefreshReturnsAnErrorWhenNoItemDocumentLands(t *testing.T) {
 	// The checklist publish still succeeds; only the item batch fails.
 	publisher.SetItemsError(errors.New("indexer unreachable for items"))
 
-	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, ScheduledPublish)
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, FirstPublish)
 	if err == nil {
 		t.Fatal("Refresh() = nil error, want one — the sweep counts a stale index only when told")
 	}

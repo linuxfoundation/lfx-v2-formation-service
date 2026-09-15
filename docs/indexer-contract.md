@@ -118,10 +118,32 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 | `formation:{formation_uid}` | Always set |
 
 The item document carries its own project and checklist, and no ancestry beyond them. The checklist
-document does carry the project's full ancestor chain, so that a foundation's queue resolves at any
+document does carry the project's ancestor chain, so that a foundation's queue resolves at any
 depth — but the two are deliberately different. This document's only consumer narrows by assignment
 rather than by foundation, so a chain here would be surface with nothing reading it. Add one when a
 consumer asks for it, not to make the two document types match.
+
+That chain is what the service could resolve when it published, not a guarantee. The walk ends early
+for two quite different reasons, and only one of them is worth holding a publish over.
+
+An **ancestor that cannot be read** may well answer next time, so there is a better chain to wait
+for. What happens then turns on whether a document for the row can already exist. A checklist
+created in that same pass has none, so it publishes the prefix that resolved: present under fewer
+foundations beats absent from all of them. Every other publish — a sweep revisiting a checklist, a
+project event, an operator repair, a refresh after an item write — is replacing a document that may
+already carry the full chain, so it is withheld and what is in the index stands until a later pass
+resolves the whole chain.
+
+A walk stopped by the **depth cap or a cycle** is as long as it will ever be: both are properties of
+the data, so every later walk returns the identical prefix. These always publish, whatever the
+posture. Withholding would not be waiting for anything — it would freeze the document entirely,
+counts and stage included, for as long as the shape persisted, and no retry, sweep or repair command
+could clear it.
+
+Every short chain, withheld or published, increments `partial_chains_total` on the sweep's closing
+log line. That counter is the only place the shortfall surfaces: a row scoped to less than its
+parentage does not appear under the foundation it belongs to, and that is indistinguishable in a
+result from the row not existing.
 
 ### Cadence
 
@@ -134,7 +156,11 @@ Published from `Projector.Refresh`, which two paths call:
   which is what repairs a write-path refresh lost to a restart, a timeout or an unreachable index.
 
 Both produce identical documents — one projector, one document shape, so a reader cannot tell which
-path published what it is reading.
+path published what it is reading. The one case where a publish is not identical does not affect
+this document: when the checklist row is withheld for unresolved parentage (above), the item
+documents still publish, alone. Nothing about an item document is uncertain when a project's
+ancestors cannot be read, and holding them back would stall the assignee's list for a reason that
+has nothing to do with them.
 
 The write-path refresh is asynchronous and best-effort by design. It runs after the response has
 been written, so it cannot fail or delay a write: the checklist in Postgres is the source of truth

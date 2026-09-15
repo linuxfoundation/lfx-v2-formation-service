@@ -220,7 +220,10 @@ func TestABadPayloadIsDroppedAndTheNextOneIsHandled(t *testing.T) {
 // path goes through it rather than around it.
 func TestARepeatedEventCreatesOneChecklist(t *testing.T) {
 	ctx := context.Background()
-	listener, f := newListener(t, &listProjects{})
+	// The parent the event names has to be readable, or the repeats are
+	// withheld for unresolved parentage and counted as failures — a real
+	// behaviour, but not the one this test is about.
+	listener, f := newListener(t, &listProjects{refs: []port.ProjectRef{{UID: "parent-1"}}})
 
 	event := projectEventJSON(t, "project-1", "p1", model.StageFormationEngaged)
 	for range 4 {

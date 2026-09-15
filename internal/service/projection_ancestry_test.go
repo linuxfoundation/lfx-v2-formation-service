@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -49,10 +51,10 @@ func TestChainResolvesEveryGenerationNearestFirst(t *testing.T) {
 	projects := tree("project-1", "intermediate-1", "foundation-1", "root-1")
 	projector := NewProjector(nil, nil, projects, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
 
-	if !complete {
-		t.Error("complete = false for a chain whose every generation is readable")
+	if outcome != chainComplete {
+		t.Error("outcome is not chainComplete for a chain whose every generation is readable")
 	}
 	want := []string{"project-1", "intermediate-1", "foundation-1", "root-1"}
 	if len(chain) != len(want) {
@@ -85,10 +87,10 @@ func TestAProjectDirectlyUnderTheRootIsATwoEntryChain(t *testing.T) {
 	projects := tree("foundation-1", "root-1")
 	projector := NewProjector(nil, nil, projects, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), refOf(t, projects, "foundation-1"))
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "foundation-1"))
 
-	if !complete {
-		t.Error("complete = false, want true — an empty parent is the ordinary way out")
+	if outcome != chainComplete {
+		t.Error("outcome is not chainComplete — an empty parent is the ordinary way out")
 	}
 	if len(chain) != 2 || chain[0] != "foundation-1" || chain[1] != "root-1" {
 		t.Errorf("chain = %v, want [foundation-1 root-1]", chain)
@@ -102,10 +104,10 @@ func TestTheChainReachesTheRootAndIncludesIt(t *testing.T) {
 	projects := tree("project-1", "foundation-1", "root-1")
 	projector := NewProjector(nil, nil, projects, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
 
-	if !complete {
-		t.Fatalf("complete = false, want true; chain = %v", chain)
+	if outcome != chainComplete {
+		t.Fatalf("outcome is not chainComplete; chain = %v", chain)
 	}
 	if chain[len(chain)-1] != "root-1" {
 		t.Errorf("chain = %v, want it to end at the root", chain)
@@ -125,15 +127,15 @@ func TestACycleTerminatesAsAPartialChain(t *testing.T) {
 
 	done := make(chan struct{})
 	var chain []string
-	var complete bool
+	var outcome chainOutcome
 	go func() {
-		chain, complete = projector.ancestorChain(context.Background(), refOf(t, projects, "a"))
+		chain, outcome = projector.ancestorChain(context.Background(), refOf(t, projects, "a"))
 		close(done)
 	}()
 	<-done
 
-	if complete {
-		t.Error("complete = true for a cycle, want false")
+	if outcome != chainFinal {
+		t.Error("a cycle is structural, so the walk is final rather than worth retrying")
 	}
 	if len(chain) > maxAncestorDepth+1 {
 		t.Errorf("chain = %v, longer than the cap allows", chain)
@@ -150,10 +152,10 @@ func TestAChainLongerThanTheCapStopsAtTheCap(t *testing.T) {
 	projects := tree(uids...)
 	projector := NewProjector(nil, nil, projects, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), refOf(t, projects, uids[0]))
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, uids[0]))
 
-	if complete {
-		t.Error("complete = true past the depth cap, want false")
+	if outcome != chainFinal {
+		t.Error("the depth cap is structural, so the walk is final rather than worth retrying")
 	}
 	if len(chain) != maxAncestorDepth+1 {
 		t.Errorf("chain length = %d, want %d — the project plus one per generation up to the cap",
@@ -173,10 +175,10 @@ func TestAnUnreadableAncestorLeavesTheResolvedPrefix(t *testing.T) {
 	})
 	projector := NewProjector(nil, nil, projects, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
+	chain, outcome := projector.ancestorChain(context.Background(), refOf(t, projects, "project-1"))
 
-	if complete {
-		t.Error("complete = true with an unreadable ancestor, want false")
+	if outcome != chainRetryable {
+		t.Error("an unreadable ancestor may answer next time, so the walk is retryable")
 	}
 	want := []string{"project-1", "intermediate-1", "missing-1"}
 	if len(chain) != len(want) {
@@ -208,7 +210,7 @@ func TestTheScheduledPathPublishesAPartialChainAndCountsIt(t *testing.T) {
 		t.Fatalf("seeding formation = %v", err)
 	}
 
-	published, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), ScheduledPublish)
+	published, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), FirstPublish)
 	if err != nil {
 		t.Fatalf("Refresh() = %v, want no error — a partial chain is not a failure here", err)
 	}
@@ -248,7 +250,7 @@ func TestTheWritePathLeavesTheExistingRowRatherThanShorteningIt(t *testing.T) {
 		t.Fatalf("seeding formation = %v", err)
 	}
 
-	published, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), WriteTriggeredPublish)
+	published, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), Republish)
 	if err == nil {
 		t.Fatal("Refresh() = nil error, want one — a withheld row must reach the refresher's " +
 			"failure count rather than its nothing-to-publish count")
@@ -289,7 +291,7 @@ func TestWithholdingTheRowStillPublishesTheItemRows(t *testing.T) {
 		t.Fatalf("seeding items = %v", err)
 	}
 
-	if _, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), WriteTriggeredPublish); err == nil {
+	if _, err := projector.Refresh(ctx, refOf(t, projects, "project-1"), Republish); err == nil {
 		t.Fatal("Refresh() = nil error, want one")
 	}
 
@@ -305,11 +307,11 @@ func TestWithholdingTheRowStillPublishesTheItemRows(t *testing.T) {
 func TestNoReaderStillEmitsTheDirectParent(t *testing.T) {
 	projector := NewProjector(nil, nil, nil, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(),
+	chain, outcome := projector.ancestorChain(context.Background(),
 		port.ProjectRef{UID: "project-1", ParentUID: "foundation-1"})
 
-	if complete {
-		t.Error("complete = true with no reader and a parent above, want false")
+	if outcome != chainFinal {
+		t.Error("with no reader wired there is nothing to retry, so the walk is final")
 	}
 	if len(chain) != 2 || chain[1] != "foundation-1" {
 		t.Errorf("chain = %v, want the known direct parent kept — dropping it would scope worse "+
@@ -339,9 +341,9 @@ func TestASecondPassSeesAReparenting(t *testing.T) {
 		{UID: "root-1"},
 	})
 
-	second, complete := projector.ancestorChain(ctx, refOf(t, projects, "project-1"))
-	if !complete {
-		t.Fatalf("complete = false after reparenting; chain = %v", second)
+	second, outcome := projector.ancestorChain(ctx, refOf(t, projects, "project-1"))
+	if outcome != chainComplete {
+		t.Fatalf("outcome is not chainComplete after reparenting; chain = %v", second)
 	}
 	if len(second) < 2 || second[1] != "foundation-new" {
 		t.Errorf("chain = %v, want it under foundation-new — a stale memo would still say foundation-old", second)
@@ -379,12 +381,147 @@ func TestConcurrentResolutionIsRaceFree(t *testing.T) {
 func TestNoReaderStillProducesTheProjectsOwnChain(t *testing.T) {
 	projector := NewProjector(nil, nil, nil, nil)
 
-	chain, complete := projector.ancestorChain(context.Background(), port.ProjectRef{UID: "project-1"})
+	chain, outcome := projector.ancestorChain(context.Background(), port.ProjectRef{UID: "project-1"})
 
-	if !complete {
-		t.Error("complete = false for a parentless project, want true")
+	if outcome != chainComplete {
+		t.Error("outcome is not chainComplete for a parentless project")
 	}
 	if len(chain) != 1 || chain[0] != "project-1" {
 		t.Errorf("chain = %v, want [project-1]", chain)
+	}
+}
+
+// chainIs reports whether a resolved chain matches, order included.
+func chainIs(chain []string, want ...string) bool {
+	if len(chain) != len(want) {
+		return false
+	}
+	for i := range want {
+		if chain[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// A project event must not narrow a chain that is already published.
+//
+// The listener reaches the publish through the same reconcile the sweep uses,
+// so the posture cannot be read off the caller. Deciding it by path put every
+// project.updated event on the publish-what-resolved side: an ancestor that
+// briefly stops answering during an ordinary edit would replace a complete
+// chain with a prefix, dropping the row out of every foundation queue above the
+// break until the next sweep — the exact under-report this feature exists to
+// remove, reintroduced by the fix for it.
+//
+// The posture comes from whether the checklist was created in this pass
+// instead, which is the only case with no earlier document to lose.
+func TestAProjectEventDoesNotNarrowAnAlreadyPublishedChain(t *testing.T) {
+	ctx := context.Background()
+	projects := tree("child-1", "foundation-1", "root-1")
+	r, _, publisher := newReconcilerWithIndex(t, projects)
+	child := port.ProjectRef{
+		UID: "child-1", Slug: "child-1",
+		SubStage: model.StageFormationEngaged, ParentUID: "foundation-1",
+	}
+
+	// The event that creates the checklist. Nothing is published for it yet, so
+	// the whole chain resolves and goes out.
+	if report := r.ReconcileProject(ctx, child, TriggerListener); report.Created != 1 {
+		t.Fatalf("arranging the checklist: created = %d, want 1", report.Created)
+	}
+	first := publisher.Latest(child.UID)
+	if first == nil {
+		t.Fatal("the creating event published no row")
+	}
+	if !chainIs(first.AncestorUIDs, "child-1", "foundation-1", "root-1") {
+		t.Fatalf("published chain = %v, want the full chain", first.AncestorUIDs)
+	}
+	publishesBefore := publisher.Count()
+
+	// The ancestors stop answering, which is all a transient project-service
+	// failure looks like from here.
+	projects.SetRefError(errors.New("project service unreachable"))
+
+	report := r.ReconcileProject(ctx, child, TriggerListener)
+
+	if got := publisher.Count() - publishesBefore; got != 0 {
+		t.Errorf("published %d rows over a complete chain, want 0", got)
+	}
+	if latest := publisher.Latest(child.UID); !chainIs(latest.AncestorUIDs, "child-1", "foundation-1", "root-1") {
+		t.Errorf("chain in the index = %v, want it left as published", latest.AncestorUIDs)
+	}
+	if report.ProjectionFailed != 1 {
+		t.Errorf("ProjectionFailed = %d, want 1 — a withheld row is a shortfall to find, not a silent skip",
+			report.ProjectionFailed)
+	}
+}
+
+// The creating pass is the one publish with nothing to lose.
+//
+// Its counterpart above withholds; this one must not, or a new project whose
+// ancestor is unreachable gets no queue row at all until the next sweep —
+// absent from every foundation rather than present under fewer.
+func TestTheCreatingPassPublishesWhateverResolved(t *testing.T) {
+	ctx := context.Background()
+	projects := tree("child-1", "foundation-1", "root-1")
+	projects.SetRefError(errors.New("project service unreachable"))
+	r, _, publisher := newReconcilerWithIndex(t, projects)
+	child := port.ProjectRef{
+		UID: "child-1", Slug: "child-1",
+		SubStage: model.StageFormationEngaged, ParentUID: "foundation-1",
+	}
+
+	report := r.ReconcileProject(ctx, child, TriggerListener)
+
+	if report.Created != 1 {
+		t.Fatalf("created = %d, want 1", report.Created)
+	}
+	published := publisher.Latest(child.UID)
+	if published == nil {
+		t.Fatal("no row published for a checklist created with an unreachable ancestor")
+	}
+	if !chainIs(published.AncestorUIDs, "child-1", "foundation-1") {
+		t.Errorf("chain = %v, want the resolved prefix [child-1 foundation-1]", published.AncestorUIDs)
+	}
+}
+
+// A chain that cannot get any longer must not hold the row back.
+//
+// Withholding is a wait for a better answer, and the structural bounds do not
+// have one: the depth cap and a cycle are properties of the data, so every
+// later walk returns the identical prefix. Withholding for them would not
+// protect the row's scope, it would stop the document updating at all — counts,
+// stage, name and dates included — for as long as the shape persisted, with no
+// retry, sweep or repair command able to clear it.
+func TestAChainStoppedByTheDepthCapStillPublishesOnRepublish(t *testing.T) {
+	ctx := context.Background()
+	deeper := make([]string, 0, maxAncestorDepth+3)
+	for i := range maxAncestorDepth + 3 {
+		deeper = append(deeper, fmt.Sprintf("p-%d", i))
+	}
+	projects := tree(deeper...)
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	publisher := mock.NewIndexerPublisher()
+	projector := NewProjector(formations, items, projects, publisher)
+
+	if _, err := formations.Create(ctx, &model.Formation{ProjectUID: deeper[0]}); err != nil {
+		t.Fatalf("seeding formation = %v", err)
+	}
+
+	published, err := projector.Refresh(ctx, refOf(t, projects, deeper[0]), Republish)
+
+	if err != nil {
+		t.Fatalf("Refresh() = %v, want no error — the chain is as long as it will ever be", err)
+	}
+	if !published {
+		t.Error("published = false, want true — withholding here freezes the row for good")
+	}
+	if got := publisher.Count(); got != 1 {
+		t.Errorf("published %d checklist documents, want 1", got)
+	}
+	if got := projector.PartialChains(); got != 1 {
+		t.Errorf("PartialChains() = %d, want 1 — a capped chain is still a shortfall to report", got)
 	}
 }

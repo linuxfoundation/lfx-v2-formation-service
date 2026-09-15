@@ -438,7 +438,8 @@ type FormationProjection struct {
 	// worked.
 	//
 	// Shorter than the true parentage when resolution ran out of road. See
-	// Projector.ancestorChain for what that means on each publish path.
+	// Projector.ancestorChain for where a walk stops, and PublishPosture for
+	// which of those stops is worth withholding a publish over.
 	AncestorUIDs []string
 
 	// Lifecycle is carried so the queue can tell a live checklist from one that

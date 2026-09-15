@@ -216,7 +216,7 @@ func (r *Refresher) refresh(ctx context.Context, projectUID string) {
 		return
 	}
 
-	published, err := r.projector.Refresh(ctx, ref, WriteTriggeredPublish)
+	published, err := r.projector.Refresh(ctx, ref, Republish)
 	if err != nil {
 		// Logged and counted, never propagated — the same treatment the sweep
 		// gives a failed projection, and for the same reason: the checklist in

@@ -360,7 +360,7 @@ func (r *Reconciler) reconcileProject(
 	// case the gate must not skip past.
 	if !model.FormingStage(project.SubStage) {
 		report.Skipped++
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -376,7 +376,7 @@ func (r *Reconciler) reconcileProject(
 	// Lifecycle still runs: an existing checklist is exactly the thing that
 	// may need moving.
 	if sweep.existing[project.UID] {
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -403,7 +403,7 @@ func (r *Reconciler) reconcileProject(
 		} else {
 			report.Degraded++
 		}
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -425,7 +425,7 @@ func (r *Reconciler) reconcileProject(
 	// A project can re-enter formation, so a checklist that was frozen or
 	// completed has to come back to live. Run after creation because the
 	// checklist has to exist before its lifecycle can be moved.
-	r.finishProject(ctx, project, report, trigger)
+	r.finishProject(ctx, project, report, trigger, created)
 }
 
 // sweepState is what a sweep resolves once and reuses for every project.
@@ -580,8 +580,15 @@ func (r *Reconciler) prepare(ctx context.Context, forming int) func() *model.Tem
 // rather than by a tool somebody has to remember exists: the sweep does not know
 // which rows are missing from the index, and asking would cost more than
 // republishing.
+//
+// justCreated says the checklist was expanded in this pass, which is the only
+// case where no queue row for it can exist yet. It decides the publish posture:
+// everything else arriving here — a sweep revisiting a long-standing checklist,
+// a listener handling project.updated, an operator repair — is republishing
+// over a document that may already carry more parentage than this pass can
+// resolve.
 func (r *Reconciler) finishProject(
-	ctx context.Context, project port.ProjectRef, report *ReconcileReport, trigger Trigger,
+	ctx context.Context, project port.ProjectRef, report *ReconcileReport, trigger Trigger, justCreated bool,
 ) {
 	// The platform pass declines a checklist whose lifecycle has been completed
 	// or frozen, which is the whole protection the ordering above buys — and it
@@ -607,7 +614,11 @@ func (r *Reconciler) finishProject(
 	if r.projector == nil {
 		return
 	}
-	published, err := r.projector.Refresh(ctx, project, ScheduledPublish)
+	posture := Republish
+	if justCreated {
+		posture = FirstPublish
+	}
+	published, err := r.projector.Refresh(ctx, project, posture)
 	if err != nil {
 		// Logged and counted, never propagated. The checklist in Postgres is
 		// correct; only the queue's view of it is stale, and the next sweep
