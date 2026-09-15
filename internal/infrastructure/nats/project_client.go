@@ -4,7 +4,6 @@
 package nats
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,6 +32,20 @@ import (
 // Nothing here is stored. Every reply is used and discarded, so a stage change
 // upstream is visible on the next read rather than after an invalidation this
 // service would have to get right.
+// projectServiceErrorCode returns the error code from a project-service error
+// envelope ({"error":"not_found",...} or {"error":"internal",...}), or "" if
+// data is a normal success payload (plain string, JSON array, or JSON object
+// without an "error" key).
+func projectServiceErrorCode(data []byte) string {
+	var env struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(data, &env) != nil {
+		return ""
+	}
+	return env.Error
+}
+
 type ProjectClient struct {
 	client *Client
 }
@@ -76,12 +89,14 @@ func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]strin
 		return nil, err
 	}
 
-	// Checked before unmarshalling: an absent reply would otherwise surface as
-	// a JSON syntax error carrying no sentinel, leaving a caller unable to tell
-	// "no such project" from "upstream is broken" — and an empty roster is what
-	// assignee validation refuses against, so the two must not be confused.
-	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project %s returned no writers reply: %w", projectUID, domain.ErrNotFound)
+	// Project-service returns {"error":"<code>",...} on errors. The distinction
+	// matters: an empty roster is a valid success; a missing project must not
+	// be read as "no writers assigned".
+	if code := projectServiceErrorCode(reply); code != "" {
+		if code == "not_found" {
+			return nil, fmt.Errorf("project %s not found: %w", projectUID, domain.ErrNotFound)
+		}
+		return nil, fmt.Errorf("project-service error for writers of %s (code=%s)", projectUID, code)
 	}
 
 	// The reply carries name, email, username and avatar per entry. Only the
@@ -158,11 +173,14 @@ func (p *ProjectClient) GetSettings(ctx context.Context, projectUID string) (*po
 	if err != nil {
 		return nil, err
 	}
-	// Checked before unmarshalling, as the writers read does: a zero-byte reply
-	// is how the project service reports every handler failure, so it carries no
-	// sentinel of its own and would otherwise surface as a JSON syntax error.
-	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project %s returned no settings reply: %w", projectUID, domain.ErrNotFound)
+	// Project-service returns {"error":"<code>",...} on errors. The success payload
+	// for get_settings is also a JSON object, so the "error" key is what
+	// distinguishes the two — not the opening byte.
+	if code := projectServiceErrorCode(reply); code != "" {
+		if code == "not_found" {
+			return nil, fmt.Errorf("project %s not found: %w", projectUID, domain.ErrNotFound)
+		}
+		return nil, fmt.Errorf("project-service error for settings of %s (code=%s)", projectUID, code)
 	}
 
 	var decoded projectSettingsReply
@@ -219,12 +237,14 @@ func (p *ProjectClient) ListFormingProjects(ctx context.Context, alsoUIDs []stri
 	if err != nil {
 		return nil, err
 	}
-	// A zero-byte reply is an upstream failure, and here the distinction from an
-	// empty list matters more than anywhere else: read as "no projects are being
-	// formed" it would look like a completed sweep with nothing to do, and the
-	// reconcile would report success having created nothing.
-	if len(bytes.TrimSpace(reply)) == 0 {
-		return nil, fmt.Errorf("project list returned no reply: %w", domain.ErrNotFound)
+	// Project-service returns {"error":"<code>",...} on errors. An empty array []
+	// is the legitimate "no forming projects" answer; an error envelope must not
+	// be treated as an empty sweep.
+	if code := projectServiceErrorCode(reply); code != "" {
+		if code == "not_found" {
+			return nil, fmt.Errorf("project list not found: %w", domain.ErrNotFound)
+		}
+		return nil, fmt.Errorf("project-service error for project list (code=%s)", code)
 	}
 
 	var decoded []projectRefReply
@@ -275,19 +295,12 @@ func (p *ProjectClient) GetRef(ctx context.Context, projectUID string) (port.Pro
 	if err != nil {
 		return port.ProjectRef{}, err
 	}
-	// A zero-byte reply is how the project service reports a handler failure,
-	// and is checked before unmarshalling for the same reason the other reads
-	// check it: it carries no sentinel and would otherwise arrive as a JSON
-	// syntax error.
-	//
-	// Deliberately not ErrNotFound, which the empty array below is. The two
-	// look alike and mean opposite things — one is a project that is not there,
-	// the other is an upstream that could not answer — and the refresher acts
-	// on the difference: a not-found is a project with nothing to publish and
-	// goes uncounted, while this leaves documents stale and has to be counted
-	// as the failure it is.
-	if len(bytes.TrimSpace(reply)) == 0 {
-		return port.ProjectRef{}, fmt.Errorf("project %s returned an empty ref reply", projectUID)
+	// Project-service returns {"error":"not_found",...} or {"error":"internal",...}
+	// on errors. Deliberately not ErrNotFound here: the empty-array case below
+	// is ErrNotFound (project deleted), while an error envelope means the
+	// upstream could not answer — and the refresher treats them differently.
+	if code := projectServiceErrorCode(reply); code != "" {
+		return port.ProjectRef{}, fmt.Errorf("project %s ref error (%s)", projectUID, code)
 	}
 
 	var decoded []projectRefReply
@@ -367,6 +380,15 @@ func (p *ProjectClient) get(ctx context.Context, subject, projectUID string) (st
 	reply, err := p.client.Request(ctx, subject, []byte(projectUID))
 	if err != nil {
 		return "", err
+	}
+
+	// Project-service returns {"error":"<code>",...} on errors; any other response
+	// is a success value.
+	if code := projectServiceErrorCode(reply); code != "" {
+		if code == "not_found" {
+			return "", fmt.Errorf("project %s not found on %s: %w", projectUID, subject, domain.ErrNotFound)
+		}
+		return "", fmt.Errorf("project-service error for %s on %s (code=%s)", projectUID, subject, code)
 	}
 
 	value := strings.TrimSpace(string(reply))
