@@ -153,6 +153,9 @@ func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64
 	if patch.Status != nil {
 		item.Status = *patch.Status
 	}
+	if patch.StatusSource != nil {
+		item.StatusSource = *patch.StatusSource
+	}
 	if patch.Assignee != nil {
 		item.Assignee = *patch.Assignee
 	}

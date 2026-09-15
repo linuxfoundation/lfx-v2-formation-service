@@ -22,10 +22,9 @@ type Server struct {
 	Mounts               []*MountPoint
 	GetFormation         http.Handler
 	GetFormationActivity http.Handler
+	SetItemStatus        http.Handler
+	AssignItem           http.Handler
 	UpdateItem           http.Handler
-	AcceptItem           http.Handler
-	RejectItem           http.Handler
-	ReopenItem           http.Handler
 	Livez                http.Handler
 	Readyz               http.Handler
 }
@@ -59,19 +58,17 @@ func New(
 		Mounts: []*MountPoint{
 			{"GetFormation", "GET", "/formations/{project_uid}"},
 			{"GetFormationActivity", "GET", "/formations/{project_uid}/activity"},
+			{"SetItemStatus", "POST", "/formations/{project_uid}/items/{item_key}/status"},
+			{"AssignItem", "POST", "/formations/{project_uid}/items/{item_key}/assignment"},
 			{"UpdateItem", "PATCH", "/formations/{project_uid}/items/{item_key}"},
-			{"AcceptItem", "POST", "/formations/{project_uid}/items/{item_key}/accept"},
-			{"RejectItem", "POST", "/formations/{project_uid}/items/{item_key}/reject"},
-			{"ReopenItem", "POST", "/formations/{project_uid}/items/{item_key}/reopen"},
 			{"Livez", "GET", "/livez"},
 			{"Readyz", "GET", "/readyz"},
 		},
 		GetFormation:         NewGetFormationHandler(e.GetFormation, mux, decoder, encoder, errhandler, formatter),
 		GetFormationActivity: NewGetFormationActivityHandler(e.GetFormationActivity, mux, decoder, encoder, errhandler, formatter),
+		SetItemStatus:        NewSetItemStatusHandler(e.SetItemStatus, mux, decoder, encoder, errhandler, formatter),
+		AssignItem:           NewAssignItemHandler(e.AssignItem, mux, decoder, encoder, errhandler, formatter),
 		UpdateItem:           NewUpdateItemHandler(e.UpdateItem, mux, decoder, encoder, errhandler, formatter),
-		AcceptItem:           NewAcceptItemHandler(e.AcceptItem, mux, decoder, encoder, errhandler, formatter),
-		RejectItem:           NewRejectItemHandler(e.RejectItem, mux, decoder, encoder, errhandler, formatter),
-		ReopenItem:           NewReopenItemHandler(e.ReopenItem, mux, decoder, encoder, errhandler, formatter),
 		Livez:                NewLivezHandler(e.Livez, mux, decoder, encoder, errhandler, formatter),
 		Readyz:               NewReadyzHandler(e.Readyz, mux, decoder, encoder, errhandler, formatter),
 	}
@@ -84,10 +81,9 @@ func (s *Server) Service() string { return "lfx_v2_formation_service" }
 func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.GetFormation = m(s.GetFormation)
 	s.GetFormationActivity = m(s.GetFormationActivity)
+	s.SetItemStatus = m(s.SetItemStatus)
+	s.AssignItem = m(s.AssignItem)
 	s.UpdateItem = m(s.UpdateItem)
-	s.AcceptItem = m(s.AcceptItem)
-	s.RejectItem = m(s.RejectItem)
-	s.ReopenItem = m(s.ReopenItem)
 	s.Livez = m(s.Livez)
 	s.Readyz = m(s.Readyz)
 }
@@ -99,10 +95,9 @@ func (s *Server) MethodNames() []string { return lfxv2formationservice.MethodNam
 func Mount(mux goahttp.Muxer, h *Server) {
 	MountGetFormationHandler(mux, h.GetFormation)
 	MountGetFormationActivityHandler(mux, h.GetFormationActivity)
+	MountSetItemStatusHandler(mux, h.SetItemStatus)
+	MountAssignItemHandler(mux, h.AssignItem)
 	MountUpdateItemHandler(mux, h.UpdateItem)
-	MountAcceptItemHandler(mux, h.AcceptItem)
-	MountRejectItemHandler(mux, h.RejectItem)
-	MountReopenItemHandler(mux, h.ReopenItem)
 	MountLivezHandler(mux, h.Livez)
 	MountReadyzHandler(mux, h.Readyz)
 }
@@ -219,6 +214,112 @@ func NewGetFormationActivityHandler(
 	})
 }
 
+// MountSetItemStatusHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "set_item_status" endpoint.
+func MountSetItemStatusHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/formations/{project_uid}/items/{item_key}/status", f)
+}
+
+// NewSetItemStatusHandler creates a HTTP handler which loads the HTTP request
+// and calls the "lfx_v2_formation_service" service "set_item_status" endpoint.
+func NewSetItemStatusHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeSetItemStatusRequest(mux, decoder)
+		encodeResponse = EncodeSetItemStatusResponse(encoder)
+		encodeError    = EncodeSetItemStatusError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "set_item_status")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountAssignItemHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "assign_item" endpoint.
+func MountAssignItemHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/formations/{project_uid}/items/{item_key}/assignment", f)
+}
+
+// NewAssignItemHandler creates a HTTP handler which loads the HTTP request and
+// calls the "lfx_v2_formation_service" service "assign_item" endpoint.
+func NewAssignItemHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeAssignItemRequest(mux, decoder)
+		encodeResponse = EncodeAssignItemResponse(encoder)
+		encodeError    = EncodeAssignItemError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "assign_item")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
 // MountUpdateItemHandler configures the mux to serve the
 // "lfx_v2_formation_service" service "update_item" endpoint.
 func MountUpdateItemHandler(mux goahttp.Muxer, h http.Handler) {
@@ -249,165 +350,6 @@ func NewUpdateItemHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
 		ctx = context.WithValue(ctx, goa.MethodKey, "update_item")
-		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
-		payload, err := decodeRequest(r)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		res, err := endpoint(ctx, payload)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		if err := encodeResponse(ctx, w, res); err != nil {
-			if errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-		}
-	})
-}
-
-// MountAcceptItemHandler configures the mux to serve the
-// "lfx_v2_formation_service" service "accept_item" endpoint.
-func MountAcceptItemHandler(mux goahttp.Muxer, h http.Handler) {
-	f, ok := h.(http.HandlerFunc)
-	if !ok {
-		f = func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		}
-	}
-	mux.Handle("POST", "/formations/{project_uid}/items/{item_key}/accept", f)
-}
-
-// NewAcceptItemHandler creates a HTTP handler which loads the HTTP request and
-// calls the "lfx_v2_formation_service" service "accept_item" endpoint.
-func NewAcceptItemHandler(
-	endpoint goa.Endpoint,
-	mux goahttp.Muxer,
-	decoder func(*http.Request) goahttp.Decoder,
-	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
-	errhandler func(context.Context, http.ResponseWriter, error),
-	formatter func(ctx context.Context, err error) goahttp.Statuser,
-) http.Handler {
-	var (
-		decodeRequest  = DecodeAcceptItemRequest(mux, decoder)
-		encodeResponse = EncodeAcceptItemResponse(encoder)
-		encodeError    = EncodeAcceptItemError(encoder, formatter)
-	)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
-		ctx = context.WithValue(ctx, goa.MethodKey, "accept_item")
-		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
-		payload, err := decodeRequest(r)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		res, err := endpoint(ctx, payload)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		if err := encodeResponse(ctx, w, res); err != nil {
-			if errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-		}
-	})
-}
-
-// MountRejectItemHandler configures the mux to serve the
-// "lfx_v2_formation_service" service "reject_item" endpoint.
-func MountRejectItemHandler(mux goahttp.Muxer, h http.Handler) {
-	f, ok := h.(http.HandlerFunc)
-	if !ok {
-		f = func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		}
-	}
-	mux.Handle("POST", "/formations/{project_uid}/items/{item_key}/reject", f)
-}
-
-// NewRejectItemHandler creates a HTTP handler which loads the HTTP request and
-// calls the "lfx_v2_formation_service" service "reject_item" endpoint.
-func NewRejectItemHandler(
-	endpoint goa.Endpoint,
-	mux goahttp.Muxer,
-	decoder func(*http.Request) goahttp.Decoder,
-	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
-	errhandler func(context.Context, http.ResponseWriter, error),
-	formatter func(ctx context.Context, err error) goahttp.Statuser,
-) http.Handler {
-	var (
-		decodeRequest  = DecodeRejectItemRequest(mux, decoder)
-		encodeResponse = EncodeRejectItemResponse(encoder)
-		encodeError    = EncodeRejectItemError(encoder, formatter)
-	)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
-		ctx = context.WithValue(ctx, goa.MethodKey, "reject_item")
-		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
-		payload, err := decodeRequest(r)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		res, err := endpoint(ctx, payload)
-		if err != nil {
-			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-			return
-		}
-		if err := encodeResponse(ctx, w, res); err != nil {
-			if errhandler != nil {
-				errhandler(ctx, w, err)
-			}
-		}
-	})
-}
-
-// MountReopenItemHandler configures the mux to serve the
-// "lfx_v2_formation_service" service "reopen_item" endpoint.
-func MountReopenItemHandler(mux goahttp.Muxer, h http.Handler) {
-	f, ok := h.(http.HandlerFunc)
-	if !ok {
-		f = func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		}
-	}
-	mux.Handle("POST", "/formations/{project_uid}/items/{item_key}/reopen", f)
-}
-
-// NewReopenItemHandler creates a HTTP handler which loads the HTTP request and
-// calls the "lfx_v2_formation_service" service "reopen_item" endpoint.
-func NewReopenItemHandler(
-	endpoint goa.Endpoint,
-	mux goahttp.Muxer,
-	decoder func(*http.Request) goahttp.Decoder,
-	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
-	errhandler func(context.Context, http.ResponseWriter, error),
-	formatter func(ctx context.Context, err error) goahttp.Statuser,
-) http.Handler {
-	var (
-		decodeRequest  = DecodeReopenItemRequest(mux, decoder)
-		encodeResponse = EncodeReopenItemResponse(encoder)
-		encodeError    = EncodeReopenItemError(encoder, formatter)
-	)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
-		ctx = context.WithValue(ctx, goa.MethodKey, "reopen_item")
 		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
 		payload, err := decodeRequest(r)
 		if err != nil {

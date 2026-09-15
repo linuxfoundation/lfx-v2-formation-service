@@ -25,6 +25,13 @@ type FormationRepository interface {
 	// GetByProject returns the formation for a project, or ErrNotFound.
 	GetByProject(ctx context.Context, projectUID string) (*model.Formation, error)
 
+	// GetByProjectForUpdate is GetByProject holding the row until the
+	// surrounding transaction ends. Item writes use it because the lifecycle
+	// they check lives on this row and moves under its own revision: an
+	// unlocked read lets a freeze commit between the check and the write, and
+	// the item's own optimistic lock cannot see that it happened.
+	GetByProjectForUpdate(ctx context.Context, projectUID string) (*model.Formation, error)
+
 	// UpdateLifecycle moves the formation's lifecycle, refusing the write
 	// when revision does not match the caller's copy.
 	UpdateLifecycle(ctx context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error)
@@ -87,6 +94,7 @@ type ItemRepository interface {
 // the field alone, which is what distinguishes "not supplied" from "cleared".
 type ItemPatch struct {
 	Status       *model.ItemStatus
+	StatusSource *model.StatusSource
 	Assignee     *string
 	Note         *string
 	SkipReason   *string
@@ -455,13 +463,12 @@ type FormationProjection struct {
 	// IsActivating is full readiness: GatesCleared and an announcement date set.
 	IsActivating bool
 
-	// The six progress counts, sent as fields so the search can sort on them.
-	NotStarted         int
-	InProgress         int
-	Blocked            int
-	AwaitingAcceptance int
-	Done               int
-	Skipped            int
+	// The five progress counts, sent as fields so the search can sort on them.
+	NotStarted int
+	InProgress int
+	Blocked    int
+	Done       int
+	Skipped    int
 
 	// BlockedItemTitles is the Blocking column. Titles only — naming the person
 	// on a blocked item would put an assignment in a document read by everyone

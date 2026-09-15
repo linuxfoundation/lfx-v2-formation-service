@@ -25,7 +25,7 @@ func TestUpdateItemRefreshesTheIndex(t *testing.T) {
 	refresher := refresherOf(t, s)
 	assignee := "jdoe"
 
-	_, err := updateItem(s, asPrincipal("admin"), &svc.UpdateItemPayload{
+	_, err := assignItem(s, asPrincipal("admin"), &svc.AssignItemPayload{
 		ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey,
 		IfMatch: item.Revision, Assignee: &assignee,
 	})
@@ -37,27 +37,50 @@ func TestUpdateItemRefreshesTheIndex(t *testing.T) {
 	require.Equal(t, []string{formation.ProjectUID}, refresher.asked())
 }
 
-// Every kind of item write refreshes, not only the two that move an item
-// between queues.
+// Every kind of item write refreshes, not only the ones that move an item
+// between queues, and every one of the three routes does it.
 //
 // The published item document carries the due date, the lifecycle, the title
 // and more besides, and the refresh rebuilds the whole projection either way —
 // so narrowing this to status and assignee would save nothing and leave a
 // changed due date showing its old value for a day.
-func TestUpdateItemRefreshesForEveryKindOfChange(t *testing.T) {
-	dueDate := "2026-12-01"
-	note := "waiting on legal"
-	status := string(model.StatusInProgress)
-	assignee := "jdoe"
-
+//
+// The table spans all three routes deliberately. They are guarded differently
+// and implemented separately, so "a write refreshes" has to be established per
+// route rather than inferred from one of them.
+func TestEveryItemWriteRouteRefreshesTheIndex(t *testing.T) {
 	tests := []struct {
 		name  string
-		apply func(p *svc.UpdateItemPayload)
+		write func(s *Service, formation *model.Formation, item *model.Item) error
 	}{
-		{"the status", func(p *svc.UpdateItemPayload) { p.Status = &status }},
-		{"the assignee", func(p *svc.UpdateItemPayload) { p.Assignee = &assignee }},
-		{"the due date alone", func(p *svc.UpdateItemPayload) { p.DueDate = &dueDate }},
-		{"the note alone", func(p *svc.UpdateItemPayload) { p.Note = &note }},
+		{"a status change", func(s *Service, f *model.Formation, item *model.Item) error {
+			_, err := setStatus(s, asPrincipal("admin"), &svc.SetItemStatusPayload{
+				ProjectUID: f.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
+				Status: ptr(string(model.StatusInProgress)),
+			})
+			return err
+		}},
+		{"an assignment", func(s *Service, f *model.Formation, item *model.Item) error {
+			_, err := assignItem(s, asPrincipal("admin"), &svc.AssignItemPayload{
+				ProjectUID: f.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
+				Assignee: ptr("jdoe"),
+			})
+			return err
+		}},
+		{"a due date alone", func(s *Service, f *model.Formation, item *model.Item) error {
+			_, err := assignItem(s, asPrincipal("admin"), &svc.AssignItemPayload{
+				ProjectUID: f.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
+				DueDate: ptr("2026-12-01"),
+			})
+			return err
+		}},
+		{"a note alone", func(s *Service, f *model.Formation, item *model.Item) error {
+			_, err := updateItem(s, asPrincipal("admin"), &svc.UpdateItemPayload{
+				ProjectUID: f.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
+				Note: ptr("waiting on legal"),
+			})
+			return err
+		}},
 	}
 
 	for _, tc := range tests {
@@ -65,13 +88,7 @@ func TestUpdateItemRefreshesForEveryKindOfChange(t *testing.T) {
 			s, formation, item, _ := newItemMutatorTestService(t)
 			refresher := refresherOf(t, s)
 
-			payload := &svc.UpdateItemPayload{
-				ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
-			}
-			tc.apply(payload)
-
-			_, err := updateItem(s, asPrincipal("admin"), payload)
-			require.NoError(t, err)
+			require.NoError(t, tc.write(s, formation, item))
 			require.Equal(t, []string{formation.ProjectUID}, refresher.asked())
 		})
 	}
@@ -89,10 +106,10 @@ func TestAFailedWriteDoesNotRefresh(t *testing.T) {
 		{
 			name: "the revision is stale",
 			payload: func(formation *model.Formation, item *model.Item) *svc.UpdateItemPayload {
-				status := string(model.StatusInProgress)
+				note := "waiting on legal"
 				return &svc.UpdateItemPayload{
 					ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey,
-					IfMatch: item.Revision + 99, Status: &status,
+					IfMatch: item.Revision + 99, Note: &note,
 				}
 			},
 		},
@@ -110,10 +127,10 @@ func TestAFailedWriteDoesNotRefresh(t *testing.T) {
 		{
 			name: "the item does not exist",
 			payload: func(formation *model.Formation, item *model.Item) *svc.UpdateItemPayload {
-				status := string(model.StatusInProgress)
+				note := "waiting on legal"
 				return &svc.UpdateItemPayload{
 					ProjectUID: formation.ProjectUID, ItemKey: "no-such-item",
-					IfMatch: item.Revision, Status: &status,
+					IfMatch: item.Revision, Note: &note,
 				}
 			},
 		},
@@ -131,71 +148,60 @@ func TestAFailedWriteDoesNotRefresh(t *testing.T) {
 	}
 }
 
-// Accept, reject and reopen all move an item across the boundary the Pending
-// Actions list filters on, so these are the writes whose staleness is noticed
-// first: work somebody has finished, still listed as outstanding.
-func TestAcceptanceRoutesRefreshTheIndex(t *testing.T) {
+// Closing an item and sending it back both move it across the boundary the
+// Pending Actions list filters on, so these are the writes whose staleness is
+// noticed first: work somebody has finished, still listed as outstanding, or
+// work returned to them that the index still calls done.
+//
+// Both went through their own routes before the status model collapsed to five
+// values; they are ordinary PATCHes now, and the freshness requirement did not
+// move with them.
+func TestTerminalWritesRefreshTheIndex(t *testing.T) {
+	reason := "the evidence link is dead"
+
 	tests := []struct {
-		name string
-		call func(s *Service, item *model.Item, version int64) error
+		name    string
+		payload func(f *model.Formation, item *model.Item, version int64) *svc.SetItemStatusPayload
 	}{
 		{
-			name: "accept",
-			call: func(s *Service, item *model.Item, version int64) error {
-				_, err := acceptItem(s, asPrincipal("reviewer"), &svc.AcceptItemPayload{
-					ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: version,
-				})
-				return err
+			name: "closing it",
+			payload: func(f *model.Formation, item *model.Item, version int64) *svc.SetItemStatusPayload {
+				return &svc.SetItemStatusPayload{
+					ProjectUID: f.ProjectUID, ItemKey: item.ItemKey,
+					IfMatch: version, Status: ptr(string(model.StatusDone)),
+				}
 			},
 		},
 		{
-			name: "reject",
-			call: func(s *Service, item *model.Item, version int64) error {
-				_, err := rejectItem(s, asPrincipal("reviewer"), &svc.RejectItemPayload{
-					ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: version,
-					Note: "the evidence link is dead",
-				})
-				return err
+			name: "sending it back",
+			payload: func(f *model.Formation, item *model.Item, version int64) *svc.SetItemStatusPayload {
+				return &svc.SetItemStatusPayload{
+					ProjectUID: f.ProjectUID, ItemKey: item.ItemKey,
+					IfMatch: version, Status: ptr(string(model.StatusNotStarted)), Reason: &reason,
+				}
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s, _, item, _ := newItemMutatorTestService(t)
+			s, formation, item, _ := newItemMutatorTestService(t)
 			refresher := refresherOf(t, s)
 
-			claimed := claim(t, s, item, "jdoe")
-			// The claim itself is three ordinary PATCHes, each of which refreshes.
-			// Cleared so this asserts on the acceptance write alone.
+			started, err := setStatus(s, asPrincipal("jdoe"), &svc.SetItemStatusPayload{
+				ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey,
+				IfMatch: item.Revision, Status: ptr(string(model.StatusInProgress)),
+			})
+			require.NoError(t, err)
+			// That first write refreshes too. Cleared so this asserts on the
+			// terminal one alone.
 			refresher.reset()
 
-			require.NoError(t, tc.call(s, item, claimed.Version))
+			_, err = setStatus(s, asPrincipal("reviewer"), tc.payload(formation, item, started.Version))
+			require.NoError(t, err)
 			require.Equal(t, []string{"project-1"}, refresher.asked())
 		})
 	}
-}
-
-// Reopen, the reversal of an acceptance. Separate from the table above because
-// it needs an item that has already been accepted, and it is the write whose
-// staleness is least forgivable: work has gone back on somebody's list and the
-// index would keep saying it was finished.
-func TestReopenRefreshesTheIndex(t *testing.T) {
-	s, _, item, _ := newItemMutatorTestService(t)
-	refresher := refresherOf(t, s)
-
-	claimed := claim(t, s, item, "jdoe")
-	accepted, err := acceptItem(s, asPrincipal("reviewer"), &svc.AcceptItemPayload{
-		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: claimed.Version,
-	})
-	require.NoError(t, err)
-	refresher.reset()
-
-	_, err = reopenItem(s, asPrincipal("reviewer"), &svc.ReopenItemPayload{
-		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: accepted.Version,
-	})
-	require.NoError(t, err)
-	require.Equal(t, []string{"project-1"}, refresher.asked())
 }
 
 // A deployment with no NATS wires no refresher, and its write routes must still
@@ -206,7 +212,7 @@ func TestAWriteWithNoRefresherWiredStillSucceeds(t *testing.T) {
 	s.refresher = nil
 	status := string(model.StatusInProgress)
 
-	updated, err := updateItem(s, asPrincipal("admin"), &svc.UpdateItemPayload{
+	updated, err := setStatus(s, asPrincipal("admin"), &svc.SetItemStatusPayload{
 		ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey,
 		IfMatch: item.Revision, Status: &status,
 	})
@@ -214,37 +220,20 @@ func TestAWriteWithNoRefresherWiredStillSucceeds(t *testing.T) {
 	require.Equal(t, status, updated.Status)
 }
 
-// Skipping an item is the other route to a terminal status, reached through the
-// ordinary PATCH rather than through acceptance. Covered so that "a terminal
-// item leaves the queue promptly" holds for both ways of getting there.
+// Skipping is the other way an item reaches a terminal status. Covered
+// separately from closing so that "a terminal item leaves the queue promptly"
+// holds for both ways of getting there.
 func TestSkippingAnItemRefreshesTheIndex(t *testing.T) {
 	s, formation, item, _ := newItemMutatorTestService(t)
 	refresher := refresherOf(t, s)
-	skipped, reason := string(model.StatusSkipped), "not applicable to this project"
+	reason := "not applicable to this project"
 
-	_, err := updateItem(s, asPrincipal("admin"), &svc.UpdateItemPayload{
+	_, err := setStatus(s, asPrincipal("admin"), &svc.SetItemStatusPayload{
 		ProjectUID: formation.ProjectUID, ItemKey: item.ItemKey, IfMatch: item.Revision,
-		Status: &skipped, SkipReason: &reason,
+		Status: ptr(string(model.StatusSkipped)), Reason: &reason,
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{formation.ProjectUID}, refresher.asked())
-}
-
-// A refused acceptance publishes nothing. The self-acceptance guard runs before
-// the write, so there is no committed change to republish — and republishing
-// anyway would spend a round trip confirming that nothing happened.
-func TestARefusedAcceptanceDoesNotRefresh(t *testing.T) {
-	s, _, item, _ := newItemMutatorTestService(t)
-	refresher := refresherOf(t, s)
-
-	claimed := claim(t, s, item, "jdoe")
-	refresher.reset()
-
-	_, err := acceptItem(s, asPrincipal("jdoe"), &svc.AcceptItemPayload{
-		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: claimed.Version,
-	})
-	require.Error(t, err, "the assignee accepted their own item")
-	require.Empty(t, refresher.asked())
 }
 
 // newLiveRefreshService wires the real refresher behind the write routes, which
@@ -303,9 +292,18 @@ func TestAWriteTriggeredRefreshPublishesTheNewValues(t *testing.T) {
 	assignee := "jdoe"
 	status := string(model.StatusInProgress)
 
-	_, err := updateItem(s, asPrincipal("admin"), &svc.UpdateItemPayload{
+	// Two routes now, so two writes. Both are asserted against the same
+	// published document, because the refresh rebuilds the whole projection
+	// rather than patching the field that changed.
+	assigned, err := assignItem(s, asPrincipal("admin"), &svc.AssignItemPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: item.Revision,
-		Assignee: &assignee, Status: &status,
+		Assignee: &assignee,
+	})
+	require.NoError(t, err)
+
+	_, err = setStatus(s, asPrincipal("admin"), &svc.SetItemStatusPayload{
+		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: assigned.Version,
+		Status: &status,
 	})
 	require.NoError(t, err)
 	refresher.Stop(context.Background())
@@ -329,11 +327,10 @@ func TestAWriteTriggeredRefreshPublishesTheNewValues(t *testing.T) {
 func TestAWriteSucceedsWhenItsRefreshCannotResolveTheProject(t *testing.T) {
 	s, item, publisher, projects, refresher := newLiveRefreshService(t)
 	projects.SetRefError(errors.New("no responders available"))
-	status := string(model.StatusInProgress)
 
-	result, err := s.UpdateItem(asPrincipal("admin"), &svc.UpdateItemPayload{
+	result, err := s.SetItemStatus(asPrincipal("admin"), &svc.SetItemStatusPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: item.Revision,
-		Status: &status,
+		Status: ptr(string(model.StatusInProgress)),
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Etag, "a successful write returned no ETag")
@@ -348,11 +345,10 @@ func TestAWriteSucceedsWhenItsRefreshCannotResolveTheProject(t *testing.T) {
 func TestAWriteSucceedsWhenItsRefreshCannotPublish(t *testing.T) {
 	s, item, publisher, _, refresher := newLiveRefreshService(t)
 	publisher.SetError(errors.New("the index is unreachable"))
-	status := string(model.StatusInProgress)
 
-	result, err := s.UpdateItem(asPrincipal("admin"), &svc.UpdateItemPayload{
+	result, err := s.SetItemStatus(asPrincipal("admin"), &svc.SetItemStatusPayload{
 		ProjectUID: "project-1", ItemKey: item.ItemKey, IfMatch: item.Revision,
-		Status: &status,
+		Status: ptr(string(model.StatusInProgress)),
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Etag)

@@ -245,6 +245,342 @@ func EncodeGetFormationActivityError(encoder func(context.Context, http.Response
 	}
 }
 
+// EncodeSetItemStatusResponse returns an encoder for responses returned by the
+// lfx_v2_formation_service set_item_status endpoint.
+func EncodeSetItemStatusResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*lfxv2formationservice.SetItemStatusResult)
+		enc := encoder(ctx, w)
+		body := NewSetItemStatusResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeSetItemStatusRequest returns a decoder for requests sent to the
+// lfx_v2_formation_service set_item_status endpoint.
+func DecodeSetItemStatusRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*lfxv2formationservice.SetItemStatusPayload, error) {
+	return func(r *http.Request) (*lfxv2formationservice.SetItemStatusPayload, error) {
+		var payload *lfxv2formationservice.SetItemStatusPayload
+		var (
+			body SetItemStatusRequestBody
+			err  error
+		)
+		err = decoder(r).Decode(&body)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return payload, goa.MissingPayloadError()
+			}
+			var gerr *goa.ServiceError
+			if errors.As(err, &gerr) {
+				return payload, gerr
+			}
+			return payload, goa.DecodePayloadError(err.Error())
+		}
+		err = ValidateSetItemStatusRequestBody(&body)
+		if err != nil {
+			return payload, err
+		}
+
+		var (
+			projectUID  string
+			itemKey     string
+			version     string
+			bearerToken *string
+			ifMatch     int64
+
+			params = mux.Vars(r)
+		)
+		projectUID = params["project_uid"]
+		itemKey = params["item_key"]
+		version = r.URL.Query().Get("v")
+		if version == "" {
+			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
+		}
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		bearerTokenRaw := r.Header.Get("Authorization")
+		if bearerTokenRaw != "" {
+			bearerToken = &bearerTokenRaw
+		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
+		if err != nil {
+			return payload, err
+		}
+		payload = NewSetItemStatusPayload(&body, projectUID, itemKey, version, bearerToken, ifMatch)
+		if payload.BearerToken != nil {
+			if strings.Contains(*payload.BearerToken, " ") {
+				// Remove authorization scheme prefix (e.g. "Bearer")
+				cred := strings.SplitN(*payload.BearerToken, " ", 2)[1]
+				payload.BearerToken = &cred
+			}
+		}
+
+		return payload, nil
+	}
+}
+
+// EncodeSetItemStatusError returns an encoder for errors returned by the
+// set_item_status lfx_v2_formation_service endpoint.
+func EncodeSetItemStatusError(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder, formatter func(ctx context.Context, err error) goahttp.Statuser) func(context.Context, http.ResponseWriter, error) error {
+	encodeError := goahttp.ErrorEncoder(encoder, formatter)
+	return func(ctx context.Context, w http.ResponseWriter, v error) error {
+		var en goa.GoaErrorNamer
+		if !errors.As(v, &en) {
+			return encodeError(ctx, w, v)
+		}
+		switch en.GoaErrorName() {
+		case "NotFound":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewSetItemStatusNotFoundResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusNotFound)
+			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewSetItemStatusVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return enc.Encode(body)
+		case "Conflict":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewSetItemStatusConflictResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusConflict)
+			return enc.Encode(body)
+		case "BadRequest":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewSetItemStatusBadRequestResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusBadRequest)
+			return enc.Encode(body)
+		case "Unauthorized":
+			var res *lfxv2formationservice.UnauthorizedError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewSetItemStatusUnauthorizedResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusUnauthorized)
+			return enc.Encode(body)
+		default:
+			return encodeError(ctx, w, v)
+		}
+	}
+}
+
+// EncodeAssignItemResponse returns an encoder for responses returned by the
+// lfx_v2_formation_service assign_item endpoint.
+func EncodeAssignItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*lfxv2formationservice.AssignItemResult)
+		enc := encoder(ctx, w)
+		body := NewAssignItemResponseBody(res)
+		if res.Etag != nil {
+			w.Header().Set("Etag", *res.Etag)
+		}
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeAssignItemRequest returns a decoder for requests sent to the
+// lfx_v2_formation_service assign_item endpoint.
+func DecodeAssignItemRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*lfxv2formationservice.AssignItemPayload, error) {
+	return func(r *http.Request) (*lfxv2formationservice.AssignItemPayload, error) {
+		var payload *lfxv2formationservice.AssignItemPayload
+		var (
+			body AssignItemRequestBody
+			err  error
+		)
+		err = decoder(r).Decode(&body)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return payload, goa.MissingPayloadError()
+			}
+			var gerr *goa.ServiceError
+			if errors.As(err, &gerr) {
+				return payload, gerr
+			}
+			return payload, goa.DecodePayloadError(err.Error())
+		}
+
+		var (
+			projectUID  string
+			itemKey     string
+			version     string
+			bearerToken *string
+			ifMatch     int64
+
+			params = mux.Vars(r)
+		)
+		projectUID = params["project_uid"]
+		itemKey = params["item_key"]
+		version = r.URL.Query().Get("v")
+		if version == "" {
+			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
+		}
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		bearerTokenRaw := r.Header.Get("Authorization")
+		if bearerTokenRaw != "" {
+			bearerToken = &bearerTokenRaw
+		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
+		if err != nil {
+			return payload, err
+		}
+		payload = NewAssignItemPayload(&body, projectUID, itemKey, version, bearerToken, ifMatch)
+		if payload.BearerToken != nil {
+			if strings.Contains(*payload.BearerToken, " ") {
+				// Remove authorization scheme prefix (e.g. "Bearer")
+				cred := strings.SplitN(*payload.BearerToken, " ", 2)[1]
+				payload.BearerToken = &cred
+			}
+		}
+
+		return payload, nil
+	}
+}
+
+// EncodeAssignItemError returns an encoder for errors returned by the
+// assign_item lfx_v2_formation_service endpoint.
+func EncodeAssignItemError(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder, formatter func(ctx context.Context, err error) goahttp.Statuser) func(context.Context, http.ResponseWriter, error) error {
+	encodeError := goahttp.ErrorEncoder(encoder, formatter)
+	return func(ctx context.Context, w http.ResponseWriter, v error) error {
+		var en goa.GoaErrorNamer
+		if !errors.As(v, &en) {
+			return encodeError(ctx, w, v)
+		}
+		switch en.GoaErrorName() {
+		case "NotFound":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAssignItemNotFoundResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusNotFound)
+			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAssignItemVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return enc.Encode(body)
+		case "Conflict":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAssignItemConflictResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusConflict)
+			return enc.Encode(body)
+		case "BadRequest":
+			var res *lfxv2formationservice.FormationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAssignItemBadRequestResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusBadRequest)
+			return enc.Encode(body)
+		case "Unauthorized":
+			var res *lfxv2formationservice.UnauthorizedError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAssignItemUnauthorizedResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusUnauthorized)
+			return enc.Encode(body)
+		default:
+			return encodeError(ctx, w, v)
+		}
+	}
+}
+
 // EncodeUpdateItemResponse returns an encoder for responses returned by the
 // lfx_v2_formation_service update_item endpoint.
 func EncodeUpdateItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
@@ -279,10 +615,6 @@ func DecodeUpdateItemRequest(mux goahttp.Muxer, decoder func(*http.Request) goah
 				return payload, gerr
 			}
 			return payload, goa.DecodePayloadError(err.Error())
-		}
-		err = ValidateUpdateItemRequestBody(&body)
-		if err != nil {
-			return payload, err
 		}
 
 		var (
@@ -415,508 +747,6 @@ func EncodeUpdateItemError(encoder func(context.Context, http.ResponseWriter) go
 	}
 }
 
-// EncodeAcceptItemResponse returns an encoder for responses returned by the
-// lfx_v2_formation_service accept_item endpoint.
-func EncodeAcceptItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
-	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.AcceptItemResult)
-		enc := encoder(ctx, w)
-		body := NewAcceptItemResponseBody(res)
-		if res.Etag != nil {
-			w.Header().Set("Etag", *res.Etag)
-		}
-		w.WriteHeader(http.StatusOK)
-		return enc.Encode(body)
-	}
-}
-
-// DecodeAcceptItemRequest returns a decoder for requests sent to the
-// lfx_v2_formation_service accept_item endpoint.
-func DecodeAcceptItemRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*lfxv2formationservice.AcceptItemPayload, error) {
-	return func(r *http.Request) (*lfxv2formationservice.AcceptItemPayload, error) {
-		var payload *lfxv2formationservice.AcceptItemPayload
-		var (
-			body AcceptItemRequestBody
-			err  error
-		)
-		err = decoder(r).Decode(&body)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return payload, goa.MissingPayloadError()
-			}
-			var gerr *goa.ServiceError
-			if errors.As(err, &gerr) {
-				return payload, gerr
-			}
-			return payload, goa.DecodePayloadError(err.Error())
-		}
-
-		var (
-			projectUID  string
-			itemKey     string
-			version     string
-			bearerToken *string
-			ifMatch     int64
-
-			params = mux.Vars(r)
-		)
-		projectUID = params["project_uid"]
-		itemKey = params["item_key"]
-		version = r.URL.Query().Get("v")
-		if version == "" {
-			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
-		}
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		bearerTokenRaw := r.Header.Get("Authorization")
-		if bearerTokenRaw != "" {
-			bearerToken = &bearerTokenRaw
-		}
-		{
-			ifMatchRaw := r.Header.Get("If-Match")
-			if ifMatchRaw == "" {
-				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
-			}
-			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
-			if err2 != nil {
-				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
-			}
-			ifMatch = v
-		}
-		if err != nil {
-			return payload, err
-		}
-		payload = NewAcceptItemPayload(&body, projectUID, itemKey, version, bearerToken, ifMatch)
-		if payload.BearerToken != nil {
-			if strings.Contains(*payload.BearerToken, " ") {
-				// Remove authorization scheme prefix (e.g. "Bearer")
-				cred := strings.SplitN(*payload.BearerToken, " ", 2)[1]
-				payload.BearerToken = &cred
-			}
-		}
-
-		return payload, nil
-	}
-}
-
-// EncodeAcceptItemError returns an encoder for errors returned by the
-// accept_item lfx_v2_formation_service endpoint.
-func EncodeAcceptItemError(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder, formatter func(ctx context.Context, err error) goahttp.Statuser) func(context.Context, http.ResponseWriter, error) error {
-	encodeError := goahttp.ErrorEncoder(encoder, formatter)
-	return func(ctx context.Context, w http.ResponseWriter, v error) error {
-		var en goa.GoaErrorNamer
-		if !errors.As(v, &en) {
-			return encodeError(ctx, w, v)
-		}
-		switch en.GoaErrorName() {
-		case "NotFound":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewAcceptItemNotFoundResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusNotFound)
-			return enc.Encode(body)
-		case "VersionMismatch":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewAcceptItemVersionMismatchResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return enc.Encode(body)
-		case "Conflict":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewAcceptItemConflictResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusConflict)
-			return enc.Encode(body)
-		case "BadRequest":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewAcceptItemBadRequestResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusBadRequest)
-			return enc.Encode(body)
-		case "Unauthorized":
-			var res *lfxv2formationservice.UnauthorizedError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewAcceptItemUnauthorizedResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusUnauthorized)
-			return enc.Encode(body)
-		default:
-			return encodeError(ctx, w, v)
-		}
-	}
-}
-
-// EncodeRejectItemResponse returns an encoder for responses returned by the
-// lfx_v2_formation_service reject_item endpoint.
-func EncodeRejectItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
-	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.RejectItemResult)
-		enc := encoder(ctx, w)
-		body := NewRejectItemResponseBody(res)
-		if res.Etag != nil {
-			w.Header().Set("Etag", *res.Etag)
-		}
-		w.WriteHeader(http.StatusOK)
-		return enc.Encode(body)
-	}
-}
-
-// DecodeRejectItemRequest returns a decoder for requests sent to the
-// lfx_v2_formation_service reject_item endpoint.
-func DecodeRejectItemRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*lfxv2formationservice.RejectItemPayload, error) {
-	return func(r *http.Request) (*lfxv2formationservice.RejectItemPayload, error) {
-		var payload *lfxv2formationservice.RejectItemPayload
-		var (
-			body RejectItemRequestBody
-			err  error
-		)
-		err = decoder(r).Decode(&body)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return payload, goa.MissingPayloadError()
-			}
-			var gerr *goa.ServiceError
-			if errors.As(err, &gerr) {
-				return payload, gerr
-			}
-			return payload, goa.DecodePayloadError(err.Error())
-		}
-		err = ValidateRejectItemRequestBody(&body)
-		if err != nil {
-			return payload, err
-		}
-
-		var (
-			projectUID  string
-			itemKey     string
-			version     string
-			bearerToken *string
-			ifMatch     int64
-
-			params = mux.Vars(r)
-		)
-		projectUID = params["project_uid"]
-		itemKey = params["item_key"]
-		version = r.URL.Query().Get("v")
-		if version == "" {
-			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
-		}
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		bearerTokenRaw := r.Header.Get("Authorization")
-		if bearerTokenRaw != "" {
-			bearerToken = &bearerTokenRaw
-		}
-		{
-			ifMatchRaw := r.Header.Get("If-Match")
-			if ifMatchRaw == "" {
-				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
-			}
-			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
-			if err2 != nil {
-				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
-			}
-			ifMatch = v
-		}
-		if err != nil {
-			return payload, err
-		}
-		payload = NewRejectItemPayload(&body, projectUID, itemKey, version, bearerToken, ifMatch)
-		if payload.BearerToken != nil {
-			if strings.Contains(*payload.BearerToken, " ") {
-				// Remove authorization scheme prefix (e.g. "Bearer")
-				cred := strings.SplitN(*payload.BearerToken, " ", 2)[1]
-				payload.BearerToken = &cred
-			}
-		}
-
-		return payload, nil
-	}
-}
-
-// EncodeRejectItemError returns an encoder for errors returned by the
-// reject_item lfx_v2_formation_service endpoint.
-func EncodeRejectItemError(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder, formatter func(ctx context.Context, err error) goahttp.Statuser) func(context.Context, http.ResponseWriter, error) error {
-	encodeError := goahttp.ErrorEncoder(encoder, formatter)
-	return func(ctx context.Context, w http.ResponseWriter, v error) error {
-		var en goa.GoaErrorNamer
-		if !errors.As(v, &en) {
-			return encodeError(ctx, w, v)
-		}
-		switch en.GoaErrorName() {
-		case "NotFound":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewRejectItemNotFoundResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusNotFound)
-			return enc.Encode(body)
-		case "VersionMismatch":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewRejectItemVersionMismatchResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return enc.Encode(body)
-		case "Conflict":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewRejectItemConflictResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusConflict)
-			return enc.Encode(body)
-		case "BadRequest":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewRejectItemBadRequestResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusBadRequest)
-			return enc.Encode(body)
-		case "Unauthorized":
-			var res *lfxv2formationservice.UnauthorizedError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewRejectItemUnauthorizedResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusUnauthorized)
-			return enc.Encode(body)
-		default:
-			return encodeError(ctx, w, v)
-		}
-	}
-}
-
-// EncodeReopenItemResponse returns an encoder for responses returned by the
-// lfx_v2_formation_service reopen_item endpoint.
-func EncodeReopenItemResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
-	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res, _ := v.(*lfxv2formationservice.ReopenItemResult)
-		enc := encoder(ctx, w)
-		body := NewReopenItemResponseBody(res)
-		if res.Etag != nil {
-			w.Header().Set("Etag", *res.Etag)
-		}
-		w.WriteHeader(http.StatusOK)
-		return enc.Encode(body)
-	}
-}
-
-// DecodeReopenItemRequest returns a decoder for requests sent to the
-// lfx_v2_formation_service reopen_item endpoint.
-func DecodeReopenItemRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*lfxv2formationservice.ReopenItemPayload, error) {
-	return func(r *http.Request) (*lfxv2formationservice.ReopenItemPayload, error) {
-		var payload *lfxv2formationservice.ReopenItemPayload
-		var (
-			body ReopenItemRequestBody
-			err  error
-		)
-		err = decoder(r).Decode(&body)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return payload, goa.MissingPayloadError()
-			}
-			var gerr *goa.ServiceError
-			if errors.As(err, &gerr) {
-				return payload, gerr
-			}
-			return payload, goa.DecodePayloadError(err.Error())
-		}
-
-		var (
-			projectUID  string
-			itemKey     string
-			version     string
-			bearerToken *string
-			ifMatch     int64
-
-			params = mux.Vars(r)
-		)
-		projectUID = params["project_uid"]
-		itemKey = params["item_key"]
-		version = r.URL.Query().Get("v")
-		if version == "" {
-			err = goa.MergeErrors(err, goa.MissingFieldError("version", "query string"))
-		}
-		if !(version == "1") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
-		}
-		bearerTokenRaw := r.Header.Get("Authorization")
-		if bearerTokenRaw != "" {
-			bearerToken = &bearerTokenRaw
-		}
-		{
-			ifMatchRaw := r.Header.Get("If-Match")
-			if ifMatchRaw == "" {
-				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
-			}
-			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
-			if err2 != nil {
-				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
-			}
-			ifMatch = v
-		}
-		if err != nil {
-			return payload, err
-		}
-		payload = NewReopenItemPayload(&body, projectUID, itemKey, version, bearerToken, ifMatch)
-		if payload.BearerToken != nil {
-			if strings.Contains(*payload.BearerToken, " ") {
-				// Remove authorization scheme prefix (e.g. "Bearer")
-				cred := strings.SplitN(*payload.BearerToken, " ", 2)[1]
-				payload.BearerToken = &cred
-			}
-		}
-
-		return payload, nil
-	}
-}
-
-// EncodeReopenItemError returns an encoder for errors returned by the
-// reopen_item lfx_v2_formation_service endpoint.
-func EncodeReopenItemError(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder, formatter func(ctx context.Context, err error) goahttp.Statuser) func(context.Context, http.ResponseWriter, error) error {
-	encodeError := goahttp.ErrorEncoder(encoder, formatter)
-	return func(ctx context.Context, w http.ResponseWriter, v error) error {
-		var en goa.GoaErrorNamer
-		if !errors.As(v, &en) {
-			return encodeError(ctx, w, v)
-		}
-		switch en.GoaErrorName() {
-		case "NotFound":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewReopenItemNotFoundResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusNotFound)
-			return enc.Encode(body)
-		case "VersionMismatch":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewReopenItemVersionMismatchResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return enc.Encode(body)
-		case "Conflict":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewReopenItemConflictResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusConflict)
-			return enc.Encode(body)
-		case "BadRequest":
-			var res *lfxv2formationservice.FormationError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewReopenItemBadRequestResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusBadRequest)
-			return enc.Encode(body)
-		case "Unauthorized":
-			var res *lfxv2formationservice.UnauthorizedError
-			errors.As(v, &res)
-			enc := encoder(ctx, w)
-			var body any
-			if formatter != nil {
-				body = formatter(ctx, res)
-			} else {
-				body = NewReopenItemUnauthorizedResponseBody(res)
-			}
-			w.Header().Set("goa-error", res.GoaErrorName())
-			w.WriteHeader(http.StatusUnauthorized)
-			return enc.Encode(body)
-		default:
-			return encodeError(ctx, w, v)
-		}
-	}
-}
-
 // EncodeLivezResponse returns an encoder for responses returned by the
 // lfx_v2_formation_service livez endpoint.
 func EncodeLivezResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
@@ -1026,6 +856,18 @@ func marshalLfxv2formationserviceviewsFormationItemViewToFormationItemResponseBo
 			res.SubItems[i] = marshalLfxv2formationserviceviewsFormationSubItemViewToFormationSubItemResponseBody(val)
 		}
 	}
+	if v.AvailableActions != nil {
+		res.AvailableActions = make([]*FormationAvailableActionResponseBody, len(v.AvailableActions))
+		for i, val := range v.AvailableActions {
+			if val == nil {
+				res.AvailableActions[i] = nil
+				continue
+			}
+			res.AvailableActions[i] = marshalLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableActionResponseBody(val)
+		}
+	} else {
+		res.AvailableActions = []*FormationAvailableActionResponseBody{}
+	}
 
 	return res
 }
@@ -1076,17 +918,29 @@ func marshalLfxv2formationserviceviewsFormationSubItemViewToFormationSubItemResp
 	return res
 }
 
+// marshalLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableActionResponseBody
+// builds a value of type *FormationAvailableActionResponseBody from a value of
+// type *lfxv2formationserviceviews.FormationAvailableActionView.
+func marshalLfxv2formationserviceviewsFormationAvailableActionViewToFormationAvailableActionResponseBody(v *lfxv2formationserviceviews.FormationAvailableActionView) *FormationAvailableActionResponseBody {
+	res := &FormationAvailableActionResponseBody{
+		Action:           *v.Action,
+		RequiresReason:   *v.RequiresReason,
+		RequiresRelation: *v.RequiresRelation,
+	}
+
+	return res
+}
+
 // marshalLfxv2formationserviceviewsFormationProgressViewToFormationProgressResponseBody
 // builds a value of type *FormationProgressResponseBody from a value of type
 // *lfxv2formationserviceviews.FormationProgressView.
 func marshalLfxv2formationserviceviewsFormationProgressViewToFormationProgressResponseBody(v *lfxv2formationserviceviews.FormationProgressView) *FormationProgressResponseBody {
 	res := &FormationProgressResponseBody{
-		NotStarted:         *v.NotStarted,
-		InProgress:         *v.InProgress,
-		Blocked:            *v.Blocked,
-		AwaitingAcceptance: *v.AwaitingAcceptance,
-		Done:               *v.Done,
-		Skipped:            *v.Skipped,
+		NotStarted: *v.NotStarted,
+		InProgress: *v.InProgress,
+		Blocked:    *v.Blocked,
+		Done:       *v.Done,
+		Skipped:    *v.Skipped,
 	}
 
 	return res
@@ -1166,6 +1020,19 @@ func marshalLfxv2formationserviceFormationSubItemToFormationSubItemResponseBody(
 		Key:    v.Key,
 		Title:  v.Title,
 		Status: v.Status,
+	}
+
+	return res
+}
+
+// marshalLfxv2formationserviceFormationAvailableActionToFormationAvailableActionResponseBody
+// builds a value of type *FormationAvailableActionResponseBody from a value of
+// type *lfxv2formationservice.FormationAvailableAction.
+func marshalLfxv2formationserviceFormationAvailableActionToFormationAvailableActionResponseBody(v *lfxv2formationservice.FormationAvailableAction) *FormationAvailableActionResponseBody {
+	res := &FormationAvailableActionResponseBody{
+		Action:           v.Action,
+		RequiresReason:   v.RequiresReason,
+		RequiresRelation: v.RequiresRelation,
 	}
 
 	return res

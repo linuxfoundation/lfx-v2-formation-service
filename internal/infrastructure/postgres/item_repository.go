@@ -145,6 +145,9 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 	if patch.Status != nil {
 		q = q.Set("status = ?", *patch.Status)
 	}
+	if patch.StatusSource != nil {
+		q = q.Set("status_source = ?", *patch.StatusSource)
+	}
 	if patch.Assignee != nil {
 		if *patch.Assignee == "" {
 			// Same clear signal as due_date, and NULL rather than '' for the

@@ -305,10 +305,10 @@ func TestPublishedDataIsTheAgreedFieldSet(t *testing.T) {
 		t.Fatalf("progress is not an object: %v", data["progress"])
 	}
 	for _, key := range []string{
-		"not_started", "in_progress", "blocked", "awaiting_acceptance", "done", "skipped",
+		"not_started", "in_progress", "blocked", "done", "skipped",
 	} {
 		if _, present := progress[key]; !present {
-			t.Errorf("progress is missing %q; the queue sorts on all six", key)
+			t.Errorf("progress is missing %q; the queue sorts on all five", key)
 		}
 	}
 }

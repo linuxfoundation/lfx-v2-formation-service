@@ -201,18 +201,36 @@ app:
   logAddSource: true
   # use_oidc_contextualizer is a boolean to determine if the OIDC contextualizer should be used
   use_oidc_contextualizer: true
-  # formationTeamName is the OpenFGA team whose members may accept, reject and
-  # reopen a checklist item. The gateway checks `member` on `team:<this>`, with no
-  # resource in the object — the question is whether the caller is on the formation
-  # team, not what they hold on the project.
+  # formationTeamName is the OpenFGA team whose members may move a checklist
+  # item's status. The gateway checks `member` on `team:<this>`, with no resource
+  # in the object — the question is whether the caller is on the formation team,
+  # not what they hold on the project. It is checked in addition to `writer` on
+  # the project, and the pair is what keeps an assignee from closing their own
+  # item.
+  #
+  # The architecture review names `team:lf-staff` for this guard; `formation` is
+  # used because it is the team this route's second check can actually reach as
+  # the rules are written.
+  #
+  # `team:formation` holds `global_owner`, which reaches the project's `owner`
+  # and so satisfies the status route's other check. `team:lf-staff` is not
+  # excluded by the model — it would need `global_writer`, which satisfies
+  # `writer_guard`, the relation these rules now guard. Verified with `fga model
+  # test` against the platform model: a `global_owner` team member checks true
+  # on both `writer` and `writer_guard`, a `global_writer` team member false on
+  # `writer` and true on `writer_guard`.
+  #
+  # So switching to `lf-staff` is a value change here plus a grant for that team
+  # in the project-global-relations work. `formation` is used because it needs
+  # neither, and because it is the team whose job the checklist is. The cost is
+  # that an LF staff member outside the formation team cannot move a status,
+  # which the review would have allowed.
   #
   # The same value in every environment, so it is a real default here rather than a
-  # per-environment identifier. `team:formation` already exists in production with
-  # members, so no team has to be created and no name agreed. `type team` already
-  # defines `member: [user]` in the platform model, so no model change is needed
-  # either.
+  # per-environment identifier. `type team` already defines `member: [user]` in the
+  # platform model, so no model change is needed either.
   #
-  # Dev has the object with no members, which means the three routes answer 403
+  # Dev has the object with no members, which means the status route answers 403
   # there until somebody is added. That is a write to live permissions and is done
   # deliberately rather than by this chart.
   formationTeamName: "formation"

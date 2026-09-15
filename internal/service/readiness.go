@@ -11,9 +11,10 @@ package service
 // gateTotal and gateOutstanding come from gateSummaryFromItems (count of
 // gating items, and count of those not yet done). Zero gating items must
 // report not ready rather than vacuously ready — a checklist with no gating
-// items has nothing to have cleared. awaiting_acceptance and skipped both
-// fail to satisfy a gate: "not yet done" excludes only status = done, so both
-// fall out of this correctly without special-casing either here.
+// items has nothing to have cleared. A skipped item fails to satisfy a gate:
+// "not yet done" excludes only status = done, so a gating item that was excused
+// rather than completed falls out of this correctly without being special-cased
+// here.
 func isActivating(gateTotal, gateOutstanding int, announcementDate *string) bool {
 	if gateTotal == 0 {
 		return false

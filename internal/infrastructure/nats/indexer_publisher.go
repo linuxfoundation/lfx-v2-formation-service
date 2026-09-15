@@ -333,12 +333,11 @@ func projectionData(doc *port.FormationProjection) map[string]any {
 		// having to special-case a sentinel.
 		"announcement_date": omitEmpty(doc.AnnouncementDate),
 		"progress": map[string]any{
-			"not_started":         doc.NotStarted,
-			"in_progress":         doc.InProgress,
-			"blocked":             doc.Blocked,
-			"awaiting_acceptance": doc.AwaitingAcceptance,
-			"done":                doc.Done,
-			"skipped":             doc.Skipped,
+			"not_started": doc.NotStarted,
+			"in_progress": doc.InProgress,
+			"blocked":     doc.Blocked,
+			"done":        doc.Done,
+			"skipped":     doc.Skipped,
 		},
 		"blocked_item_titles": doc.BlockedItemTitles,
 		"assignees":           doc.Assignees,

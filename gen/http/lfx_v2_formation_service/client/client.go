@@ -26,21 +26,17 @@ type Client struct {
 	// get_formation_activity endpoint.
 	GetFormationActivityDoer goahttp.Doer
 
+	// SetItemStatus Doer is the HTTP client used to make requests to the
+	// set_item_status endpoint.
+	SetItemStatusDoer goahttp.Doer
+
+	// AssignItem Doer is the HTTP client used to make requests to the assign_item
+	// endpoint.
+	AssignItemDoer goahttp.Doer
+
 	// UpdateItem Doer is the HTTP client used to make requests to the update_item
 	// endpoint.
 	UpdateItemDoer goahttp.Doer
-
-	// AcceptItem Doer is the HTTP client used to make requests to the accept_item
-	// endpoint.
-	AcceptItemDoer goahttp.Doer
-
-	// RejectItem Doer is the HTTP client used to make requests to the reject_item
-	// endpoint.
-	RejectItemDoer goahttp.Doer
-
-	// ReopenItem Doer is the HTTP client used to make requests to the reopen_item
-	// endpoint.
-	ReopenItemDoer goahttp.Doer
 
 	// Livez Doer is the HTTP client used to make requests to the livez endpoint.
 	LivezDoer goahttp.Doer
@@ -71,10 +67,9 @@ func NewClient(
 	return &Client{
 		GetFormationDoer:         doer,
 		GetFormationActivityDoer: doer,
+		SetItemStatusDoer:        doer,
+		AssignItemDoer:           doer,
 		UpdateItemDoer:           doer,
-		AcceptItemDoer:           doer,
-		RejectItemDoer:           doer,
-		ReopenItemDoer:           doer,
 		LivezDoer:                doer,
 		ReadyzDoer:               doer,
 		RestoreResponseBody:      restoreBody,
@@ -133,6 +128,54 @@ func (c *Client) GetFormationActivity() goa.Endpoint {
 	}
 }
 
+// SetItemStatus returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service set_item_status server.
+func (c *Client) SetItemStatus() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeSetItemStatusRequest(c.encoder)
+		decodeResponse = DecodeSetItemStatusResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildSetItemStatusRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.SetItemStatusDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "set_item_status", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// AssignItem returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service assign_item server.
+func (c *Client) AssignItem() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeAssignItemRequest(c.encoder)
+		decodeResponse = DecodeAssignItemResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildAssignItemRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.AssignItemDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "assign_item", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
 // UpdateItem returns an endpoint that makes HTTP requests to the
 // lfx_v2_formation_service service update_item server.
 func (c *Client) UpdateItem() goa.Endpoint {
@@ -152,78 +195,6 @@ func (c *Client) UpdateItem() goa.Endpoint {
 		resp, err := c.UpdateItemDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "update_item", err)
-		}
-		return decodeResponse(resp)
-	}
-}
-
-// AcceptItem returns an endpoint that makes HTTP requests to the
-// lfx_v2_formation_service service accept_item server.
-func (c *Client) AcceptItem() goa.Endpoint {
-	var (
-		encodeRequest  = EncodeAcceptItemRequest(c.encoder)
-		decodeResponse = DecodeAcceptItemResponse(c.decoder, c.RestoreResponseBody)
-	)
-	return func(ctx context.Context, v any) (any, error) {
-		req, err := c.BuildAcceptItemRequest(ctx, v)
-		if err != nil {
-			return nil, err
-		}
-		err = encodeRequest(req, v)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := c.AcceptItemDoer.Do(req)
-		if err != nil {
-			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "accept_item", err)
-		}
-		return decodeResponse(resp)
-	}
-}
-
-// RejectItem returns an endpoint that makes HTTP requests to the
-// lfx_v2_formation_service service reject_item server.
-func (c *Client) RejectItem() goa.Endpoint {
-	var (
-		encodeRequest  = EncodeRejectItemRequest(c.encoder)
-		decodeResponse = DecodeRejectItemResponse(c.decoder, c.RestoreResponseBody)
-	)
-	return func(ctx context.Context, v any) (any, error) {
-		req, err := c.BuildRejectItemRequest(ctx, v)
-		if err != nil {
-			return nil, err
-		}
-		err = encodeRequest(req, v)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := c.RejectItemDoer.Do(req)
-		if err != nil {
-			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "reject_item", err)
-		}
-		return decodeResponse(resp)
-	}
-}
-
-// ReopenItem returns an endpoint that makes HTTP requests to the
-// lfx_v2_formation_service service reopen_item server.
-func (c *Client) ReopenItem() goa.Endpoint {
-	var (
-		encodeRequest  = EncodeReopenItemRequest(c.encoder)
-		decodeResponse = DecodeReopenItemResponse(c.decoder, c.RestoreResponseBody)
-	)
-	return func(ctx context.Context, v any) (any, error) {
-		req, err := c.BuildReopenItemRequest(ctx, v)
-		if err != nil {
-			return nil, err
-		}
-		err = encodeRequest(req, v)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := c.ReopenItemDoer.Do(req)
-		if err != nil {
-			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "reopen_item", err)
 		}
 		return decodeResponse(resp)
 	}

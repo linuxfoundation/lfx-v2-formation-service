@@ -39,9 +39,9 @@ Entries come back newest first, ordered by `ulid` descending. `next_cursor` is e
 
 ## Why this route names an item by UID when its siblings name it by key
 
-Every route that *mutates* an item addresses it by stable key — `PATCH /formations/{project_uid}/items/{item_key}`
-and the `accept`, `reject` and `reopen` routes beside it. This route deliberately differs and takes the
-item's **UID**.
+Every route that *mutates* an item addresses it by stable key — the item update, assignment and status
+routes under `/formations/{project_uid}/items/{item_key}`. This route deliberately differs and takes
+the item's **UID**.
 
 The reason is in the row: an activity entry stores the item's UID as a foreign key
 (`internal/infrastructure/postgres/schema.sql`, `formation_activity.item_uid`) and does not store the

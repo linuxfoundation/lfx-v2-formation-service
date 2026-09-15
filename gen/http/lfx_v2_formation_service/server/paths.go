@@ -22,24 +22,19 @@ func GetFormationActivityLfxV2FormationServicePath(projectUID string) string {
 	return fmt.Sprintf("/formations/%v/activity", projectUID)
 }
 
+// SetItemStatusLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service set_item_status HTTP endpoint.
+func SetItemStatusLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v/status", projectUID, itemKey)
+}
+
+// AssignItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service assign_item HTTP endpoint.
+func AssignItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
+	return fmt.Sprintf("/formations/%v/items/%v/assignment", projectUID, itemKey)
+}
+
 // UpdateItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service update_item HTTP endpoint.
 func UpdateItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
 	return fmt.Sprintf("/formations/%v/items/%v", projectUID, itemKey)
-}
-
-// AcceptItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service accept_item HTTP endpoint.
-func AcceptItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
-	return fmt.Sprintf("/formations/%v/items/%v/accept", projectUID, itemKey)
-}
-
-// RejectItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service reject_item HTTP endpoint.
-func RejectItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
-	return fmt.Sprintf("/formations/%v/items/%v/reject", projectUID, itemKey)
-}
-
-// ReopenItemLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service reopen_item HTTP endpoint.
-func ReopenItemLfxV2FormationServicePath(projectUID string, itemKey string) string {
-	return fmt.Sprintf("/formations/%v/items/%v/reopen", projectUID, itemKey)
 }
 
 // LivezLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service livez HTTP endpoint.

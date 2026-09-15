@@ -106,9 +106,8 @@ type PlatformCheckReport struct {
 // not have that judgment silently reversed by a service that can only see that a
 // committee exists.
 //
-// Reaching done here takes no acceptance step, unlike a hand-set item. There is
-// nothing for a second person to confirm: the platform is not attesting to its
-// own work, it is reporting a fact, and the two-person rule exists to stop
+// Reaching done here needs no staff action. The platform is not attesting to
+// its own work, it is reporting a fact, and the two-person rule exists to stop
 // somebody attesting to theirs.
 func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*PlatformCheckReport, error) {
 	report := &PlatformCheckReport{}
@@ -117,7 +116,11 @@ func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*P
 	}
 
 	txErr := c.uow.Do(ctx, func(tx port.Tx) error {
-		formation, err := tx.Formations().GetByProject(ctx, projectUID)
+		// Locked for the same reason the three write routes lock it: the
+		// lifecycle read below is a precondition for writing other rows, and
+		// nothing else stops a freeze committing in between. The pass is one
+		// project's checklist, so the lock it holds is narrow.
+		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
 		if err != nil {
 			return err
 		}
@@ -219,8 +222,8 @@ func (c *PlatformChecker) resolveItem(
 
 	// Attributed to the system, not to whoever's request happened to trigger the
 	// pass. An entry naming a person for a move they did not make would be worse
-	// than no entry at all, because the feed is what the acceptance rule is
-	// audited against.
+	// than no entry at all, because the feed is what status changes are audited
+	// against.
 	if err := tx.Activity().Append(ctx, &model.ActivityEntry{
 		FormationUID: formation.UID,
 		ItemUID:      &updated.UID,
