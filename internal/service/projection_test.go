@@ -34,7 +34,7 @@ func TestProjectionCountsEverySixStatuses(t *testing.T) {
 		{ItemKey: "f", Status: model.StatusDone},
 		{ItemKey: "g", Status: model.StatusSkipped},
 	}
-	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "")
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil)
 
 	for _, c := range []struct {
 		name string
@@ -63,7 +63,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 		{ItemKey: "other", Status: model.StatusInProgress},
 	}
 
-	withoutDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "")
+	withoutDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "", nil)
 	if !withoutDate.GatesCleared {
 		t.Error("gates_cleared = false with every gating item done, want true")
 	}
@@ -72,7 +72,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 			"full readiness needs the date as well")
 	}
 
-	withDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "2026-12-01")
+	withDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "2026-12-01", nil)
 	if !withDate.IsActivating {
 		t.Error("is_activating = false with gates cleared and a date set, want true")
 	}
@@ -83,7 +83,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 func TestNoGatingItemsIsNeitherClearedNorActivating(t *testing.T) {
 	doc := buildProjection(liveFormation(),
 		[]*model.Item{{ItemKey: "a", Status: model.StatusDone}},
-		port.ProjectRef{}, "A Project", "2026-12-01")
+		port.ProjectRef{}, "A Project", "2026-12-01", nil)
 
 	if doc.GatesCleared {
 		t.Error("gates_cleared = true with zero gating items, want false")
@@ -100,7 +100,7 @@ func TestNeitherAClaimNorASkipSatisfiesAGate(t *testing.T) {
 	for _, status := range []model.ItemStatus{model.StatusAwaitingAcceptance, model.StatusSkipped} {
 		doc := buildProjection(liveFormation(),
 			[]*model.Item{{ItemKey: "gate", Gate: true, Status: status}},
-			port.ProjectRef{}, "A Project", "2026-12-01")
+			port.ProjectRef{}, "A Project", "2026-12-01", nil)
 
 		if doc.GatesCleared {
 			t.Errorf("gates_cleared = true with its only gating item %q, want false", status)
@@ -121,7 +121,7 @@ func TestProjectionPublishesTheSignalsAndNotAType(t *testing.T) {
 			UID: "project-1", Slug: "a-project", IsFoundation: true,
 			ParentUID: "parent-1", SubStage: model.StageFormationEngaged,
 		},
-		"A Project", "")
+		"A Project", "", nil)
 
 	if !doc.IsFoundation {
 		t.Error("is_foundation = false, want true")
@@ -142,7 +142,7 @@ func TestAssigneesAreDistinctAndExcludeTheUnassigned(t *testing.T) {
 		{ItemKey: "b", Assignee: "person-one"},
 		{ItemKey: "c", Assignee: "person-two"},
 		{ItemKey: "d", Assignee: ""},
-	}, port.ProjectRef{}, "A Project", "")
+	}, port.ProjectRef{}, "A Project", "", nil)
 
 	if len(doc.Assignees) != 2 {
 		t.Fatalf("assignees = %v, want two distinct entries", doc.Assignees)
@@ -163,10 +163,10 @@ func TestRepublishingIsStableForAnUnchangedChecklist(t *testing.T) {
 		{ItemKey: "b", Title: "Beta", Status: model.StatusBlocked, Assignee: "person-two"},
 		{ItemKey: "a", Title: "Alpha", Status: model.StatusBlocked, Assignee: "person-one"},
 	}
-	first := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "")
+	first := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil)
 
 	reordered := []*model.Item{items[1], items[0]}
-	second := buildProjection(liveFormation(), reordered, port.ProjectRef{}, "A Project", "")
+	second := buildProjection(liveFormation(), reordered, port.ProjectRef{}, "A Project", "", nil)
 
 	if len(first.BlockedItemTitles) != len(second.BlockedItemTitles) {
 		t.Fatalf("titles = %v and %v, want the same", first.BlockedItemTitles, second.BlockedItemTitles)
@@ -520,7 +520,7 @@ func TestRefreshPublishesOneItemDocumentPerItem(t *testing.T) {
 		t.Fatalf("seeding items = %v", err)
 	}
 
-	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"})
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, FirstPublish)
 	if err != nil {
 		t.Fatalf("Refresh() = %v, want no error", err)
 	}
@@ -612,7 +612,7 @@ func TestRefreshCarriesProjectNameAndSlugOntoItemDocuments(t *testing.T) {
 		t.Fatalf("seeding items = %v", err)
 	}
 
-	if _, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1", Slug: "a-project"}); err != nil {
+	if _, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1", Slug: "a-project"}, FirstPublish); err != nil {
 		t.Fatalf("Refresh() = %v, want no error", err)
 	}
 
@@ -653,7 +653,7 @@ func TestRefreshReturnsAnErrorWhenNoItemDocumentLands(t *testing.T) {
 	// The checklist publish still succeeds; only the item batch fails.
 	publisher.SetItemsError(errors.New("indexer unreachable for items"))
 
-	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"})
+	published, err := projector.Refresh(ctx, port.ProjectRef{UID: "project-1"}, FirstPublish)
 	if err == nil {
 		t.Fatal("Refresh() = nil error, want one — the sweep counts a stale index only when told")
 	}

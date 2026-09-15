@@ -28,7 +28,7 @@ import (
 func TestProjectionIsGatedOnAuditorAndNeverOnViewer(t *testing.T) {
 	doc := buildProjection(
 		&model.Formation{ProjectUID: "project-1", Lifecycle: model.LifecycleLive},
-		nil, port.ProjectRef{}, "A Project", "",
+		nil, port.ProjectRef{}, "A Project", "", nil,
 	)
 
 	if doc.AccessRelation == "viewer" {
@@ -61,7 +61,7 @@ func TestBlockedTitlesNameNoPerson(t *testing.T) {
 			{ItemKey: "charter", Title: "Charter agreed", Status: model.StatusBlocked, Assignee: "person-one"},
 			{ItemKey: "brand", Title: "Brand review", Status: model.StatusInProgress, Assignee: "person-two"},
 		},
-		port.ProjectRef{}, "A Project", "",
+		port.ProjectRef{}, "A Project", "", nil,
 	)
 
 	for _, title := range doc.BlockedItemTitles {
@@ -88,7 +88,7 @@ func TestProjectionCarriesNoFreeTextFromItems(t *testing.T) {
 			ItemKey: "charter", Title: "Charter agreed", Status: model.StatusBlocked,
 			Note: secret, SkipReason: secret, EvidenceLink: "https://example.org/" + secret,
 		}},
-		port.ProjectRef{}, "A Project", "",
+		port.ProjectRef{}, "A Project", "", nil,
 	)
 
 	for _, title := range doc.BlockedItemTitles {

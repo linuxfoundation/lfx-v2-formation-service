@@ -60,6 +60,15 @@ type Reconciler struct {
 	emailCfg EmailConfig
 }
 
+// partialChains reads the projector's running total of rows scoped to less than
+// their parentage, or zero when projection is disabled.
+func (r *Reconciler) partialChains() int64 {
+	if r.projector == nil {
+		return 0
+	}
+	return r.projector.PartialChains()
+}
+
 // SetEmailer wires the email dispatcher, item repository, and config into an
 // existing Reconciler. Called after NewReconciler so test call-sites that do
 // not exercise notifications do not have to change.
@@ -188,6 +197,12 @@ func (r *Reconciler) Run(ctx context.Context) {
 				"degraded", report.Degraded,
 				"projected", report.Projected,
 				"projection_failed", report.ProjectionFailed,
+				// Cumulative across sweeps rather than per-sweep like the
+				// fields above, and named so. A row scoped to less than its
+				// parentage is invisible in the index — it just does not
+				// appear under a foundation it belongs to — so this total is
+				// the only place the shortfall surfaces as a number.
+				"partial_chains_total", r.partialChains(),
 				"platform_resolved", report.PlatformResolved,
 				"platform_unanswerable", report.PlatformUnanswerable,
 				"platform_check_failed", report.PlatformCheckFailed,
@@ -345,7 +360,7 @@ func (r *Reconciler) reconcileProject(
 	// case the gate must not skip past.
 	if !model.FormingStage(project.SubStage) {
 		report.Skipped++
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -361,7 +376,7 @@ func (r *Reconciler) reconcileProject(
 	// Lifecycle still runs: an existing checklist is exactly the thing that
 	// may need moving.
 	if sweep.existing[project.UID] {
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -388,7 +403,7 @@ func (r *Reconciler) reconcileProject(
 		} else {
 			report.Degraded++
 		}
-		r.finishProject(ctx, project, report, trigger)
+		r.finishProject(ctx, project, report, trigger, false)
 		return
 	}
 
@@ -410,7 +425,7 @@ func (r *Reconciler) reconcileProject(
 	// A project can re-enter formation, so a checklist that was frozen or
 	// completed has to come back to live. Run after creation because the
 	// checklist has to exist before its lifecycle can be moved.
-	r.finishProject(ctx, project, report, trigger)
+	r.finishProject(ctx, project, report, trigger, created)
 }
 
 // sweepState is what a sweep resolves once and reuses for every project.
@@ -565,8 +580,15 @@ func (r *Reconciler) prepare(ctx context.Context, forming int) func() *model.Tem
 // rather than by a tool somebody has to remember exists: the sweep does not know
 // which rows are missing from the index, and asking would cost more than
 // republishing.
+//
+// justCreated says the checklist was expanded in this pass, which is the only
+// case where no queue row for it can exist yet. It decides the publish posture:
+// everything else arriving here — a sweep revisiting a long-standing checklist,
+// a listener handling project.updated, an operator repair — is republishing
+// over a document that may already carry more parentage than this pass can
+// resolve.
 func (r *Reconciler) finishProject(
-	ctx context.Context, project port.ProjectRef, report *ReconcileReport, trigger Trigger,
+	ctx context.Context, project port.ProjectRef, report *ReconcileReport, trigger Trigger, justCreated bool,
 ) {
 	// The platform pass declines a checklist whose lifecycle has been completed
 	// or frozen, which is the whole protection the ordering above buys — and it
@@ -592,7 +614,11 @@ func (r *Reconciler) finishProject(
 	if r.projector == nil {
 		return
 	}
-	published, err := r.projector.Refresh(ctx, project)
+	posture := Republish
+	if justCreated {
+		posture = FirstPublish
+	}
+	published, err := r.projector.Refresh(ctx, project, posture)
 	if err != nil {
 		// Logged and counted, never propagated. The checklist in Postgres is
 		// correct; only the queue's view of it is stale, and the next sweep

@@ -422,6 +422,26 @@ type FormationProjection struct {
 	SubStage         string
 	AnnouncementDate string
 
+	// AncestorUIDs is the project and every project above it, nearest first,
+	// ending at the platform root. It is what lets the queue scope to a
+	// foundation at any depth instead of one level: the publisher emits the
+	// whole chain as parent references, so a term match on any ancestor
+	// resolves the row.
+	//
+	// It includes the project's own UID, so scoping to a foundation returns
+	// that foundation's own row alongside its descendants.
+	//
+	// Resolved on the sweep that publishes it and never stored, like every
+	// other project fact here. A chain that outlived its source would survive
+	// a reparenting and silently scope the row to a foundation it has left,
+	// which is worse than not scoping it at all — the query would look like it
+	// worked.
+	//
+	// Shorter than the true parentage when resolution ran out of road. See
+	// Projector.ancestorChain for where a walk stops, and PublishPosture for
+	// which of those stops is worth withholding a publish over.
+	AncestorUIDs []string
+
 	// Lifecycle is carried so the queue can tell a live checklist from one that
 	// completed or froze, rather than inferring it from the stage.
 	Lifecycle string
