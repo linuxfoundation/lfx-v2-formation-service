@@ -4,6 +4,7 @@
 package nats
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -87,6 +88,15 @@ func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]strin
 	reply, err := p.client.Request(ctx, ProjectGetWritersSubject, []byte(projectUID))
 	if err != nil {
 		return nil, err
+	}
+
+	// An absent reply (nil/empty) is not the same as an empty roster: an empty
+	// roster is a valid reply (the project has no writers); an absent body
+	// means the upstream could not answer. Treat it as not-found so callers
+	// that key on domain.ErrNotFound can handle it without falling through to
+	// a JSON unmarshal error.
+	if len(bytes.TrimSpace(reply)) == 0 {
+		return nil, fmt.Errorf("project %s returned no writers reply: %w", projectUID, domain.ErrNotFound)
 	}
 
 	// Project-service returns {"error":"<code>",...} on errors. The distinction
@@ -173,6 +183,12 @@ func (p *ProjectClient) GetSettings(ctx context.Context, projectUID string) (*po
 	if err != nil {
 		return nil, err
 	}
+	// A nil/empty body means no response was received at all — treat as not-found
+	// so callers that key on domain.ErrNotFound can handle it appropriately.
+	if len(bytes.TrimSpace(reply)) == 0 {
+		return nil, fmt.Errorf("project %s returned no settings reply: %w", projectUID, domain.ErrNotFound)
+	}
+
 	// Project-service returns {"error":"<code>",...} on errors. The success payload
 	// for get_settings is also a JSON object, so the "error" key is what
 	// distinguishes the two — not the opening byte.
@@ -237,6 +253,13 @@ func (p *ProjectClient) ListFormingProjects(ctx context.Context, alsoUIDs []stri
 	if err != nil {
 		return nil, err
 	}
+	// A nil/empty body is not the same as an empty project list. An empty []
+	// is the legitimate "no forming projects" answer; an absent body means the
+	// upstream could not answer — treat it as not-found.
+	if len(bytes.TrimSpace(reply)) == 0 {
+		return nil, fmt.Errorf("project list returned no reply: %w", domain.ErrNotFound)
+	}
+
 	// Project-service returns {"error":"<code>",...} on errors. An empty array []
 	// is the legitimate "no forming projects" answer; an error envelope must not
 	// be treated as an empty sweep.
