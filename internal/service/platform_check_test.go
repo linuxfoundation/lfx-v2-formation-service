@@ -415,10 +415,11 @@ func TestEachRowResolvesAgainstItsOwnLookup(t *testing.T) {
 }
 
 // The sweep is a writer too, so it takes the same row lock the three write
-// routes take. Reading the lifecycle unlocked and then writing items lets a
-// freeze commit in between, and this pass writes more rows per transaction than
-// any of them.
-func TestTheSweepReadsTheChecklistsLifecycleUnderARowLock(t *testing.T) {
+// routes take — but around the writes, not around the whole pass. It plans
+// against an unlocked read, and locks again to decide the lifecycle immediately
+// before it writes, so a freeze that commits while the lookups are running is
+// seen rather than overtaken.
+func TestTheSweepLocksTheChecklistItWritesTo(t *testing.T) {
 	checker, repos, _ := platformFixture(t, model.StatusNotStarted, foundCommittee)
 	repos.formations.ResetCalls()
 
@@ -426,10 +427,58 @@ func TestTheSweepReadsTheChecklistsLifecycleUnderARowLock(t *testing.T) {
 	require.NoError(t, err)
 
 	calls := repos.formations.Calls()
+	assert.Equal(t, 1, calls["formations.GetByProject"],
+		"the sweep did not plan against the unlocked read")
 	assert.Equal(t, 1, calls["formations.GetByProjectForUpdate"],
-		"the sweep did not lock the formation row it checked the lifecycle on")
-	assert.Zero(t, calls["formations.GetByProject"],
-		"the sweep took the unlocked read, which a concurrent freeze can overtake")
+		"the sweep wrote items without locking the formation it checked the lifecycle on")
+}
+
+// A pass that settles nothing writes nothing, and so locks nothing. This is the
+// ordinary shape of a sweep over a catalogue whose platform rows are all done
+// or all still waiting, and it is what keeps a daily pass over every project
+// from being a daily lock on every project.
+func TestAPassWithNothingToWriteTakesNoLock(t *testing.T) {
+	notYet := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 0, nil, domain.ErrNotFound
+	}
+	checker, repos, _ := platformFixture(t, model.StatusNotStarted, notYet)
+	repos.formations.ResetCalls()
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Pending)
+
+	calls := repos.formations.Calls()
+	assert.Zero(t, calls["formations.GetByProjectForUpdate"],
+		"the sweep locked a formation it had nothing to write to")
+}
+
+// The reason the phases exist. A lookup is a call to another service, and while
+// one is in flight this pass must hold no formation lock: every replica sweeps
+// without leader election, so a read layer that hangs would otherwise queue
+// those waits on the same row and block people saving their checklists.
+//
+// Asserted by blocking inside the lookup and checking, from there, that the
+// locking read has not been reached.
+func TestNoLockIsHeldWhileALookupIsInFlight(t *testing.T) {
+	var repos *platformRepos
+	lockedDuringLookup := -1
+
+	blocking := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		lockedDuringLookup = repos.formations.Calls()["formations.GetByProjectForUpdate"]
+		return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+
+	checker, r, _ := platformFixture(t, model.StatusNotStarted, blocking)
+	repos = r
+	repos.formations.ResetCalls()
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	require.Equal(t, 1, report.Advanced, "the fixture did not reach the lookup")
+
+	assert.Zero(t, lockedDuringLookup,
+		"a formation row was locked while an outbound lookup was in flight")
 }
 
 // A project with no checklist is not an error. The reconcile may not have created

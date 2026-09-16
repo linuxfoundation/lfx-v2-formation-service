@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,6 +40,19 @@ import (
 
 // The read layer's API version. One value is accepted and it is not optional.
 const apiVersion = "1"
+
+// How the list call pages while looking for one resource this service may see.
+//
+// A page larger than the one resource wanted, because the read layer filters
+// the page by access after building it: asking for one hit at a time makes a
+// single hidden resource cost a whole extra round trip, where a page absorbs it.
+// Bounded at a few pages because the point is to find one visible resource, not
+// to enumerate them — a project with more hidden resources than this has
+// something wrong with its grants that paging further would only hide.
+const (
+	listPageSize = "50"
+	maxListPages = 5
+)
 
 // indexedTypes maps the platform-neutral name a template row carries to the
 // name the read layer indexes it under. This is the only place in the service
@@ -172,8 +186,14 @@ type countResponse struct {
 // field was absent, which is a malformed response, while a present empty array
 // is the documented race where the resource was deleted between the two calls.
 // Those two get opposite treatment, so they cannot share a representation.
+//
+// PageToken has to be read even though one visible resource is all this client
+// wants, because the read layer pages the raw index and applies access control
+// to the page afterwards. An empty page with a token set therefore means "none
+// you may see on this page", not "none at all".
 type resourceEnvelope struct {
 	Resources *[]resourceRef `json:"resources"`
+	PageToken string         `json:"page_token"`
 }
 
 type resourceRef struct {
@@ -184,11 +204,16 @@ type resourceRef struct {
 // Count reports how many resources of the given type the project has, and
 // names one of them.
 //
-// Two calls, because the list endpoint returns no total and the count
-// endpoint returns no identifiers. They carry identical filters, which is
-// what makes the count a valid predicate for the list — the read layer
-// filters both by the same principal, so a count of three followed by an
-// empty list is a race rather than a disagreement.
+// A count call and then a list call, because the list endpoint returns no
+// total and the count endpoint returns no identifiers. They carry identical
+// filters, which is what makes the count a valid predicate for the list — the
+// read layer filters both by the same principal, so a count of three followed
+// by a list that names nothing is a race rather than a disagreement.
+//
+// The list may take more than one call. Both endpoints answer for the same
+// principal, but only the count is access-aware before paging: the list pages
+// the raw index and filters the page afterwards, so reaching what the count
+// promised can mean following a token past a page holding nothing visible.
 //
 // The list call is skipped entirely when the count is zero: there is nothing
 // to name, and the row is not going to advance. The row's own min_count is
@@ -253,36 +278,67 @@ func (c *Client) count(ctx context.Context, indexedType, projectUID string) (int
 	return int(*body.Count), nil
 }
 
-// first issues the list call and names the first hit.
+// first issues the list call and names the first resource this service may see.
 //
 // No ordering is imposed. The read layer's default sort is a total order, so
 // the first hit is the same resource on every call while the underlying set
 // is unchanged — imposing one here would only risk disagreeing with it.
+//
+// It follows page tokens rather than reading one page, because the read layer
+// pages the raw index and applies access control to the page afterwards, while
+// the count endpoint this is paired with counts only what the caller may see.
+// A page holding nothing visible is therefore an ordinary answer and not the
+// end of the list: stopping at it would leave a row that was counted as present
+// reported as missing on every sweep, forever, with no signal to say so.
 func (c *Client) first(ctx context.Context, indexedType, projectUID string) (*model.ResolvedRef, error) {
-	u := c.baseURL.JoinPath("query", "resources")
-	q := filters(indexedType, projectUID)
-	q.Set("page_size", "1")
-	u.RawQuery = q.Encode()
+	pageToken := ""
 
-	var body resourceEnvelope
-	if err := c.get(ctx, u, &body); err != nil {
-		return nil, err
+	for page := 0; ; page++ {
+		if page >= maxListPages {
+			// Logged rather than returned as an error, because the row is still
+			// only unresolved and the next sweep asks again. Worth a line all
+			// the same: the count said there was something to find, so reaching
+			// the cap means a project with more resources hidden from this
+			// service than paging is meant to step over.
+			slog.WarnContext(ctx, "stopped paging the read layer at the page cap",
+				"project_uid", projectUID, "type", indexedType, "cap", maxListPages)
+			return nil, nil
+		}
+
+		u := c.baseURL.JoinPath("query", "resources")
+		q := filters(indexedType, projectUID)
+		q.Set("page_size", listPageSize)
+		if pageToken != "" {
+			q.Set("page_token", pageToken)
+		}
+		u.RawQuery = q.Encode()
+
+		var body resourceEnvelope
+		if err := c.get(ctx, u, &body); err != nil {
+			return nil, err
+		}
+		if body.Resources == nil {
+			return nil, errors.New("query service list response has no resources field")
+		}
+
+		for _, hit := range *body.Resources {
+			if hit.ID == "" {
+				continue
+			}
+			refType := hit.Type
+			if refType == "" {
+				refType = indexedType
+			}
+			return &model.ResolvedRef{Type: refType, UID: hit.ID}, nil
+		}
+
+		if body.PageToken == "" {
+			// Read to the end and saw nothing. Reported as absent, which is the
+			// documented race with the count call rather than a fault.
+			return nil, nil
+		}
+		pageToken = body.PageToken
 	}
-	if body.Resources == nil {
-		return nil, errors.New("query service list response has no resources field")
-	}
-	if len(*body.Resources) == 0 {
-		return nil, nil
-	}
-	hit := (*body.Resources)[0]
-	if hit.ID == "" {
-		return nil, nil
-	}
-	refType := hit.Type
-	if refType == "" {
-		refType = indexedType
-	}
-	return &model.ResolvedRef{Type: refType, UID: hit.ID}, nil
 }
 
 // filters builds the query parameters both calls share. Identical filters are

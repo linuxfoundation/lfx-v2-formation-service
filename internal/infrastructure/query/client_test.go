@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 )
 
 // recordedCall is one request the fake read layer saw.
@@ -33,6 +35,10 @@ type fakeLayer struct {
 	countCode int
 	listBody  string
 	listCode  int
+
+	// listBodies answers successive list calls in order, for the tests about
+	// paging. It takes precedence over listBody while it has entries left.
+	listBodies []string
 }
 
 func (f *fakeLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +51,8 @@ func (f *fakeLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	code, body := f.listCode, f.listBody
 	if r.URL.Path == "/query/resources/count" {
 		code, body = f.countCode, f.countBody
+	} else if len(f.listBodies) > 0 {
+		body, f.listBodies = f.listBodies[0], f.listBodies[1:]
 	}
 	if code == 0 {
 		code = http.StatusOK
@@ -127,7 +135,9 @@ func TestTheCountIsAskedFirstAndTheListOnlyWhenSomethingWasCounted(t *testing.T)
 		assert.Equal(t, "Bearer test-token", call.auth, "the service identity must be presented")
 	}
 	assert.Equal(t, "", layer.calls[0].query.Get("page_size"), "the count takes no page size")
-	assert.Equal(t, "1", layer.calls[1].query.Get("page_size"), "only one hit is ever needed")
+	assert.Equal(t, "50", layer.calls[1].query.Get("page_size"),
+		"one visible hit is wanted, but the layer filters the page by access after building it")
+	assert.Equal(t, "", layer.calls[1].query.Get("page_token"), "the first page is asked for without a token")
 
 	// No ordering is imposed. The layer's default sort is already a total
 	// order, so naming one here could only disagree with it.
@@ -203,4 +213,65 @@ func TestAFlooredCountIsUsedAsIs(t *testing.T) {
 	count, _, err := client.Count(context.Background(), "project-1", "committee")
 	require.NoError(t, err)
 	assert.Equal(t, 10, count)
+}
+
+// An empty page carrying a token is not the end of the list.
+//
+// The read layer pages the raw index and applies access control to the page
+// afterwards, while the count endpoint counts only what the caller may see. So
+// a project whose first page holds nothing visible still has a resource the
+// count promised, on a later page. Stopping at the empty page reports the row
+// missing on every sweep for as long as the hidden resource sorts first — a row
+// that never advances, and no error anywhere to say why.
+func TestAnEmptyPageWithATokenIsFollowedRatherThanBelieved(t *testing.T) {
+	layer := &fakeLayer{
+		countBody: `{"count":1,"has_more":false}`,
+		listBodies: []string{
+			`{"resources":[],"page_token":"next"}`,
+			`{"resources":[{"type":"committee","id":"committee-7"}]}`,
+		},
+	}
+	client, _ := newFake(t, layer)
+
+	count, ref, err := client.Count(context.Background(), "project-1", "committee")
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+	require.NotNil(t, ref, "the client stopped at a page the access filter had emptied")
+	assert.Equal(t, "committee-7", ref.UID)
+
+	require.Len(t, layer.calls, 3, "the count, then both pages")
+	assert.Equal(t, "next", layer.calls[2].query.Get("page_token"),
+		"the second page was asked for without the token the first one returned")
+}
+
+// An empty page with no token is the end of the list, and means absent.
+//
+// The distinction from the test above is the whole reason the token is read: an
+// exhausted list is the documented race with the count call, and reporting it
+// as absent leaves the row pending for the next sweep.
+func TestAnEmptyFinalPageIsReportedAsAbsent(t *testing.T) {
+	layer := &fakeLayer{
+		countBody: `{"count":1,"has_more":false}`,
+		listBody:  `{"resources":[]}`,
+	}
+	client, _ := newFake(t, layer)
+
+	_, _, err := client.Count(context.Background(), "project-1", "committee")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	assert.Len(t, layer.calls, 2, "the client kept asking after the list said it was done")
+}
+
+// A read layer that never stops issuing tokens is given up on rather than
+// followed. The lookup's deadline already bounds the wall clock, so the cap is
+// about not turning one sweep into a request loop against the read layer.
+func TestAnEndlessRunOfEmptyPagesIsGivenUpOn(t *testing.T) {
+	layer := &fakeLayer{
+		countBody: `{"count":1,"has_more":false}`,
+		listBody:  `{"resources":[],"page_token":"always-more"}`,
+	}
+	client, _ := newFake(t, layer)
+
+	_, _, err := client.Count(context.Background(), "project-1", "committee")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	assert.Len(t, layer.calls, 1+maxListPages, "the client did not stop paging")
 }

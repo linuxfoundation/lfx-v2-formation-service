@@ -104,18 +104,77 @@ type PlatformCheckReport struct {
 // Reaching done here needs no staff action. The platform is not attesting to
 // its own work, it is reporting a fact, and the two-person rule exists to stop
 // somebody attesting to theirs.
+// It runs in three phases — read, ask, write — and the split is the point
+// rather than an arrangement of convenience. A lookup is a call to another
+// service over the network, and the earlier shape of this method made those
+// calls with the formation row locked, so a read layer that was slow or down
+// held one project's lock for as long as its lookups took to give up. Every
+// replica sweeps without leader election, so those waits queued behind each
+// other on the same row and a person saving a checklist waited behind all of
+// them. Asking outside any transaction costs nothing to correctness: the write
+// below is already guarded by the item revision read in the first phase, so a
+// row that moved while this pass was asking is dropped by the same check that
+// has always dropped it.
 func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*PlatformCheckReport, error) {
 	report := &PlatformCheckReport{}
 	if c.uow == nil {
 		return report, errors.New("no unit of work wired")
 	}
 
-	txErr := c.uow.Do(ctx, func(tx port.Tx) error {
-		// Locked for the same reason the three write routes lock it: the
-		// lifecycle read below is a precondition for writing other rows, and
-		// nothing else stops a freeze committing in between. The pass is one
-		// project's checklist, so the lock it holds is narrow.
-		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
+	candidates, err := c.plan(ctx, projectUID, report)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// No checklist for this project. Not a failure — the reconcile has
+			// not created one yet, or the project never needed one.
+			return report, nil
+		}
+		return report, err
+	}
+
+	resolved := c.ask(ctx, projectUID, candidates, report)
+	if len(resolved) == 0 {
+		// Nothing to write, so nothing to lock. The ordinary outcome of a sweep
+		// over a checklist whose platform rows are all settled or all waiting,
+		// and the reason a full pass no longer costs a write transaction per
+		// project.
+		return report, nil
+	}
+
+	if err := c.apply(ctx, projectUID, resolved, report); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// The checklist went away between asking and writing. Same reading
+			// as finding none at the start.
+			return report, nil
+		}
+		return report, err
+	}
+	return report, nil
+}
+
+// candidate is a platform row that may advance, carried between phases.
+//
+// It carries the item as it was read rather than re-reading it before writing,
+// because the revision on that copy is what makes the deferred write safe: an
+// update against a revision a person has since bumped is refused.
+type candidate struct {
+	item   *model.Item
+	lookup PlatformLookup
+	ref    *model.ResolvedRef
+}
+
+// plan reads the checklist and returns the rows worth asking about, counting
+// the rows that need no question along the way.
+//
+// The read takes no row lock. Nothing is written in this phase, and the
+// lifecycle it reads here is only an early exit — the decision that governs the
+// writes is taken again under the lock in apply.
+func (c *PlatformChecker) plan(
+	ctx context.Context, projectUID string, report *PlatformCheckReport,
+) ([]*candidate, error) {
+	var candidates []*candidate
+
+	err := c.uow.Do(ctx, func(tx port.Tx) error {
+		formation, err := tx.Formations().GetByProject(ctx, projectUID)
 		if err != nil {
 			return err
 		}
@@ -132,75 +191,112 @@ func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*P
 		}
 
 		for _, item := range items {
-			c.resolveItem(ctx, tx, formation, item, projectUID, report)
+			if item.StatusSource != model.SourcePlatform || item.PlatformCheck == nil {
+				continue
+			}
+
+			// Already done, or excused. Nothing a check may do to either: done is
+			// where this pass's only move leads, and skipped was a person's
+			// decision with a reason attached.
+			if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
+				report.Unchanged++
+				continue
+			}
+
+			lookup, ok := c.lookups[item.PlatformCheck.ResourceType]
+			if !ok {
+				// Left to a person. Counted rather than logged per item: the
+				// reason is the same for every project and every sweep, so a
+				// per-item log would say the same sentence thousands of times a
+				// day.
+				report.Unsupported++
+				continue
+			}
+
+			candidates = append(candidates, &candidate{item: item, lookup: lookup})
 		}
 		return nil
 	})
-	if txErr != nil {
-		if errors.Is(txErr, domain.ErrNotFound) {
-			// No checklist for this project. Not a failure — the reconcile has
-			// not created one yet, or the project never needed one.
-			return report, nil
-		}
-		return report, txErr
+	if err != nil {
+		return nil, err
 	}
-	return report, nil
+	return candidates, nil
 }
 
-// resolveItem applies at most one forward move to one item.
-func (c *PlatformChecker) resolveItem(
+// ask runs each candidate's lookup and returns the rows that should advance.
+//
+// No transaction is open here, which is the whole reason the phases exist.
+func (c *PlatformChecker) ask(
+	ctx context.Context, projectUID string, candidates []*candidate, report *PlatformCheckReport,
+) []*candidate {
+	resolved := make([]*candidate, 0, len(candidates))
+
+	for _, cand := range candidates {
+		count, ref, err := cand.lookup(ctx, projectUID)
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			// Asked, and the thing does not exist yet. The ordinary state of a
+			// row still to be done.
+			report.Pending++
+		case err != nil:
+			report.Failed++
+			slog.WarnContext(ctx, "a platform check could not be resolved; the item is unchanged",
+				"project_uid", projectUID, "item_key", cand.item.ItemKey,
+				"resource_type", cand.item.PlatformCheck.ResourceType, "error", err)
+		case ref == nil || count < cand.item.PlatformCheck.MinCount:
+			// Found something, but not enough of it. Every row in the seeded
+			// template asks for one, so this is the same "not yet" as finding
+			// nothing — the distinction only starts to matter for a row asking
+			// for two, which the template validation already allows.
+			report.Pending++
+		default:
+			cand.ref = ref
+			resolved = append(resolved, cand)
+		}
+	}
+	return resolved
+}
+
+// apply writes the rows the lookups settled, in one short transaction.
+//
+// The lock is taken for the same reason the three write routes take it: the
+// lifecycle is a precondition for writing the item rows, and nothing else stops
+// a freeze committing in between. It is held across local writes only.
+func (c *PlatformChecker) apply(
+	ctx context.Context, projectUID string, resolved []*candidate, report *PlatformCheckReport,
+) error {
+	return c.uow.Do(ctx, func(tx port.Tx) error {
+		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
+		if err != nil {
+			return err
+		}
+		// Read again rather than trusted from the planning phase. A freeze may
+		// have committed while the lookups were running, and this is the read
+		// that decides whether the writes below happen.
+		if !formation.Lifecycle.Mutable() {
+			report.Unchanged += len(resolved)
+			return nil
+		}
+
+		for _, cand := range resolved {
+			c.advance(ctx, tx, formation, cand, projectUID, report)
+		}
+		return nil
+	})
+}
+
+// advance moves one settled row to done and records who moved it.
+func (c *PlatformChecker) advance(
 	ctx context.Context,
 	tx port.Tx,
 	formation *model.Formation,
-	item *model.Item,
+	cand *candidate,
 	projectUID string,
 	report *PlatformCheckReport,
 ) {
-	if item.StatusSource != model.SourcePlatform || item.PlatformCheck == nil {
-		return
-	}
-
-	// Already done, or excused. Nothing a check may do to either: done is where
-	// this method's only move leads, and skipped was a person's decision with a
-	// reason attached.
-	if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
-		report.Unchanged++
-		return
-	}
-
-	lookup, ok := c.lookups[item.PlatformCheck.ResourceType]
-	if !ok {
-		// Left to a person. Counted rather than logged per item: the reason is
-		// the same for every project and every sweep, so a per-item log would say
-		// the same sentence thousands of times a day.
-		report.Unsupported++
-		return
-	}
-
-	count, ref, err := lookup(ctx, projectUID)
-	switch {
-	case errors.Is(err, domain.ErrNotFound):
-		// Asked, and the thing does not exist yet. The ordinary state of a row
-		// still to be done.
-		report.Pending++
-		return
-	case err != nil:
-		report.Failed++
-		slog.WarnContext(ctx, "a platform check could not be resolved; the item is unchanged",
-			"project_uid", projectUID, "item_key", item.ItemKey,
-			"resource_type", item.PlatformCheck.ResourceType, "error", err)
-		return
-	case ref == nil || count < item.PlatformCheck.MinCount:
-		// Found something, but not enough of it. Every row in the seeded template
-		// asks for one, so this is the same "not yet" as finding nothing — the
-		// distinction only starts to matter for a row asking for two, which the
-		// template validation already allows.
-		report.Pending++
-		return
-	}
-
+	item := cand.item
 	done := model.StatusDone
-	patch := port.ItemPatch{Status: &done, ResolvedRef: ref}
+	patch := port.ItemPatch{Status: &done, ResolvedRef: cand.ref}
 
 	updated, err := tx.Items().Update(ctx, item.UID, item.Revision, patch)
 	if err != nil {
