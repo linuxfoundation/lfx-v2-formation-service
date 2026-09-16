@@ -292,9 +292,14 @@ func TestAnEmptyFinalPageIsReportedAsAbsent(t *testing.T) {
 }
 
 // A read layer that never stops issuing tokens is given up on rather than
-// followed. The lookup's deadline already bounds the wall clock, so the cap is
-// about not turning one sweep into a request loop against the read layer.
-func TestAnEndlessRunOfEmptyPagesIsGivenUpOn(t *testing.T) {
+// followed, and giving up is a fault rather than an absence.
+//
+// The count already established that a resource this service may see exists,
+// so not reaching it inside the cap means something is wrong. Reported as
+// not-found it would file under the same heading as a project that has not
+// done the work, leaving the row pending on every sweep with nothing but a log
+// line to say why — which is the failure this whole paging change was about.
+func TestAnEndlessRunOfEmptyPagesIsAFaultRatherThanAnAbsence(t *testing.T) {
 	layer := &fakeLayer{
 		countBody: `{"count":1,"has_more":false}`,
 		listBody:  `{"resources":[],"page_token":"always-more"}`,
@@ -302,6 +307,8 @@ func TestAnEndlessRunOfEmptyPagesIsGivenUpOn(t *testing.T) {
 	client, _ := newFake(t, layer)
 
 	_, _, err := client.Count(context.Background(), "project-1", "committee")
-	require.ErrorIs(t, err, domain.ErrNotFound)
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, domain.ErrNotFound,
+		"exhausting the cap was reported as the row simply not being ready yet")
 	assert.Len(t, layer.calls, 1+maxListPages, "the client did not stop paging")
 }

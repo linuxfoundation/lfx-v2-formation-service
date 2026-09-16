@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -312,14 +311,17 @@ func (c *Client) first(ctx context.Context, indexedType, projectUID string) (*mo
 
 	for page := 0; ; page++ {
 		if page >= maxListPages {
-			// Logged rather than returned as an error, because the row is still
-			// only unresolved and the next sweep asks again. Worth a line all
-			// the same: the count said there was something to find, so reaching
-			// the cap means a project with more resources hidden from this
-			// service than paging is meant to step over.
-			slog.WarnContext(ctx, "stopped paging the read layer at the page cap",
-				"project_uid", projectUID, "type", indexedType, "cap", maxListPages)
-			return nil, nil
+			// A fault, not an absence, and the distinction is the whole reason
+			// the caller has an error taxonomy. The count already established
+			// that a resource this service may see exists, so failing to reach
+			// it inside the cap says something is wrong with the grants or the
+			// index — reporting it as not-found would file that under the same
+			// heading as a project that has simply not done the work, leave the
+			// row pending on every sweep, and never raise the number an
+			// operator watches.
+			return nil, fmt.Errorf(
+				"query service still had pages after %d for type %q on project %q, none naming a visible resource",
+				maxListPages, indexedType, projectUID)
 		}
 
 		u := c.baseURL.JoinPath("query", "resources")
