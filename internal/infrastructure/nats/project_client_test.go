@@ -19,6 +19,135 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
+// TestProjectServiceErrorCode pins the envelope parser that all ProjectClient
+// methods rely on to distinguish project-service errors from success payloads.
+func TestProjectServiceErrorCode(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		wantErr string
+	}{
+		{name: "not_found code", data: []byte(`{"error":"not_found"}`), wantErr: "not_found"},
+		{name: "internal code", data: []byte(`{"error":"internal"}`), wantErr: "internal"},
+		{name: "unknown code", data: []byte(`{"error":"foo"}`), wantErr: "foo"},
+		{name: "success plain string", data: []byte("my-slug"), wantErr: ""},
+		{name: "success JSON array", data: []byte(`[{"uid":"p1"}]`), wantErr: ""},
+		{name: "success JSON object no error key", data: []byte(`{"uid":"p1"}`), wantErr: ""},
+		{name: "empty body", data: []byte{}, wantErr: ""},
+		{name: "nil body", data: nil, wantErr: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := projectServiceErrorCode(tt.data)
+			if got != tt.wantErr {
+				t.Errorf("projectServiceErrorCode(%q) = %q, want %q", tt.data, got, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestProjectClientNotFoundEnvelope pins that a {"error":"not_found"} reply
+// maps to domain.ErrNotFound for Name/Slug lookups, Writers, and GetSettings;
+// and to domain.ErrNotFound for ListFormingProjects but NOT for GetRef (which
+// distinguishes envelope errors from the empty-array "project deleted" case).
+func TestProjectClientNotFoundEnvelope(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Name", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectGetNameSubject, func(string) []byte {
+			return []byte(`{"error":"not_found","message":"project not found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.Name(ctx, "project-1")
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("Name() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	t.Run("Writers", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectGetWritersSubject, func(string) []byte {
+			return []byte(`{"error":"not_found","message":"project not found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.Writers(ctx, "project-1")
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("Writers() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	t.Run("GetSettings", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectGetSettingsSubject, func(string) []byte {
+			return []byte(`{"error":"not_found","message":"project not found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.GetSettings(ctx, "project-1")
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("GetSettings() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	// ListFormingProjects maps not_found to ErrNotFound: the project list not
+	// existing is a confirmed absence the caller can react to.
+	t.Run("ListFormingProjects", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectListProjectsSubject, func(string) []byte {
+			return []byte(`{"error":"not_found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.ListFormingProjects(ctx, nil)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("ListFormingProjects() with not_found envelope = %v, want domain.ErrNotFound", err)
+		}
+	})
+
+	// GetRef deliberately does NOT map not_found to ErrNotFound: an error
+	// envelope means the upstream could not answer, while the empty-array reply
+	// is the ErrNotFound path (project deleted). The refresher and projector
+	// branch on ErrNotFound vs a retryable failure, so the distinction is
+	// load-bearing.
+	t.Run("GetRef_not_found_envelope_is_not_ErrNotFound", func(t *testing.T) {
+		url := startTestNATSServer(t)
+		respondOn(t, url, ProjectListProjectsSubject, func(string) []byte {
+			return []byte(`{"error":"not_found"}`)
+		})
+		p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+		_, err := p.GetRef(ctx, "project-1")
+		if err == nil {
+			t.Fatal("GetRef() with not_found envelope = nil, want an error")
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("GetRef() with not_found envelope = domain.ErrNotFound, must NOT be ErrNotFound (envelope != empty-array)")
+		}
+	})
+}
+
+// TestProjectClientInternalEnvelope pins that {"error":"internal"} and unknown
+// codes are not domain.ErrNotFound — they are infrastructure failures.
+func TestProjectClientInternalEnvelope(t *testing.T) {
+	ctx := context.Background()
+
+	for _, code := range []string{"internal", "unknown_future_code"} {
+		code := code
+		t.Run(code, func(t *testing.T) {
+			url := startTestNATSServer(t)
+			respondOn(t, url, ProjectGetNameSubject, func(string) []byte {
+				return []byte(`{"error":"` + code + `","message":"service error"}`)
+			})
+			p := NewProjectClient(newTestClient(t, url, 2*time.Second))
+			_, err := p.Name(ctx, "project-1")
+			if err == nil {
+				t.Fatal("Name() = nil, want an error")
+			}
+			if errors.Is(err, domain.ErrNotFound) {
+				t.Errorf("Name() with %q envelope = %v, must not be ErrNotFound", code, err)
+			}
+		})
+	}
+}
+
 // startTestNATSServer runs an in-process NATS server, which is how both donor
 // services test their NATS adapters: the code under test is the real client
 // against a real connection, so a mistake in message construction or subject
@@ -103,16 +232,21 @@ func TestProjectClientNameAndSlug(t *testing.T) {
 	}
 }
 
-// An empty reply means the project has no such attribute, which is a not-found
-// rather than an empty-string answer — otherwise a caller stores "" as a name.
-func TestProjectClientEmptyReplyIsNotFound(t *testing.T) {
+// An empty reply is a transport/dispatch failure — project-service now returns
+// {"error":"not_found"} for missing projects under the coordinated RPC
+// contract. An empty body must not be treated as a confirmed absence.
+func TestProjectClientEmptyReplyIsTransportFailure(t *testing.T) {
 	ctx := context.Background()
 	url := startTestNATSServer(t)
 	respondOn(t, url, ProjectGetNameSubject, func(string) []byte { return []byte("") })
 
 	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
-	if _, err := p.Name(ctx, "project-1"); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("Name() = %v, want %v", err, domain.ErrNotFound)
+	_, err := p.Name(ctx, "project-1")
+	if err == nil {
+		t.Fatal("Name() = nil, want an error")
+	}
+	if errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("Name() = %v, must not be ErrNotFound — empty body is a transport failure, not a confirmed absence", err)
 	}
 }
 
@@ -206,17 +340,23 @@ func TestRequestTimesOutWithNoResponder(t *testing.T) {
 	}
 }
 
-// The project service replies with zero bytes on every handler failure —
-// unknown project, unparseable UID, store outage. That must not decode to an
-// empty roster, which is the shape assignment validation refuses against.
-func TestProjectClientWritersEmptyReplyIsNotFound(t *testing.T) {
+// A zero-byte writers reply is a transport/dispatch failure — project-service
+// now returns {"error":"not_found"} for missing projects under the coordinated
+// RPC contract. An empty body must not be treated as a confirmed absence, and
+// must not decode to an empty roster (the shape assignment validation refuses
+// against).
+func TestProjectClientWritersEmptyReplyIsTransportFailure(t *testing.T) {
 	ctx := context.Background()
 	url := startTestNATSServer(t)
 	respondOn(t, url, ProjectGetWritersSubject, func(string) []byte { return nil })
 
 	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
-	if _, err := p.Writers(ctx, "project-1"); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("Writers() = %v, want %v", err, domain.ErrNotFound)
+	_, err := p.Writers(ctx, "project-1")
+	if err == nil {
+		t.Fatal("Writers() = nil, want an error")
+	}
+	if errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("Writers() = %v, must not be ErrNotFound — empty body is a transport failure, not a confirmed absence", err)
 	}
 }
 
@@ -293,18 +433,22 @@ func TestProjectClientGetSettingsWithNothingConfigured(t *testing.T) {
 	}
 }
 
-// A project with no settings record must be not-found rather than an empty
-// roster: assignment validation refuses against an empty roster, so conflating
-// the two would reject every legitimate assignee on an upstream gap.
-func TestProjectClientGetSettingsEmptyReplyIsNotFound(t *testing.T) {
+// A nil settings reply is a transport/dispatch failure — project-service now
+// returns {"error":"not_found"} for missing projects under the coordinated RPC
+// contract. An empty body must not be treated as a confirmed absence; the
+// actual not-found path returns {"error":"not_found"} which maps to ErrNotFound.
+func TestProjectClientGetSettingsEmptyReplyIsTransportFailure(t *testing.T) {
 	ctx := context.Background()
 	url := startTestNATSServer(t)
 	respondOn(t, url, ProjectGetSettingsSubject, func(string) []byte { return nil })
 
 	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
 	_, err := p.GetSettings(ctx, "project-1")
-	if !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("GetSettings() = %v, want domain.ErrNotFound", err)
+	if err == nil {
+		t.Fatal("GetSettings() = nil, want an error")
+	}
+	if errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("GetSettings() = %v, must not be ErrNotFound — empty body is a transport failure, not a confirmed absence", err)
 	}
 }
 
@@ -393,18 +537,22 @@ func TestProjectClientListFormingProjectsWithNoKnownChecklists(t *testing.T) {
 	}
 }
 
-// An empty reply is an upstream failure, and here it must not read as "nothing
+// An empty reply is a transport/dispatch failure. It must not read as "nothing
 // is being formed": the sweep would report a successful tick having created
-// nothing, which is indistinguishable from working correctly.
-func TestProjectClientListFormingProjectsEmptyReplyIsNotFound(t *testing.T) {
+// nothing, indistinguishable from working correctly. Under the coordinated RPC
+// contract, an empty body is not a confirmed absence, so it must not be ErrNotFound.
+func TestProjectClientListFormingProjectsEmptyReplyIsTransportFailure(t *testing.T) {
 	ctx := context.Background()
 	url := startTestNATSServer(t)
 	respondOn(t, url, ProjectListProjectsSubject, func(string) []byte { return nil })
 
 	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
 	_, err := p.ListFormingProjects(ctx, nil)
-	if !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("ListFormingProjects() = %v, want domain.ErrNotFound", err)
+	if err == nil {
+		t.Fatal("ListFormingProjects() = nil, want an error")
+	}
+	if errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("ListFormingProjects() = %v, must not be ErrNotFound — empty body is a transport failure, not a confirmed absence", err)
 	}
 }
 
@@ -493,6 +641,7 @@ func TestProjectClientGetRefRejectsUnusableReplies(t *testing.T) {
 	}{
 		{"an entry naming no project", []byte(`[{"uid":"","slug":"nameless"}]`), true},
 		{"a zero-byte reply", nil, false},
+		{"an error envelope", []byte(`{"error":"not_found"}`), false},
 	}
 
 	for _, tc := range tests {
