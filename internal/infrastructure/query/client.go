@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -100,6 +101,17 @@ func NewClient(cfg Config, httpClient *http.Client) (*Client, error) {
 	if base.Host == "" {
 		return nil, fmt.Errorf("query service base URL has no host: %q", cfg.BaseURL)
 	}
+	// Every request this client makes carries the service identity's bearer
+	// token, so plaintext would put a credential on the wire. The deployed
+	// read layer is reached over the public API hostname and the chart opens
+	// only 443, so http off-loopback is a misconfiguration in every
+	// environment — refused here rather than silently leaking. Loopback stays
+	// allowed because the tests and a local stack serve over it.
+	if base.Scheme == "http" && !isLoopbackHost(base.Hostname()) {
+		return nil, fmt.Errorf(
+			"query service base URL must be https except on loopback, got %q: "+
+				"every request carries the service identity's bearer token", cfg.BaseURL)
+	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = constants.DefaultQueryServiceTimeout
 	}
@@ -110,6 +122,19 @@ func NewClient(cfg Config, httpClient *http.Client) (*Client, error) {
 		httpClient.Timeout = cfg.Timeout
 	}
 	return &Client{baseURL: base, client: httpClient, timeout: cfg.Timeout}, nil
+}
+
+// isLoopbackHost reports whether a URL hostname names this machine. Parsed as
+// an IP where it is one, so "127.0.0.2" and "::1" are recognised alongside
+// "127.0.0.1"; "localhost" is matched by name because it does not parse.
+func isLoopbackHost(hostname string) bool {
+	if hostname == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(hostname); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // SupportedResourceTypes lists the template resource types this client can

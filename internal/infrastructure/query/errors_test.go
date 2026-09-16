@@ -168,6 +168,33 @@ func TestAnAddressThatIsNotAnAbsoluteHTTPURLIsRefused(t *testing.T) {
 	}
 }
 
+// Plaintext off-loopback is refused, because every request this client makes
+// carries the service identity's bearer token. The deployed read layer is
+// reached over the public API hostname and the chart opens only 443, so http
+// to anywhere but this machine is a misconfiguration that would put a
+// credential on the wire rather than merely fail.
+func TestPlaintextIsRefusedExceptOnLoopback(t *testing.T) {
+	for _, baseURL := range []string{
+		"http://lfx-api.example.com/",
+		"http://query-service.formation-service.svc.cluster.local:8080/",
+		"http://10.0.0.5:8080/",
+	} {
+		_, err := NewClient(Config{BaseURL: baseURL}, nil)
+		assert.Error(t, err, "expected %q to be refused", baseURL)
+	}
+
+	// Loopback stays usable: the tests serve over it, and so does a local stack.
+	for _, baseURL := range []string{
+		"http://localhost:8080/",
+		"http://127.0.0.1:8080/",
+		"http://[::1]:8080/",
+		"https://lfx-api.example.com/",
+	} {
+		_, err := NewClient(Config{BaseURL: baseURL}, nil)
+		assert.NoError(t, err, "expected %q to be accepted", baseURL)
+	}
+}
+
 // A body that omits the count is a fault, not a count of zero. The two are
 // opposite answers: zero says the project has done no work, and a body this
 // adapter cannot read says nothing at all about the project. Decoding the
