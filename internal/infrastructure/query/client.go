@@ -65,6 +65,11 @@ type Config struct {
 type Client struct {
 	baseURL *url.URL
 	client  *http.Client
+
+	// timeout bounds a whole lookup rather than a single request. Count issues
+	// two, so the client's own per-request timeout would let one lookup hold
+	// the caller's row lock for twice this.
+	timeout time.Duration
 }
 
 // Compile-time check that this satisfies the port. Worth stating explicitly:
@@ -85,6 +90,16 @@ func NewClient(cfg Config, httpClient *http.Client) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid query service base URL: %w", err)
 	}
+	// url.Parse accepts far more than this needs: "query-service:8080" parses
+	// as a scheme with an opaque body, and "/query" as a path. Either is
+	// rejected here rather than at the first sweep, where it would surface as
+	// the read layer being unreachable and send someone looking at the network.
+	if base.Scheme != "http" && base.Scheme != "https" {
+		return nil, fmt.Errorf("query service base URL must be http or https, got %q in %q", base.Scheme, cfg.BaseURL)
+	}
+	if base.Host == "" {
+		return nil, fmt.Errorf("query service base URL has no host: %q", cfg.BaseURL)
+	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = constants.DefaultQueryServiceTimeout
 	}
@@ -94,7 +109,7 @@ func NewClient(cfg Config, httpClient *http.Client) (*Client, error) {
 	if httpClient.Timeout == 0 {
 		httpClient.Timeout = cfg.Timeout
 	}
-	return &Client{baseURL: base, client: httpClient}, nil
+	return &Client{baseURL: base, client: httpClient, timeout: cfg.Timeout}, nil
 }
 
 // SupportedResourceTypes lists the template resource types this client can
@@ -108,20 +123,37 @@ func SupportedResourceTypes() []string {
 	return out
 }
 
-// countResponse is the count endpoint's body. has_more means the count is a
-// floor rather than exact, which is harmless here: the thresholds compared
-// against are one or two, and a floor that clears the minimum clears it.
+// countResponse is the count endpoint's body.
+//
+// Count is a pointer so that its absence is distinguishable from a count of
+// zero. Decoded into a value it would make a malformed "{}" indistinguishable
+// from "this project has none", which the sweep reports as a row still to be
+// done — a wrong answer that looks like a right one, and the exact failure the
+// error taxonomy exists to avoid.
+//
+// has_more is not required, and deliberately so: it means the count is a floor
+// rather than exact, nothing here reads it, and the thresholds compared against
+// are one or two — a floor that clears the minimum clears it. Rejecting a
+// response for omitting a field that cannot change the answer would only invent
+// a new way to fail.
 type countResponse struct {
-	Count   uint64 `json:"count"`
-	HasMore bool   `json:"has_more"`
+	Count   *uint64 `json:"count"`
+	HasMore bool    `json:"has_more"`
 }
 
 // resourceEnvelope is the list endpoint's body. Only type and id are read.
+//
+// Resources is a pointer for the same reason Count is: a nil slice means the
+// field was absent, which is a malformed response, while a present empty array
+// is the documented race where the resource was deleted between the two calls.
+// Those two get opposite treatment, so they cannot share a representation.
 type resourceEnvelope struct {
-	Resources []struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	} `json:"resources"`
+	Resources *[]resourceRef `json:"resources"`
+}
+
+type resourceRef struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
 }
 
 // Count reports how many resources of the given type the project has, and
@@ -151,6 +183,13 @@ func (c *Client) Count(ctx context.Context, projectUID, resourceType string) (in
 	if projectUID == "" {
 		return 0, nil, fmt.Errorf("%w: empty project uid", domain.ErrInvalidRequest)
 	}
+
+	// One deadline across both calls. The http.Client's own timeout applies per
+	// request, so without this a count answering just inside the bound followed
+	// by a stalled reference call would hold the caller's row lock for twice
+	// the configured timeout.
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 
 	count, err := c.count(ctx, indexedType, projectUID)
 	if err != nil {
@@ -183,7 +222,10 @@ func (c *Client) count(ctx context.Context, indexedType, projectUID string) (int
 	if err := c.get(ctx, u, &body); err != nil {
 		return 0, err
 	}
-	return int(body.Count), nil
+	if body.Count == nil {
+		return 0, errors.New("query service count response has no count field")
+	}
+	return int(*body.Count), nil
 }
 
 // first issues the list call and names the first hit.
@@ -201,10 +243,13 @@ func (c *Client) first(ctx context.Context, indexedType, projectUID string) (*mo
 	if err := c.get(ctx, u, &body); err != nil {
 		return nil, err
 	}
-	if len(body.Resources) == 0 {
+	if body.Resources == nil {
+		return nil, errors.New("query service list response has no resources field")
+	}
+	if len(*body.Resources) == 0 {
 		return nil, nil
 	}
-	hit := body.Resources[0]
+	hit := (*body.Resources)[0]
 	if hit.ID == "" {
 		return nil, nil
 	}

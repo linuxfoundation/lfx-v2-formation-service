@@ -194,8 +194,16 @@ ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_reminder_overdue_at TIM
 -- already marked done or blocked keeps that exactly. revision and updated_at
 -- are left alone for the same reason: no caller made this change, and bumping
 -- the revision would invalidate reads that are already in flight.
+--
+-- Live checklists only. A completed or frozen formation is a record of how its
+-- project got to Active or to the archive, and the service will not advance one
+-- either (internal/service/platform_check.go, which stops on
+-- Lifecycle.Mutable()). Correcting who is expected to answer a row is pointless
+-- once nothing will ever ask again, so this holds to the same boundary rather
+-- than reaching behind it.
 UPDATE formation_items
    SET status_source  = 'manual',
        platform_check = NULL
  WHERE item_key       = 'repositories_github_owner'
-   AND status_source  = 'platform';
+   AND status_source  = 'platform'
+   AND formation_uid IN (SELECT uid FROM formations WHERE lifecycle = 'live');

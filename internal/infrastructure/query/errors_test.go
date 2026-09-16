@@ -150,3 +150,47 @@ func TestAClientWithNoAddressIsRefused(t *testing.T) {
 	_, err := NewClient(Config{}, nil)
 	require.Error(t, err)
 }
+
+// An address that cannot be read from is refused for the same reason an empty
+// one is. url.Parse accepts almost anything, so a value that is a typo rather
+// than an address — a bare host with no scheme, a path with no host — would
+// otherwise construct cleanly and fail on every sweep instead of at startup.
+func TestAnAddressThatIsNotAnAbsoluteHTTPURLIsRefused(t *testing.T) {
+	for _, baseURL := range []string{
+		"lfx-api.example.com",
+		"/query",
+		"https://",
+		"ftp://lfx-api.example.com",
+		"://nonsense",
+	} {
+		_, err := NewClient(Config{BaseURL: baseURL}, nil)
+		assert.Error(t, err, "expected %q to be refused", baseURL)
+	}
+}
+
+// A body that omits the count is a fault, not a count of zero. The two are
+// opposite answers: zero says the project has done no work, and a body this
+// adapter cannot read says nothing at all about the project. Decoding the
+// second into the first is the same silent wrong answer a 401 mapped to
+// ErrNotFound would be, reached through the response shape instead.
+func TestACountMissingFromTheBodyIsAFaultRatherThanZero(t *testing.T) {
+	for _, body := range []string{`{}`, `{"has_more":false}`} {
+		client, _ := newFake(t, &fakeLayer{countBody: body})
+
+		_, _, err := client.Count(context.Background(), "project-1", "committee")
+		require.Error(t, err, "expected %q to be a fault", body)
+		assert.False(t, errors.Is(err, domain.ErrNotFound))
+	}
+}
+
+// Same reasoning one call later. Having counted something, a list body with no
+// resources key is unreadable rather than empty — an empty list is a real
+// answer the layer gives for the race between the two calls, and it must stay
+// distinguishable from a body that never carried one.
+func TestAListMissingItsResourcesIsAFaultRatherThanEmpty(t *testing.T) {
+	client, _ := newFake(t, &fakeLayer{countBody: `{"count":1}`, listBody: `{}`})
+
+	_, _, err := client.Count(context.Background(), "project-1", "committee")
+	require.Error(t, err)
+	assert.False(t, errors.Is(err, domain.ErrNotFound))
+}

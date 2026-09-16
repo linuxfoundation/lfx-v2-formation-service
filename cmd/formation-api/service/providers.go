@@ -624,7 +624,15 @@ func PlatformLookupsImpl(ctx context.Context, cfg *config.Config) map[string]use
 		Audience:   qs.Audience,
 	}, qs.Timeout)
 	if err != nil {
-		log.Fatalf("could not build the query service identity: %v", err)
+		// Almost always the tenant's metadata being unreachable, not bad
+		// configuration — the credentials were checked above and the key is
+		// not parsed until the first token is minted. An identity provider
+		// that is briefly down is not a reason to take the API down with it,
+		// so this degrades to the unconfigured behaviour: platform rows stay
+		// unanswerable and a restart picks the lookups back up.
+		slog.ErrorContext(ctx, "could not build the query service identity; platform checks stay unanswerable",
+			"error", err, "domain", qs.Domain)
+		return nil
 	}
 
 	client, err := query.NewClient(query.Config{BaseURL: qs.BaseURL, Timeout: qs.Timeout}, httpClient)

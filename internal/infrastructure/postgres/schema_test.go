@@ -346,6 +346,80 @@ func TestApplySchemaMakesTheRepositoryRowManualWithoutTouchingAnyStatus(t *testi
 	}
 }
 
+// A checklist that has finished is a record of how a project was formed, and
+// the service already refuses to write to one: every mutation checks
+// Lifecycle.Mutable(), so a completed or frozen formation is closed to the API
+// and to the reconcile sweep alike. A migration reaching behind that is the
+// same edit by another route — it would rewrite what a finished checklist says
+// was expected of it, retrospectively, with no activity row to show for it.
+// The row stays as it was recorded; only checklists still being worked change.
+func TestTheRepositoryMigrationLeavesFinishedChecklistsAlone(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`TRUNCATE formation_activity, formation_items, formations, formation_templates CASCADE`,
+	); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	var templateUID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO formation_templates (name, version, state, priority, match, sections)
+		 VALUES ('lifecycle-test', 1, 'published', 100, 'always', '[]'::jsonb)
+		 RETURNING uid`,
+	).Scan(&templateUID); err != nil {
+		t.Fatalf("seeding the template: %v", err)
+	}
+
+	// One checklist per lifecycle, each carrying the same platform-sourced
+	// repository row, so the only thing that differs between them is whether
+	// the checklist is still open.
+	for _, lifecycle := range []string{"live", "completed", "frozen"} {
+		var formationUID string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO formations (project_uid, template_uid, template_version, lifecycle)
+			 VALUES ($1, $2, 1, $3) RETURNING uid`,
+			"project-"+lifecycle, templateUID, lifecycle,
+		).Scan(&formationUID); err != nil {
+			t.Fatalf("seeding the %s formation: %v", lifecycle, err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO formation_items
+			   (formation_uid, item_key, section_key, title, position, status, status_source, platform_check)
+			 VALUES ($1, 'repositories_github_owner', 'community_and_launch', 'Repositories and GitHub owner',
+			         0, 'not_started', 'platform', $2::jsonb)`,
+			formationUID, `{"resource_type":"repository","min_count":1}`,
+		); err != nil {
+			t.Fatalf("seeding the repository row on the %s formation: %v", lifecycle, err)
+		}
+	}
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("applying the migration: %v", err)
+	}
+
+	want := map[string]string{"live": "manual", "completed": "platform", "frozen": "platform"}
+	for lifecycle, wantSource := range want {
+		var source string
+		if err := pool.QueryRow(ctx,
+			`SELECT i.status_source FROM formation_items i
+			   JOIN formations f ON f.uid = i.formation_uid
+			  WHERE i.item_key = 'repositories_github_owner' AND f.lifecycle = $1`,
+			lifecycle,
+		).Scan(&source); err != nil {
+			t.Fatalf("reading the %s row: %v", lifecycle, err)
+		}
+		if source != wantSource {
+			t.Errorf("on a %s checklist the repository row is %q, want %q",
+				lifecycle, source, wantSource)
+		}
+	}
+}
+
 // statusDistribution renders the count of rows per status as a stable string,
 // so a test can compare the whole distribution before and after rather than
 // picking statuses to check one at a time.
