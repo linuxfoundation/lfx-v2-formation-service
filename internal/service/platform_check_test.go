@@ -14,6 +14,7 @@ import (
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
 
@@ -479,6 +480,44 @@ func TestNoLockIsHeldWhileALookupIsInFlight(t *testing.T) {
 
 	assert.Zero(t, lockedDuringLookup,
 		"a formation row was locked while an outbound lookup was in flight")
+}
+
+// Losing the write to another writer is not a failure.
+//
+// Every replica sweeps, so two planning the same revision and both reaching the
+// same conclusion is the ordinary shape of a healthy fleet — one of them writes
+// and the other's revision is stale by the time it tries. Counting that as
+// Failed would raise the number an operator watches for an outage precisely
+// when the service is working, so it is counted as unchanged: the row is
+// already where this pass wanted to put it.
+func TestAWriteLostToAnotherWriterIsUnchangedRatherThanFailed(t *testing.T) {
+	var repos *platformRepos
+	var formation *model.Formation
+
+	// Writes the row from inside the lookup, which is precisely the window the
+	// three-phase pass opened: the other replica reached the same conclusion
+	// and got there first, leaving this pass holding a revision that has moved.
+	racing := func(ctx context.Context, _ string) (int, *model.ResolvedRef, error) {
+		current, err := repos.items.GetByKey(ctx, formation.UID, "tsc_kickoff")
+		require.NoError(t, err)
+		done := model.StatusDone
+		_, err = repos.items.Update(ctx, current.UID, current.Revision, port.ItemPatch{
+			Status:      &done,
+			ResolvedRef: &model.ResolvedRef{Type: "committee", UID: "committee-1"},
+		})
+		require.NoError(t, err)
+		return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+
+	checker, r, f := platformFixture(t, model.StatusNotStarted, racing)
+	repos, formation = r, f
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, report.Failed, "a write lost to another writer was reported as a fault")
+	assert.Equal(t, 1, report.Unchanged)
+	assert.Equal(t, 0, report.Advanced)
 }
 
 // A project with no checklist is not an error. The reconcile may not have created

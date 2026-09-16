@@ -215,6 +215,36 @@ func TestAFlooredCountIsUsedAsIs(t *testing.T) {
 	assert.Equal(t, 10, count)
 }
 
+// A redirect is refused rather than followed.
+//
+// The token is attached by the OAuth transport inside RoundTrip, so it is
+// reattached on every hop and the usual stripping of Authorization on a
+// cross-host redirect does not protect it. A read layer that redirected to
+// plaintext, or anywhere the configuration never named, would otherwise be
+// handed the service identity.
+func TestARedirectIsRefusedRatherThanFollowed(t *testing.T) {
+	var elsewhereSaw string
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		elsewhereSaw = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"count":1,"has_more":false}`))
+	}))
+	t.Cleanup(elsewhere.Close)
+
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+r.URL.Path, http.StatusFound)
+	}))
+	t.Cleanup(redirector.Close)
+
+	httpClient := &http.Client{Transport: bearer{token: "test-token", base: http.DefaultTransport}}
+	client, err := NewClient(Config{BaseURL: redirector.URL}, httpClient)
+	require.NoError(t, err)
+
+	_, _, err = client.Count(context.Background(), "project-1", "committee")
+	require.Error(t, err, "the client followed a redirect while carrying the service identity")
+	assert.Empty(t, elsewhereSaw, "the service identity was sent to the redirect target")
+}
+
 // An empty page carrying a token is not the end of the list.
 //
 // The read layer pages the raw index and applies access control to the page

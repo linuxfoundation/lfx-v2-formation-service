@@ -299,14 +299,24 @@ func (c *PlatformChecker) advance(
 	patch := port.ItemPatch{Status: &done, ResolvedRef: cand.ref}
 
 	updated, err := tx.Items().Update(ctx, item.UID, item.Revision, patch)
-	if err != nil {
-		// Includes a version mismatch, which here means a person edited the row
-		// while this pass was running. Their write wins and this one is dropped
-		// rather than retried: the next pass reads the row again, and a check
-		// that retried until it won would be the backward move this method is
-		// arranged to prevent.
+	switch {
+	case errors.Is(err, domain.ErrVersionMismatch):
+		// The row moved while this pass was asking. Whoever moved it wins and
+		// this write is dropped rather than retried: the next pass reads the
+		// row again, and a check that retried until it won would be the
+		// backward move this pass is arranged to prevent.
+		//
+		// Counted as unchanged and not as a failure. Both a person's edit and
+		// another replica's identical conclusion land here — every replica
+		// sweeps, so two planning the same revision and one losing the write is
+		// the ordinary shape of a healthy fleet, not a fault. Counting it as
+		// failed would raise the number an operator watches for an outage every
+		// time the service was working correctly.
+		report.Unchanged++
+		return
+	case err != nil:
 		report.Failed++
-		slog.WarnContext(ctx, "a platform check lost a race with a person's edit; leaving their value",
+		slog.WarnContext(ctx, "a platform check could not write the item it resolved",
 			"project_uid", projectUID, "item_key", item.ItemKey, "error", err)
 		return
 	}

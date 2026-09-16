@@ -50,7 +50,7 @@ matters — the zero case is the common one on every project that has not done t
 issuing a second call for it would double the sweep's load on the read layer for no possible answer.
 
 ```http
-GET /query/resources?v=1&type={indexedType}&parent=project:{projectUID}&page_size=1
+GET /query/resources?v=1&type={indexedType}&parent=project:{projectUID}&page_size=50
 Authorization: Bearer {serviceIdentityToken}
 ```
 
@@ -60,9 +60,17 @@ Authorization: Bearer {serviceIdentityToken}
 
 Only `type` and `id` are read. `data` is never parsed.
 
+`page_token` is followed when the response carries one and no resource on the page can be seen.
+A page larger than the single resource wanted, because the two endpoints do not filter alike: the
+count is access-aware before it answers, while the list pages the raw index and applies access
+control to the page afterwards. An empty page with a token set therefore means "none you may see
+on this page" rather than "none at all", and stopping there would report a row the count promised
+as missing on every sweep. Paging is capped, and reaching the cap is logged rather than reported
+as absent.
+
 Both calls carry identical filters. That is what makes the count a valid predicate for the list: the
-query service filters both by the same principal, so a count of three followed by an empty list can
-only be a race and never a different question.
+query service filters both by the same principal, so a count of three followed by a list that names
+nothing is a race rather than a different question — once the pages have been followed to the end.
 
 No `sort` is sent. The query service's default ordering is already a total order, so the first hit
 names the same resource on every call while the underlying set is unchanged — imposing an ordering

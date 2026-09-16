@@ -93,10 +93,10 @@ func NewIdentityClient(ctx context.Context, cfg IdentityConfig, timeout time.Dur
 	// than defaulted for two reasons. It bounds the calls made to the IdP:
 	// constructing this fetches the tenant's JWKS, and minting a token later
 	// retries on throttling, neither of which carries a deadline of its own —
-	// and an unbounded mint stalls a sweep that is holding a checklist's row
-	// lock. It also keeps those retry and client-info transports off
-	// http.DefaultClient, which is what the SDK wraps when given no client,
-	// and which the rest of this process shares.
+	// and an unbounded mint stalls the sweep behind it, which then reaches no
+	// project after the one it stalled on. It also keeps those retry and
+	// client-info transports off http.DefaultClient, which is what the SDK
+	// wraps when given no client, and which the rest of this process shares.
 	authConfig, err := authentication.New(ctx,
 		cfg.Domain,
 		authentication.WithClientID(cfg.ClientID),

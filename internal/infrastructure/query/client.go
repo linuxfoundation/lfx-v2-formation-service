@@ -81,9 +81,10 @@ type Client struct {
 	baseURL *url.URL
 	client  *http.Client
 
-	// timeout bounds a whole lookup rather than a single request. Count issues
-	// two, so the client's own per-request timeout would let one lookup hold
-	// the caller's row lock for twice this.
+	// timeout bounds a whole lookup rather than a single request. A lookup
+	// issues a count and then at least one list call, so the client's own
+	// per-request timeout would let one row's lookup run for a multiple of
+	// this, and a sweep is one lookup after another across every project.
 	timeout time.Duration
 }
 
@@ -135,7 +136,23 @@ func NewClient(cfg Config, httpClient *http.Client) (*Client, error) {
 	if httpClient.Timeout == 0 {
 		httpClient.Timeout = cfg.Timeout
 	}
+	if httpClient.CheckRedirect == nil {
+		// Refused rather than followed, for the same reason the scheme is
+		// checked above. The token is attached by the OAuth transport inside
+		// RoundTrip, which runs again on every hop, so the usual stripping of
+		// Authorization on a cross-host redirect does not apply — a redirect to
+		// plaintext or to another host would hand over the service identity.
+		// The read layer's API does not redirect, so one is a fault worth
+		// seeing rather than a hop worth taking.
+		httpClient.CheckRedirect = refuseRedirect
+	}
 	return &Client{baseURL: base, client: httpClient, timeout: cfg.Timeout}, nil
+}
+
+// refuseRedirect stops http.Client before it reissues a request carrying the
+// service identity to somewhere the configuration never named.
+func refuseRedirect(req *http.Request, _ []*http.Request) error {
+	return fmt.Errorf("query service redirected to %q; refusing to resend the service identity", req.URL.Redacted())
 }
 
 // isLoopbackHost reports whether a URL hostname names this machine. Parsed as
