@@ -175,3 +175,27 @@ UPDATE formations f
 ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_activating_at   TIMESTAMPTZ;
 ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_reminder_3d_at  TIMESTAMPTZ;
 ALTER TABLE formations ADD COLUMN IF NOT EXISTS notified_reminder_overdue_at TIMESTAMPTZ;
+
+-- The repositories and GitHub owner row is manual, not platform-checked.
+--
+-- No service in the platform owns repositories, so nothing can ever answer
+-- that row: it was marked platform in the first template version and has been
+-- permanently unanswerable ever since. Template version 2 corrects it for
+-- checklists expanded from now on, but a published template is immutable and
+-- a live checklist pins the version it expanded from, so every checklist
+-- already in flight would keep the old row forever. This is what corrects
+-- those.
+--
+-- Keyed on the item key rather than on the template version, so it reaches
+-- those rows whichever version they came from.
+--
+-- status is deliberately absent from the SET list. This changes who is
+-- expected to answer the row, not what the answer is — a row somebody had
+-- already marked done or blocked keeps that exactly. revision and updated_at
+-- are left alone for the same reason: no caller made this change, and bumping
+-- the revision would invalidate reads that are already in flight.
+UPDATE formation_items
+   SET status_source  = 'manual',
+       platform_check = NULL
+ WHERE item_key       = 'repositories_github_owner'
+   AND status_source  = 'platform';

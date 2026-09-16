@@ -20,13 +20,12 @@ import (
 // platformFixture seeds a checklist with one platform item in a chosen status, and
 // a checker whose lookup can be set per test.
 //
-// The lookup is injected rather than taken from the package-level registry,
-// because that registry is deliberately empty — no owning service answers a
-// project-scoped lookup yet. Testing only against the empty registry would leave
-// the forward-only rule, which is the whole point of this file, unexercised until
-// the first lookup lands.
+// The lookup is supplied per test for the same reason the real registry is
+// supplied by the wiring layer: the resolution rules are what this file is
+// about, and they have to hold for any lookup rather than for the particular
+// ones an environment happens to have configured.
 func platformFixture(
-	t *testing.T, status model.ItemStatus, lookup platformLookup,
+	t *testing.T, status model.ItemStatus, lookup PlatformLookup,
 ) (*PlatformChecker, *platformRepos, *model.Formation) {
 	t.Helper()
 	return platformFixtureRequiring(t, status, lookup, 1)
@@ -35,7 +34,7 @@ func platformFixture(
 // platformFixtureRequiring is platformFixture with the row's min_count chosen,
 // for the one case that needs a row asking for more than a single resource.
 func platformFixtureRequiring(
-	t *testing.T, status model.ItemStatus, lookup platformLookup, minCount int,
+	t *testing.T, status model.ItemStatus, lookup PlatformLookup, minCount int,
 ) (*PlatformChecker, *platformRepos, *model.Formation) {
 	t.Helper()
 
@@ -62,10 +61,11 @@ func platformFixtureRequiring(
 	}})
 	require.NoError(t, err)
 
-	checker := &PlatformChecker{uow: uow, lookups: map[string]platformLookup{}}
+	lookups := map[string]PlatformLookup{}
 	if lookup != nil {
-		checker.lookups["committee"] = lookup
+		lookups["committee"] = lookup
 	}
+	checker := NewPlatformChecker(uow, lookups)
 	return checker, &platformRepos{
 		formations: formations, items: items, activity: activity, uow: uow,
 	}, formation
@@ -253,16 +253,12 @@ func TestWithNoRegisteredLookupTheRowIsLeftToAPerson(t *testing.T) {
 		"the row stays marked platform; it is the lookup that is missing, not the intent")
 }
 
-// The registry is empty on purpose, and the three template rows depend on that
-// being true rather than on it being an oversight. If a lookup is added, this
-// fails and whoever added it has to say so here.
-func TestTheLookupRegistryIsDeliberatelyEmpty(t *testing.T) {
-	if len(platformLookups) != 0 {
-		t.Errorf("platformLookups has %d entries. If an owning service now answers a "+
-			"project-scoped lookup, update this test and the comment above the registry — "+
-			"and check the row is still one the platform should decide.", len(platformLookups))
-	}
-}
+// The test that used to sit here asserted the registry was empty in every
+// environment. That is no longer a fact about this package: the registry is
+// supplied by the wiring layer, and which resource types it covers is decided
+// by the adapter and asserted there. What remains true here, and is covered by
+// the test directly above, is that a registry without an entry for a row leaves
+// that row alone rather than failing it.
 
 // A lookup that fails leaves the item alone and does not fail the pass: one
 // resource type being unreachable must not stop the others being resolved.
@@ -337,6 +333,85 @@ func TestAPersonSettingAPlatformItemsStatusTakesItOverFromTheCheck(t *testing.T)
 	assert.Equal(t, model.StatusNotStarted, after.Status)
 	assert.Equal(t, model.SourceManual, after.StatusSource,
 		"a person set this status, so the row is no longer the platform's to move")
+
+	// The trail has to say a person did this, not the service. Both kinds of
+	// change land in the same feed, so the attribution is the only thing that
+	// distinguishes "the platform observed something" from "somebody decided
+	// something" — and auditing whether a check ever overrode a person is
+	// exactly the question that needs answering from this feed alone.
+	entries, _, err := repos.activity.List(context.Background(), formation.UID, nil, "", 50)
+	require.NoError(t, err)
+
+	var byUser bool
+	for _, entry := range entries {
+		if entry.SetBy == model.SetByUser {
+			byUser = true
+			assert.NotEqual(t, actorSystem, entry.Actor,
+				"a person's status change was attributed to the system")
+		}
+	}
+	assert.True(t, byUser, "a person setting the status recorded nothing attributed to them")
+}
+
+// Both answerable rows resolve in one pass, each against its own lookup and
+// each naming its own resource.
+//
+// The registry being keyed by resource type is what makes that work, and it is
+// worth one test: a lookup wired under the wrong key, or one shared between
+// both rows, would still advance both rows and still pass every single-row
+// test in this file — while pointing the mailing-list row at a committee.
+func TestEachRowResolvesAgainstItsOwnLookup(t *testing.T) {
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	templates := mock.NewTemplateRepository()
+	activity := mock.NewActivityRepository()
+	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+
+	formation, err := formations.Create(context.Background(), &model.Formation{
+		ProjectUID: "project-1", Lifecycle: model.LifecycleLive,
+	})
+	require.NoError(t, err)
+
+	_, err = items.InsertMany(context.Background(), []*model.Item{
+		{
+			FormationUID: formation.UID, ItemKey: "tsc_kickoff", SectionKey: "sec-1",
+			Title: "Charter the TSC", Status: model.StatusNotStarted,
+			StatusSource:  model.SourcePlatform,
+			PlatformCheck: &model.PlatformCheck{ResourceType: "committee", MinCount: 1},
+		},
+		{
+			FormationUID: formation.UID, ItemKey: "mailing_list", SectionKey: "sec-1",
+			Title: "Create the mailing list", Status: model.StatusNotStarted,
+			StatusSource:  model.SourcePlatform,
+			PlatformCheck: &model.PlatformCheck{ResourceType: "mailing_list", MinCount: 1},
+		},
+	})
+	require.NoError(t, err)
+
+	checker := NewPlatformChecker(uow, map[string]PlatformLookup{
+		"committee": foundCommittee,
+		"mailing_list": func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+			return 1, &model.ResolvedRef{Type: "groupsio_mailing_list", UID: "list-1"}, nil
+		},
+	})
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 2, report.Advanced)
+	assert.Zero(t, report.Unsupported, "a row was left unanswered with a lookup registered for it")
+
+	committee, err := items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusDone, committee.Status)
+	require.NotNil(t, committee.ResolvedRef)
+	assert.Equal(t, "committee-1", committee.ResolvedRef.UID)
+
+	list, err := items.GetByKey(context.Background(), formation.UID, "mailing_list")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusDone, list.Status)
+	require.NotNil(t, list.ResolvedRef)
+	assert.Equal(t, "list-1", list.ResolvedRef.UID,
+		"the mailing-list row was resolved against something other than its own lookup")
 }
 
 // The sweep is a writer too, so it takes the same row lock the three write

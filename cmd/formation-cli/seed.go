@@ -23,11 +23,11 @@ import (
 // templateFS carries the checklist content into the binary so seeding needs no
 // file alongside the image and cannot half-apply from a missing mount.
 //
-//go:embed templates/project_formation_v1.json
+//go:embed templates/project_formation_v2.json
 var templateFS embed.FS
 
 const (
-	seedContentPath = "templates/project_formation_v1.json"
+	seedContentPath = "templates/project_formation_v2.json"
 
 	// seedTemplateName and seedTemplateVersion are the Upsert key, which is
 	// what makes re-running the job a no-op. Editing content without
@@ -35,8 +35,20 @@ const (
 	// template has ever been published that is the intent, and afterwards a
 	// bump is required because live checklists pin the version they expanded
 	// from.
+	//
+	// Version 2 differs from version 1 in one row: the repositories and
+	// GitHub owner item is manual rather than platform-checked. Nothing in
+	// the platform owns repositories, so no lookup can ever answer for that
+	// row, and leaving it marked platform meant a permanently unanswerable
+	// item that every report had to explain. A new version rather than an
+	// edit because a published version is immutable, and live checklists pin
+	// the version they expanded from.
+	//
+	// Checklists already expanded from version 1 keep it. They are corrected
+	// by the migration in the schema's additive tail, which is keyed on the
+	// item key rather than on the template version.
 	seedTemplateName    = "Project formation"
-	seedTemplateVersion = 1
+	seedTemplateVersion = 2
 
 	// seedTemplatePriority is high because lower wins and this is the
 	// fallback. A future template for a narrower kind of formation needs a

@@ -6,6 +6,7 @@ package postgres
 import (
 	"context"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -206,4 +207,171 @@ func TestApplySchemaAddsAndBackfillsSectionsOverAnOlderTable(t *testing.T) {
 	if !strings.Contains(sections, "added_by_an_upgrade") {
 		t.Errorf("sections = %s, want the extended snapshot left alone by a re-apply", sections)
 	}
+}
+
+// The repository row is made manual on rows that already exist, and nothing
+// else about them changes.
+//
+// The delicate part is not the update, it is everything the update must not
+// touch. These rows belong to live checklists that people are working through,
+// so the migration changes who is expected to answer the row and leaves the
+// answer alone — a row somebody marked done or blocked keeps that status, its
+// note, and its revision. A migration that reset statuses would silently undo
+// real work on every checklist in flight, and it would look like a successful
+// deploy.
+func TestApplySchemaMakesTheRepositoryRowManualWithoutTouchingAnyStatus(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`TRUNCATE formation_activity, formation_items, formations, formation_templates CASCADE`,
+	); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	var templateUID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO formation_templates (name, version, state, priority, match, sections)
+		 VALUES ('migration-test', 1, 'published', 100, 'always', '[]'::jsonb)
+		 RETURNING uid`,
+	).Scan(&templateUID); err != nil {
+		t.Fatalf("seeding the template: %v", err)
+	}
+	// One checklist per status, because an item key is unique within a
+	// checklist. That is closer to production anyway: these rows are spread
+	// across many projects in whatever state each of them reached, and the
+	// migration has to leave every one of those states alone.
+	statuses := []string{"not_started", "in_progress", "blocked", "done", "skipped"}
+	var firstFormationUID string
+	for i, status := range statuses {
+		var formationUID string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO formations (project_uid, template_uid, template_version, lifecycle)
+			 VALUES ($1, $2, 1, 'live') RETURNING uid`,
+			"project-with-old-rows-"+status, templateUID,
+		).Scan(&formationUID); err != nil {
+			t.Fatalf("seeding the formation for %s: %v", status, err)
+		}
+		if i == 0 {
+			firstFormationUID = formationUID
+		}
+		// A skipped row carries a reason or the table refuses it, which is
+		// itself worth exercising here: the migration must not disturb that
+		// pairing either.
+		var skipReason *string
+		if status == "skipped" {
+			reason := "the project brought its own repositories"
+			skipReason = &reason
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO formation_items
+			   (formation_uid, item_key, section_key, title, position, status, status_source,
+			    platform_check, note, skip_reason)
+			 VALUES ($1, 'repositories_github_owner', 'community_and_launch', 'Repositories and GitHub owner',
+			         0, $2, 'platform', $3::jsonb, 'a person wrote this', $4)`,
+			formationUID, status, `{"resource_type":"repository","min_count":1}`, skipReason,
+		); err != nil {
+			t.Fatalf("seeding a repository row at %s: %v", status, err)
+		}
+	}
+
+	// A platform row that is not the repository row, to prove the migration is
+	// keyed on the item rather than sweeping every platform-sourced row.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO formation_items
+		   (formation_uid, item_key, section_key, title, position, status, status_source, platform_check)
+		 VALUES ($1, 'tsc_kickoff', 'community_and_launch', 'Charter the TSC', 99,
+		         'not_started', 'platform', $2::jsonb)`,
+		firstFormationUID, `{"resource_type":"committee","min_count":1}`,
+	); err != nil {
+		t.Fatalf("seeding the committee row: %v", err)
+	}
+
+	before := statusDistribution(ctx, t, pool)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("applying the migration: %v", err)
+	}
+
+	var stillPlatform int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM formation_items
+		  WHERE item_key = 'repositories_github_owner'
+		    AND (status_source <> 'manual' OR platform_check IS NOT NULL)`,
+	).Scan(&stillPlatform); err != nil {
+		t.Fatalf("counting unmigrated rows: %v", err)
+	}
+	if stillPlatform != 0 {
+		t.Errorf("%d repository rows are still platform-sourced, want 0", stillPlatform)
+	}
+
+	// The committee row is untouched: it is answerable, and the migration has
+	// no business in it.
+	var committeeSource string
+	if err := pool.QueryRow(ctx,
+		`SELECT status_source FROM formation_items WHERE item_key = 'tsc_kickoff'`,
+	).Scan(&committeeSource); err != nil {
+		t.Fatalf("reading the committee row: %v", err)
+	}
+	if committeeSource != "platform" {
+		t.Errorf("committee row status_source = %q, want it left as platform", committeeSource)
+	}
+
+	if after := statusDistribution(ctx, t, pool); after != before {
+		t.Errorf("status distribution changed across the migration:\nbefore %s\nafter  %s\n"+
+			"this migration changes who answers the row, never what the answer is", before, after)
+	}
+
+	var notes int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM formation_items
+		  WHERE item_key = 'repositories_github_owner' AND note = 'a person wrote this'`,
+	).Scan(&notes); err != nil {
+		t.Fatalf("counting notes: %v", err)
+	}
+	if notes != len(statuses) {
+		t.Errorf("%d rows kept their note, want %d", notes, len(statuses))
+	}
+
+	// Applied twice is applied once. The schema runs on every pod start, so a
+	// migration that was not idempotent would fire on every deploy.
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if again := statusDistribution(ctx, t, pool); again != before {
+		t.Errorf("re-applying the schema changed the status distribution: %s", again)
+	}
+}
+
+// statusDistribution renders the count of rows per status as a stable string,
+// so a test can compare the whole distribution before and after rather than
+// picking statuses to check one at a time.
+func statusDistribution(ctx context.Context, t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	rows, err := pool.Query(ctx,
+		`SELECT status, count(*) FROM formation_items GROUP BY status ORDER BY status`)
+	if err != nil {
+		t.Fatalf("reading the status distribution: %v", err)
+	}
+	defer rows.Close()
+
+	var out strings.Builder
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			t.Fatalf("scanning the status distribution: %v", err)
+		}
+		out.WriteString(status)
+		out.WriteString("=")
+		out.WriteString(strconv.Itoa(count))
+		out.WriteString(" ")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("reading the status distribution: %v", err)
+	}
+	return out.String()
 }

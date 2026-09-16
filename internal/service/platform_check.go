@@ -15,68 +15,63 @@ import (
 
 // Which template rows the platform can answer for itself, and which it cannot.
 //
-// The seed template marks three rows status_source: platform — a repository, a
-// mailing list, and a committee. None of the three is resolvable today, and the
-// reason is the same in each case: no owning service answers "does one of these
-// exist for this project".
+// The seeded template marks three rows status_source: platform — a repository,
+// a mailing list, and a committee. Two of the three are answerable, and the one
+// that is not is not a gap to be closed here:
 //
-//   - committee. lfx-v2-committee-service answers three request subjects —
-//     get_name, list_members and get_project — and every one of them takes a
-//     *committee* UID. There is no project-to-committees lookup, so a caller
-//     holding only a project UID has no way in.
-//   - mailing_list. lfx-v2-mailing-list-service publishes events and subscribes
-//     to none of its own: it exposes no request/reply lookup at all.
-//   - repository. No service in the platform owns repositories, so there is
-//     nothing to ask.
+//   - committee and mailing_list are resolved against the shared read layer,
+//     which indexes both with the owning project as their parent. That is the
+//     one place in the platform where "does this project have one of these"
+//     is a single question rather than a per-service lookup that none of the
+//     owning services expose: lfx-v2-committee-service answers only by
+//     *committee* UID, and lfx-v2-mailing-list-service exposes no
+//     request/reply lookup at all.
+//   - repository has no owner anywhere in the platform, so there is nothing
+//     to ask and no read layer entry to find. That row is manual, and saying
+//     so is more honest than leaving it permanently unanswerable.
 //
-// The transport is not an open question, and it is worth saying so here because
-// the obvious alternative looks available. Asking query-service for the resource
-// type scoped to parent_refs = project:<uid> would be answerable today, but it
-// was tried for this exact purpose and failed in production, and the decision
-// recorded against this feature is request/reply to the owning service with no
-// token on the wire — the plane both donor services already read over, and the
-// same one this service reads projects on, Confidential ones included.
+// Reading an index rather than asking each owning service carries one exposure
+// worth stating plainly, because it is accepted rather than absent. A resource
+// that exists but is not yet indexed leaves the row alone and corrects itself on
+// a later sweep, which is harmless. The other direction does not correct itself:
+// a resource deleted before the index catches up can advance a row against
+// nothing, and forward-only means no later sweep walks that back. The window is
+// small, the rows are gates on work that has visibly happened, and a staff
+// writer can always set the row by hand — so the cost of being briefly wrong is
+// bounded, while the cost of the alternative is that these rows stay
+// unanswerable indefinitely.
 //
-// That is also why no service identity appears anywhere in this file. A token
-// would only be needed to satisfy query-service, which access-checks every hit
-// against a user; the internal plane asks for nothing. So the registry is empty
-// for want of a subject to send, not for want of permission to send it, and each
-// row becomes resolvable when its owning service adds a project-scoped lookup and
-// this map gains one entry.
-//
-// Choosing the owning service also removes a hazard the derived-copy route
-// carries, which is worth recording in case it is ever revisited: advancing on an
-// index is safe in one direction only. A resource that exists but is not yet
-// indexed leaves the row alone for another sweep and corrects itself, while a
-// resource deleted before the index catches up would mark a gating row done with
-// nothing behind it, and forward-only means nothing walks that back. A service
-// answering for its own state cannot be stale about it.
-//
-// Nothing else here changes when that happens, which is why the unsupported case
-// is a first-class outcome rather than an error path: the sweep runs this pass on
-// every project already and reports how many rows it could not answer for.
-var platformLookups = map[string]platformLookup{
-	// Deliberately empty. See above.
-}
+// The registry is supplied by the wiring layer rather than declared here: a
+// lookup needs an infrastructure client, and this package must not import
+// infrastructure. An environment with no read layer configured gets an empty
+// registry and behaves exactly as this service did before — which is why the
+// unsupported case is a first-class outcome rather than an error path. The
+// sweep runs this pass on every project already and reports how many rows it
+// could not answer for.
 
-// platformLookup asks an owning service how many of a resource a project has.
+// PlatformLookup asks the read layer how many of a resource a project has.
 //
 // Shaped as port.ResourceChecker.Count, and it returns both halves for a reason.
 // The count is what the row's min_count is compared against, so a row requiring
 // two committees is not satisfied by the first one found. The reference is what
 // turns a "Create committee" row into "Open committee" pointing at the real one,
 // which a lookup answering only yes or no could not do.
-type platformLookup func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error)
+//
+// Exported because the wiring layer builds these as closures over an
+// infrastructure client, which this package cannot construct itself.
+type PlatformLookup func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error)
 
 // PlatformChecker resolves the checklist rows the platform can answer for itself.
 type PlatformChecker struct {
 	uow     port.UnitOfWork
-	lookups map[string]platformLookup
+	lookups map[string]PlatformLookup
 }
 
-// NewPlatformChecker wires a checker over the registered lookups.
-func NewPlatformChecker(uow port.UnitOfWork) *PlatformChecker {
-	return &PlatformChecker{uow: uow, lookups: platformLookups}
+// NewPlatformChecker wires a checker over the supplied lookups, keyed by the
+// resource_type a template row names. A nil or empty registry is valid and
+// means every platform row is reported unanswerable.
+func NewPlatformChecker(uow port.UnitOfWork, lookups map[string]PlatformLookup) *PlatformChecker {
+	return &PlatformChecker{uow: uow, lookups: lookups}
 }
 
 // PlatformCheckReport is what one pass over a checklist did.
