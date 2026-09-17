@@ -6,6 +6,7 @@ package service
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
@@ -28,7 +29,7 @@ import (
 func TestProjectionIsGatedOnAuditorAndNeverOnViewer(t *testing.T) {
 	doc := buildProjection(
 		&model.Formation{ProjectUID: "project-1", Lifecycle: model.LifecycleLive},
-		nil, port.ProjectRef{}, "A Project", "", nil,
+		nil, port.ProjectRef{}, "A Project", "", nil, time.Now(),
 	)
 
 	if doc.AccessRelation == "viewer" {
@@ -61,7 +62,7 @@ func TestBlockedTitlesNameNoPerson(t *testing.T) {
 			{ItemKey: "charter", Title: "Charter agreed", Status: model.StatusBlocked, Assignee: "person-one"},
 			{ItemKey: "brand", Title: "Brand review", Status: model.StatusInProgress, Assignee: "person-two"},
 		},
-		port.ProjectRef{}, "A Project", "", nil,
+		port.ProjectRef{}, "A Project", "", nil, time.Now(),
 	)
 
 	for _, title := range doc.BlockedItemTitles {
@@ -88,7 +89,7 @@ func TestProjectionCarriesNoFreeTextFromItems(t *testing.T) {
 			ItemKey: "charter", Title: "Charter agreed", Status: model.StatusBlocked,
 			Note: secret, SkipReason: secret, EvidenceLink: "https://example.org/" + secret,
 		}},
-		port.ProjectRef{}, "A Project", "", nil,
+		port.ProjectRef{}, "A Project", "", nil, time.Now(),
 	)
 
 	for _, title := range doc.BlockedItemTitles {

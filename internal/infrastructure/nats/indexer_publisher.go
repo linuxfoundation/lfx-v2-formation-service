@@ -340,7 +340,14 @@ func projectionData(doc *port.FormationProjection) map[string]any {
 			"skipped":     doc.Skipped,
 		},
 		"blocked_item_titles": doc.BlockedItemTitles,
-		"assignees":           doc.Assignees,
+		// stalled_count is omitted entirely when nil (no assigned items at all),
+		// which lets the UI distinguish "nothing to chase" from "0 stalled among
+		// assigned work". omitEmpty cannot be used here because 0 is a meaningful
+		// value — it must reach the index when assignment exists but nothing is
+		// overdue. A nil pointer marshals to JSON null inside a map, so we gate
+		// on it explicitly.
+		"stalled_count": doc.StalledCount,
+		"assignees":     doc.Assignees,
 	}
 }
 

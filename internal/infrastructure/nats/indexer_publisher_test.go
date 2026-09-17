@@ -279,7 +279,7 @@ func TestPublishedDataIsTheAgreedFieldSet(t *testing.T) {
 		"project_slug": true, "is_foundation": true, "parent_uid": true,
 		"sub_stage": true, "lifecycle": true, "gates_cleared": true,
 		"is_activating": true, "announcement_date": true, "progress": true,
-		"blocked_item_titles": true, "assignees": true,
+		"blocked_item_titles": true, "stalled_count": true, "assignees": true,
 	}
 	for key := range data {
 		if !want[key] {

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"sort"
 	"sync/atomic"
+	"time"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
@@ -148,7 +149,7 @@ func (p *Projector) Refresh(ctx context.Context, project port.ProjectRef, postur
 
 	if !withheld {
 		if err := p.publisher.PublishFormation(ctx, buildProjection(
-			formation, items, project, name, announcementDate, ancestors,
+			formation, items, project, name, announcementDate, ancestors, time.Now(),
 		)); err != nil {
 			return false, err
 		}
@@ -388,6 +389,7 @@ func buildProjection(
 	projectName string,
 	announcementDate string,
 	ancestorUIDs []string,
+	now time.Time,
 ) *port.FormationProjection {
 	counts := countsFromItems(items)
 	gateTotal, gateOutstanding := gateSummaryFromItems(items)
@@ -423,6 +425,7 @@ func buildProjection(
 		Done:              counts[model.StatusDone],
 		Skipped:           counts[model.StatusSkipped],
 		BlockedItemTitles: blockedItemTitles(items),
+		StalledCount:      stalledCount(items, now),
 		Assignees:         assigneesOf(items),
 		AccessRelation:    formationAccessRelation,
 
@@ -443,6 +446,40 @@ func buildProjection(
 	}
 
 	return doc
+}
+
+// stalledCount returns the number of assigned, non-terminal items that have
+// gone quiet, following the same rollup pattern as blockedItemTitles.
+//
+// "Stalled" is defined here, in one place, and never recomputed elsewhere:
+//   - The item is assigned (Assignee is non-empty).
+//   - The item is not in a terminal state (not done, not skipped).
+//   - The item is past its DueDate. Items with no DueDate are not counted as
+//     stalled by this definition — a fallback for undeadlined assigned work
+//     requires an assigned_at timestamp that does not yet exist on the model.
+//
+// Returns nil when no items are assigned at all. The caller must distinguish
+// nil ("nothing to chase") from a pointer to zero ("assigned work, none stalled")
+// — see FormationProjection.StalledCount.
+func stalledCount(items []*model.Item, now time.Time) *int {
+	hasAssigned := false
+	count := 0
+	for _, item := range items {
+		if item.Assignee == "" {
+			continue
+		}
+		hasAssigned = true
+		if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
+			continue
+		}
+		if item.DueDate != nil && now.After(*item.DueDate) {
+			count++
+		}
+	}
+	if !hasAssigned {
+		return nil
+	}
+	return &count
 }
 
 // blockedItemTitles lists the titles of blocked items, for the Blocking column.
