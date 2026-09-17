@@ -859,6 +859,49 @@ func TestStalledCountIsStableOnRepublish(t *testing.T) {
 // Items without a due date are not counted as stalled. The definition is
 // explicit about this: a fallback for undeadlined assigned work requires an
 // assigned_at timestamp that does not yet exist on the model.
+// stalledCount must produce the same result regardless of the timezone the
+// process is running in, because DueDate is stored as midnight UTC. A
+// non-UTC now.Location() would build a different midnight (e.g. UTC-7
+// midnight is 07:00Z, already after the stored 00:00Z), marking an item
+// due today as stalled hours early. This pins the correct behavior using a
+// fixed non-UTC now.
+func TestStalledCountIsTimezoneIndependent(t *testing.T) {
+	loc := time.FixedZone("UTC-7", -7*60*60)
+
+	// Due date: 2026-09-17 (stored as 2026-09-17T00:00:00Z by Postgres).
+	dueDate := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
+
+	// now = 2026-09-17T10:00:00 in UTC-7 = 2026-09-17T17:00:00Z.
+	// The UTC calendar date is still 2026-09-17, so the item is NOT yet
+	// stalled (it becomes stalled on 2026-09-18 UTC).
+	nowInNonUTC := time.Date(2026, 9, 17, 10, 0, 0, 0, loc)
+
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe", DueDate: &dueDate},
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, nowInNonUTC)
+	if doc.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want &0 — an assigned item is present")
+	}
+	if *doc.StalledCount != 0 {
+		t.Errorf("stalled_count = %d, want 0 — item is due today in UTC, not yet past due; "+
+			"a non-UTC now.Location() would incorrectly mark this as stalled", *doc.StalledCount)
+	}
+
+	// now = 2026-09-18T00:30:00 in UTC-7 = 2026-09-18T07:30:00Z.
+	// The UTC calendar date is 2026-09-18, which is after the due date, so
+	// the item IS stalled.
+	nowNextDayUTC := time.Date(2026, 9, 18, 0, 30, 0, 0, loc)
+	doc2 := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, nowNextDayUTC)
+	if doc2.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want &1 — an assigned item is present")
+	}
+	if *doc2.StalledCount != 1 {
+		t.Errorf("stalled_count = %d, want 1 — UTC date is 2026-09-18, past the due date of 2026-09-17",
+			*doc2.StalledCount)
+	}
+}
+
 func TestAssignedItemsWithNoDueDateAreNotStalled(t *testing.T) {
 	items := []*model.Item{
 		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe"},

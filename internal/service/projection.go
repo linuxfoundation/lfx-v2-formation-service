@@ -472,12 +472,16 @@ func stalledCount(items []*model.Item, now time.Time) *int {
 		if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
 			continue
 		}
-		// DueDate is stored as a date-only value (midnight UTC). Compare
-		// calendar dates so that an item due today is not yet stalled —
-		// stalled starts the calendar day after the due date has passed.
+		// DueDate is stored as a date-only value (midnight UTC). Normalize
+		// "today" to UTC before comparing so the result is the same
+		// regardless of the process timezone: a non-UTC now.Location()
+		// would build a different midnight than the stored value, marking
+		// an item due today as stalled hours early (UTC-7 midnight is
+		// 07:00Z, already after the stored 00:00Z of the due date).
 		if item.DueDate != nil {
-			startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			if startOfToday.After(*item.DueDate) {
+			nowUTC := now.UTC()
+			startOfTodayUTC := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day(), 0, 0, 0, 0, time.UTC)
+			if startOfTodayUTC.After(*item.DueDate) {
 				count++
 			}
 		}
