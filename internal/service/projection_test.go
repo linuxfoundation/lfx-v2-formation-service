@@ -812,6 +812,10 @@ func TestStalledCountIncludesPastDueAssignedItems(t *testing.T) {
 // Done and skipped items are never stalled, even when they are past their due
 // date. Terminal states mean the work is finished or excused; overdue is only
 // meaningful for open work.
+//
+// StalledCount must be a pointer-to-zero (not nil) here: the item IS assigned,
+// so the formation has assigned work — the queue cell must say "0 stalled",
+// not be suppressed entirely. Nil would wrongly read as "nothing to chase".
 func TestTerminalItemsAreNeverStalled(t *testing.T) {
 	yesterday := time.Now().Add(-24 * time.Hour)
 	for _, status := range []model.ItemStatus{model.StatusDone, model.StatusSkipped} {
@@ -821,8 +825,8 @@ func TestTerminalItemsAreNeverStalled(t *testing.T) {
 		}
 		doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
 		if doc.StalledCount == nil {
-			// Nil is also acceptable here: if the only assigned item is done,
-			// the stalled predicate could legitimately yield nil. Accept either.
+			t.Errorf("status %q: stalled_count = nil, want &0 — the item is assigned, "+
+				"so the cell must be present even though no items are stalled", status)
 			continue
 		}
 		if *doc.StalledCount != 0 {

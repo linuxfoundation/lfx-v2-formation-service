@@ -472,8 +472,14 @@ func stalledCount(items []*model.Item, now time.Time) *int {
 		if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
 			continue
 		}
-		if item.DueDate != nil && now.After(*item.DueDate) {
-			count++
+		// DueDate is stored as a date-only value (midnight UTC). Compare
+		// calendar dates so that an item due today is not yet stalled —
+		// stalled starts the calendar day after the due date has passed.
+		if item.DueDate != nil {
+			startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			if startOfToday.After(*item.DueDate) {
+				count++
+			}
 		}
 	}
 	if !hasAssigned {

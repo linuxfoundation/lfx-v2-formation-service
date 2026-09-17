@@ -76,6 +76,7 @@ func sampleItemProjection() *port.ItemProjection {
 }
 
 func sampleProjection() *port.FormationProjection {
+	stalledCount := 2
 	return &port.FormationProjection{
 		FormationUID:      "01JQ0000000000000000000000",
 		ProjectUID:        "project-1",
@@ -90,6 +91,7 @@ func sampleProjection() *port.FormationProjection {
 		IsActivating:      true,
 		Blocked:           1,
 		BlockedItemTitles: []string{"Charter agreed"},
+		StalledCount:      &stalledCount,
 		Assignees:         []string{"assignee-one"},
 		AccessRelation:    "auditor",
 	}
@@ -310,6 +312,67 @@ func TestPublishedDataIsTheAgreedFieldSet(t *testing.T) {
 		if _, present := progress[key]; !present {
 			t.Errorf("progress is missing %q; the queue sorts on all five", key)
 		}
+	}
+}
+
+// stalled_count is absent from the document when no items are assigned (nil
+// pointer), not present as JSON null. The queue suppresses the cell entirely
+// on nil and renders "0 stalled" on a pointer-to-zero — JSON null would look
+// like a present-but-missing value and break that distinction.
+func TestNilStalledCountIsAbsentFromTheDocument(t *testing.T) {
+	url := startTestNATSServer(t)
+	await := captureOn(t, url, IndexFormationSubject)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	doc := sampleProjection()
+	doc.StalledCount = nil // no assigned items
+	if err := publisher.PublishFormation(context.Background(), doc); err != nil {
+		t.Fatalf("PublishFormation() = %v, want no error", err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(await(), &envelope); err != nil {
+		t.Fatalf("decoding the envelope = %v", err)
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope carries no data object: %v", envelope)
+	}
+	if _, present := data["stalled_count"]; present {
+		t.Errorf("stalled_count is present in the document with a nil pointer — want the key absent, "+
+			"not %v (JSON null would break the nil-vs-zero distinction the queue relies on)", data["stalled_count"])
+	}
+}
+
+// A non-nil stalled_count (including zero) is present in the document, so the
+// queue can render "0 stalled" rather than suppressing the cell.
+func TestNonNilStalledCountIsPresentInTheDocument(t *testing.T) {
+	url := startTestNATSServer(t)
+	await := captureOn(t, url, IndexFormationSubject)
+	publisher := NewIndexerPublisher(newTestClient(t, url, 2*time.Second))
+
+	zero := 0
+	doc := sampleProjection()
+	doc.StalledCount = &zero
+	if err := publisher.PublishFormation(context.Background(), doc); err != nil {
+		t.Fatalf("PublishFormation() = %v, want no error", err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(await(), &envelope); err != nil {
+		t.Fatalf("decoding the envelope = %v", err)
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope carries no data object: %v", envelope)
+	}
+	v, present := data["stalled_count"]
+	if !present {
+		t.Fatal("stalled_count is absent from the document with a non-nil pointer — want key present")
+	}
+	// JSON numbers unmarshal as float64 in a map[string]any.
+	if got, ok := v.(float64); !ok || got != 0 {
+		t.Errorf("stalled_count = %v, want 0", v)
 	}
 }
 
