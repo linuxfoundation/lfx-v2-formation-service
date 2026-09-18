@@ -1,16 +1,27 @@
 {{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
-{{if .RecipientName}}Hi {{.RecipientName}},{{else}}Hi,{{end}}
+Hi{{if .RecipientName}} {{.RecipientName}}{{end}},
 
-You have been assigned a checklist item for the {{.ProjectName}} formation on LFX.
+You have been assigned a checklist item as part of the {{.ProjectName}} formation
+on LFX. Formation checklists track the steps a project must complete before it
+can go Active on the platform — your assignment means this item is now your
+responsibility to complete.
 
-Item:  {{.ItemTitle}}{{if .IsGating}}
-       ⚠ This item gates the project going Active.{{end}}{{if .DueDate}}
-Due:   {{.DueDate}}{{end}}
+────────────────────────────────────────────────────────────
+  Project:  {{.ProjectName}}
+  Item:     {{.ItemTitle}}{{if .IsGating}}
+            ⚠ This item gates the project going Active.{{end}}{{if .DueDate}}
+  Due date: {{.DueDate}}{{end}}
+────────────────────────────────────────────────────────────
 
-Open the checklist item:
+Open the checklist item directly:
 {{.ChecklistURL}}
 
----
-You are receiving this email because you were assigned this item on the LFX
-Self Serve formation checklist. If this was unexpected, please contact the
-formation team.
+Thank you,
+The LFX Team
+
+────────────────────────────────────────────────────────────
+You are receiving this email because you were assigned a formation checklist
+item on LFX. If you believe this was sent in error or would like to stop
+receiving these notifications, please contact support@lfx.dev.
+
+Copyright © 2026 The Linux Foundation®. All rights reserved.
