@@ -919,6 +919,9 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	assert.Equal(t, addr, sent.To, "email must be sent to the resolved address, not the bare username")
 	wantURL := "https://app.lfx.dev/foundation/formations/test-project?project=parent-foundation&item=item-1"
 	assert.Contains(t, sent.Text, wantURL, "email text must contain the LFX One deep link with item key")
+	assert.Contains(t, sent.HTML, "Hi alice,", "HTML must contain personalized greeting")
+	assert.Contains(t, sent.Text, "Hi alice,", "plain text must contain personalized greeting")
+	assert.Contains(t, sent.HTML, "&amp;item=item-1", "HTML must contain HTML-escaped item key in the fallback link")
 }
 
 func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {
