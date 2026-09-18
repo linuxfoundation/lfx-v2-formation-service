@@ -237,12 +237,12 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	projectName, projectSlug, parentSlug := s.projectEmailContext(ctx, projectUID)
-	checklistURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s",
-		s.emailCfg.AdminBaseURL, projectSlug, parentSlug)
-	if projectSlug == "" {
-		checklistURL = fmt.Sprintf("%s/foundation/formations/%s?project=%s",
-			s.emailCfg.AdminBaseURL, projectUID, parentSlug)
+	formationSlug := projectSlug
+	if formationSlug == "" {
+		formationSlug = projectUID
 	}
+	checklistURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s&item=%s",
+		s.emailCfg.AdminBaseURL, formationSlug, parentSlug, item.ItemKey)
 
 	var dueDate string
 	if item.DueDate != nil {
@@ -250,11 +250,12 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	subject, html, text, err := email.RenderItemAssigned(email.ItemAssignedData{
-		ProjectName:  projectName,
-		ItemTitle:    item.Title,
-		IsGating:     item.Gate,
-		DueDate:      dueDate,
-		ChecklistURL: checklistURL,
+		RecipientName: item.Assignee,
+		ProjectName:   projectName,
+		ItemTitle:     item.Title,
+		IsGating:      item.Gate,
+		DueDate:       dueDate,
+		ChecklistURL:  checklistURL,
 	})
 	if err != nil {
 		slog.WarnContext(ctx, "item-assigned email: render failed; not sent",
