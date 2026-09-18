@@ -34,6 +34,8 @@ type listProjects struct {
 	// UID, GetSettings returns it directly (including its Writers, Auditors, and
 	// UserEmails). When absent the announcement-date-only fallback is returned.
 	perProjectSettings map[string]*port.ProjectSettings
+	// slugs maps UIDs to slugs for Slug() lookups (parent slug resolution).
+	slugs map[string]string
 }
 
 func (l *listProjects) GetSettings(_ context.Context, projectUID string) (*port.ProjectSettings, error) {
@@ -91,8 +93,24 @@ func (l *listProjects) Name(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
 
-func (l *listProjects) Slug(_ context.Context, _ string) (string, error) {
+func (l *listProjects) Slug(_ context.Context, projectUID string) (string, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.slugs != nil {
+		if s, ok := l.slugs[projectUID]; ok {
+			return s, nil
+		}
+	}
 	return "", nil
+}
+
+func (l *listProjects) SetSlug(uid, slug string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.slugs == nil {
+		l.slugs = make(map[string]string)
+	}
+	l.slugs[uid] = slug
 }
 
 // GetRef answers for one named project out of the same set the list answers
@@ -1230,9 +1248,15 @@ func newNotificationReconciler(t *testing.T, announcementDate string) (
 ) {
 	t.Helper()
 	projects := &listProjects{
-		refs:         []port.ProjectRef{{UID: "project-1", Slug: "project-1", SubStage: model.StageFormationEngaged}},
+		refs: []port.ProjectRef{{
+			UID:       "project-1",
+			Slug:      "project-1",
+			ParentUID: "parent-uid",
+			SubStage:  model.StageFormationEngaged,
+		}},
 		announcement: announcementDate,
 	}
+	projects.SetSlug("parent-uid", "parent-foundation")
 	r, f, _ = newReconcilerWithIndex(t, projects)
 
 	mailer = mock.NewEmailDispatcher()
@@ -1288,7 +1312,7 @@ func TestReconcileActivatingEmailSentWhenConditionsMet(t *testing.T) {
 	if sent.To != "formation@linuxfoundation.org" {
 		t.Errorf("To = %q, want formation inbox", sent.To)
 	}
-	const wantAdminURL = "https://app.lfx.dev/foundation/formations?project=project-1"
+	const wantAdminURL = "https://app.lfx.dev/foundation/formations/project-1?project=parent-foundation"
 	if !strings.Contains(sent.Text, wantAdminURL) {
 		t.Errorf("activating email Text does not contain admin tool URL %q", wantAdminURL)
 	}
@@ -1473,9 +1497,15 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 
 	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
 	projects := &listProjects{
-		refs:         []port.ProjectRef{{UID: "project-1", Slug: "project-1", SubStage: model.StageFormationEngaged}},
+		refs: []port.ProjectRef{{
+			UID:       "project-1",
+			Slug:      "project-1",
+			ParentUID: "parent-uid",
+			SubStage:  model.StageFormationEngaged,
+		}},
 		announcement: futureDate,
 	}
+	projects.SetSlug("parent-uid", "parent-foundation")
 	projects.setProjectSettings("project-1", &port.ProjectSettings{
 		ProjectUID:       "project-1",
 		AnnouncementDate: &futureDate,
@@ -1530,7 +1560,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 		t.Errorf("formation inbox received %d Active emails, want 0", n)
 	}
 	// Every Active email must carry the LFX One project URL.
-	const wantProjectURL = "https://app.lfx.dev/foundation/formations?project=project-1"
+	const wantProjectURL = "https://app.lfx.dev/foundation/formations/project-1?project=parent-foundation"
 	for _, m := range sent {
 		if !strings.Contains(m.Text, wantProjectURL) {
 			t.Errorf("Active email to %q does not contain project URL %q", m.To, wantProjectURL)

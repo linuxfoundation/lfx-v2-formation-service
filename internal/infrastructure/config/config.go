@@ -47,8 +47,7 @@ type EmailConfig struct {
 	FormationInbox string
 
 	// AdminBaseURL is the root for checklist deep links in outbound emails.
-	// Item links: AdminBaseURL + "/foundation/formations/{item_key}?project={slug}".
-	// Checklist links: AdminBaseURL + "/foundation/formations?project={slug}".
+	// Links: AdminBaseURL + "/foundation/formations/{formation-slug}?project={parent-slug}".
 	AdminBaseURL string
 }
 

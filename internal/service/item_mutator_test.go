@@ -890,7 +890,10 @@ func newEmailTestService(t *testing.T, username, email string) (*Service, *model
 	}
 	projects := mock.NewProjectReader()
 	projects.SetSettings(formation.ProjectUID, settings)
-	projects.SetSlug(formation.ProjectUID, "test-project")
+	projects.SetFormingProjects([]port.ProjectRef{
+		{UID: formation.ProjectUID, Slug: "test-project", ParentUID: "parent-foundation-uid"},
+	})
+	projects.SetSlug("parent-foundation-uid", "parent-foundation")
 	s.projects = projects
 
 	return s, formation, itemOne, mailer
@@ -914,7 +917,7 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	assert.Equal(t, 1, mailer.SentCount(), "expected one item-assigned email")
 	sent := mailer.Sent()[0]
 	assert.Equal(t, addr, sent.To, "email must be sent to the resolved address, not the bare username")
-	wantURL := "https://app.lfx.dev/foundation/formations/" + itemOne.ItemKey + "?project=test-project"
+	wantURL := "https://app.lfx.dev/foundation/formations/test-project?project=parent-foundation"
 	assert.Contains(t, sent.Text, wantURL, "email text must contain the LFX One deep link")
 }
 

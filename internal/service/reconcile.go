@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -735,7 +736,9 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 		return
 	}
 
-	projectURL := r.emailCfg.AdminBaseURL + "/foundation/formations?project=" + project.Slug
+	parentSlug := r.resolveParentSlug(ctx, project.ParentUID)
+	projectURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s",
+		r.emailCfg.AdminBaseURL, project.Slug, parentSlug)
 
 	// Build a deduplicated recipient list: a person holding both writer and
 	// auditor grants would otherwise receive two copies of the Active email.
@@ -846,7 +849,9 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 	gateTotal, gateOutstanding := gateSummaryFromItems(items)
 	activating := isActivating(gateTotal, gateOutstanding, announcementDate)
 
-	adminToolURL := r.emailCfg.AdminBaseURL + "/foundation/formations?project=" + project.Slug
+	parentSlug := r.resolveParentSlug(ctx, project.ParentUID)
+	adminToolURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s",
+		r.emailCfg.AdminBaseURL, project.Slug, parentSlug)
 
 	// Name is not on ProjectRef; use the slug as a readable placeholder until
 	// the project list reply carries the display name (see the TODO in ports.go).
@@ -950,6 +955,23 @@ func (r *Reconciler) sendOneShot(
 		slog.WarnContext(ctx, "notification: send failed",
 			"formation_uid", formation.UID, "column", column, "error", sendErr)
 	}
+}
+
+// resolveParentSlug returns the slug of the project's parent (the foundation
+// that owns this forming project), used as the ?project= parameter in email
+// deep links. Returns the UID as a fallback when the slug cannot be resolved,
+// so the URL is still navigable. Returns empty string when parentUID is blank.
+func (r *Reconciler) resolveParentSlug(ctx context.Context, parentUID string) string {
+	if r.projects == nil || parentUID == "" {
+		return ""
+	}
+	slug, err := r.projects.Slug(ctx, parentUID)
+	if err != nil {
+		slog.WarnContext(ctx, "email: could not resolve parent slug; falling back to UID",
+			"parent_uid", parentUID, "error", err)
+		return parentUID
+	}
+	return slug
 }
 
 // syncLifecycle moves the project's checklist lifecycle to match its stage.

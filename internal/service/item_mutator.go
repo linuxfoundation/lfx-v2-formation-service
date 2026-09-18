@@ -236,11 +236,12 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		return
 	}
 
-	projectName, slug := s.projectNameAndSlug(ctx, projectUID)
-	checklistURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s", s.emailCfg.AdminBaseURL, item.ItemKey, slug)
-	if slug == "" {
-		// Fall back to a URL keyed on the project UID when the slug is unavailable.
-		checklistURL = fmt.Sprintf("%s/foundation/formations/%s?project=%s", s.emailCfg.AdminBaseURL, item.ItemKey, projectUID)
+	projectName, projectSlug, parentSlug := s.projectEmailContext(ctx, projectUID)
+	checklistURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s",
+		s.emailCfg.AdminBaseURL, projectSlug, parentSlug)
+	if projectSlug == "" {
+		checklistURL = fmt.Sprintf("%s/foundation/formations/%s?project=%s",
+			s.emailCfg.AdminBaseURL, projectUID, parentSlug)
 	}
 
 	var dueDate string
@@ -273,24 +274,33 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 }
 
-// projectNameAndSlug returns the project's display name and slug. Both
-// degrade to empty string when the project reader is not wired or the
-// lookup fails, so an email can still be sent with a UID-based URL rather
-// than failing the whole dispatch.
-func (s *Service) projectNameAndSlug(ctx context.Context, projectUID string) (name, slug string) {
+// projectEmailContext returns the project's display name, its own slug (used
+// as the formation path segment), and its parent's slug (used as the
+// ?project= query parameter in deep links). All three degrade to empty string
+// when the project reader is not wired or a lookup fails, so an email can
+// still be built with a UID-based URL fallback rather than dropping the send.
+func (s *Service) projectEmailContext(ctx context.Context, projectUID string) (name, slug, parentSlug string) {
 	if s.projects == nil {
-		return "", ""
+		return "", "", ""
 	}
 	var err error
 	name, err = s.projects.Name(ctx, projectUID)
 	if err != nil {
 		slog.WarnContext(ctx, "email: could not resolve project name", "project_uid", projectUID, "error", err)
 	}
-	slug, err = s.projects.Slug(ctx, projectUID)
+	ref, err := s.projects.GetRef(ctx, projectUID)
 	if err != nil {
-		slog.WarnContext(ctx, "email: could not resolve project slug", "project_uid", projectUID, "error", err)
+		slog.WarnContext(ctx, "email: could not resolve project ref", "project_uid", projectUID, "error", err)
+		return name, "", ""
 	}
-	return name, slug
+	slug = ref.Slug
+	if ref.ParentUID != "" {
+		parentSlug, err = s.projects.Slug(ctx, ref.ParentUID)
+		if err != nil {
+			slog.WarnContext(ctx, "email: could not resolve parent slug", "parent_uid", ref.ParentUID, "error", err)
+		}
+	}
+	return name, slug, parentSlug
 }
 
 // refreshIndex asks for the project's queue rows to be republished, if anything
