@@ -87,7 +87,7 @@ const (
 
 	// DefaultFormationAdminBaseURL is the base URL used to build checklist
 	// deep links in formation emails when FORMATION_ADMIN_BASE_URL is not set.
-	DefaultFormationAdminBaseURL = "https://lfx.linuxfoundation.org"
+	DefaultFormationAdminBaseURL = "https://app.lfx.dev"
 
 	// DefaultReconcileInterval is the period of the reconcile ticker. The
 	// loop remains the only mechanism guaranteed to run, so this bounds how

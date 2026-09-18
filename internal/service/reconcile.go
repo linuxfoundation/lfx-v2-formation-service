@@ -735,7 +735,7 @@ func (r *Reconciler) dispatchActiveEmails(ctx context.Context, project port.Proj
 		return
 	}
 
-	projectURL := r.emailCfg.AdminBaseURL + "/manage/projects/" + project.Slug
+	projectURL := r.emailCfg.AdminBaseURL + "/project/formation?project=" + project.Slug
 
 	// Build a deduplicated recipient list: a person holding both writer and
 	// auditor grants would otherwise receive two copies of the Active email.
@@ -846,7 +846,7 @@ func (r *Reconciler) dispatchProjectNotifications(ctx context.Context, project p
 	gateTotal, gateOutstanding := gateSummaryFromItems(items)
 	activating := isActivating(gateTotal, gateOutstanding, announcementDate)
 
-	adminToolURL := r.emailCfg.AdminBaseURL + "/manage/projects/" + project.Slug + "/checklist"
+	adminToolURL := r.emailCfg.AdminBaseURL + "/project/formation?project=" + project.Slug
 
 	// Name is not on ProjectRef; use the slug as a readable placeholder until
 	// the project list reply carries the display name (see the TODO in ports.go).

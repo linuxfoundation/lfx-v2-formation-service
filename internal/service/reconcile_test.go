@@ -1239,7 +1239,7 @@ func newNotificationReconciler(t *testing.T, announcementDate string) (
 	r.SetEmailer(f.items, mailer, EmailConfig{
 		Enabled:        true,
 		FormationInbox: "formation@linuxfoundation.org",
-		AdminBaseURL:   "https://lfx.linuxfoundation.org",
+		AdminBaseURL:   "https://app.lfx.dev",
 	})
 	return r, f, mailer
 }
@@ -1489,7 +1489,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 	r.SetEmailer(f.items, mailer, EmailConfig{
 		Enabled:        true,
 		FormationInbox: "formation@linuxfoundation.org",
-		AdminBaseURL:   "https://lfx.linuxfoundation.org",
+		AdminBaseURL:   "https://app.lfx.dev",
 	})
 
 	// First sweep: create the formation.

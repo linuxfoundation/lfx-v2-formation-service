@@ -878,7 +878,7 @@ func newEmailTestService(t *testing.T, username, email string) (*Service, *model
 
 	mailer := mock.NewEmailDispatcher()
 	s.emailer = mailer
-	s.emailCfg = EmailConfig{Enabled: true, AdminBaseURL: "https://lfx.linuxfoundation.org"}
+	s.emailCfg = EmailConfig{Enabled: true, AdminBaseURL: "https://app.lfx.dev"}
 
 	settings := &port.ProjectSettings{
 		ProjectUID: formation.ProjectUID,
