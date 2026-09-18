@@ -967,9 +967,9 @@ func (r *Reconciler) resolveParentSlug(ctx context.Context, parentUID string) st
 	}
 	slug, err := r.projects.Slug(ctx, parentUID)
 	if err != nil {
-		slog.WarnContext(ctx, "email: could not resolve parent slug; falling back to UID",
+		slog.WarnContext(ctx, "email: could not resolve parent slug; omitting project context",
 			"parent_uid", parentUID, "error", err)
-		return parentUID
+		return ""
 	}
 	return slug
 }
