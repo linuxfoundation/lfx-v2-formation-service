@@ -1230,7 +1230,7 @@ func newNotificationReconciler(t *testing.T, announcementDate string) (
 ) {
 	t.Helper()
 	projects := &listProjects{
-		refs:         []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		refs:         []port.ProjectRef{{UID: "project-1", Slug: "project-1", SubStage: model.StageFormationEngaged}},
 		announcement: announcementDate,
 	}
 	r, f, _ = newReconcilerWithIndex(t, projects)
@@ -1287,6 +1287,10 @@ func TestReconcileActivatingEmailSentWhenConditionsMet(t *testing.T) {
 	sent := mailer.Sent()[0]
 	if sent.To != "formation@linuxfoundation.org" {
 		t.Errorf("To = %q, want formation inbox", sent.To)
+	}
+	const wantAdminURL = "https://app.lfx.dev/project/formation?project=project-1"
+	if !strings.Contains(sent.Text, wantAdminURL) {
+		t.Errorf("activating email Text does not contain admin tool URL %q", wantAdminURL)
 	}
 }
 
@@ -1469,7 +1473,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 
 	futureDate := time.Now().UTC().AddDate(0, 2, 0).Format("2006-01-02")
 	projects := &listProjects{
-		refs:         []port.ProjectRef{{UID: "project-1", SubStage: model.StageFormationEngaged}},
+		refs:         []port.ProjectRef{{UID: "project-1", Slug: "project-1", SubStage: model.StageFormationEngaged}},
 		announcement: futureDate,
 	}
 	projects.setProjectSettings("project-1", &port.ProjectSettings{
@@ -1524,6 +1528,13 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 	// Formation inbox must not appear in the Active fan-out.
 	if n := recipients["formation@linuxfoundation.org"]; n > 0 {
 		t.Errorf("formation inbox received %d Active emails, want 0", n)
+	}
+	// Every Active email must carry the LFX One project URL.
+	const wantProjectURL = "https://app.lfx.dev/project/formation?project=project-1"
+	for _, m := range sent {
+		if !strings.Contains(m.Text, wantProjectURL) {
+			t.Errorf("Active email to %q does not contain project URL %q", m.To, wantProjectURL)
+		}
 	}
 
 	countAfterTransition := mailer.SentCount()
