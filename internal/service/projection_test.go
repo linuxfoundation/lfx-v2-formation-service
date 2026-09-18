@@ -33,7 +33,7 @@ func TestProjectionCountsEveryFiveStatuses(t *testing.T) {
 		{ItemKey: "f", Status: model.StatusDone},
 		{ItemKey: "g", Status: model.StatusSkipped},
 	}
-	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil)
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
 
 	for _, c := range []struct {
 		name string
@@ -61,7 +61,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 		{ItemKey: "other", Status: model.StatusInProgress},
 	}
 
-	withoutDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "", nil)
+	withoutDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "", nil, time.Now())
 	if !withoutDate.GatesCleared {
 		t.Error("gates_cleared = false with every gating item done, want true")
 	}
@@ -70,7 +70,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 			"full readiness needs the date as well")
 	}
 
-	withDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "2026-12-01", nil)
+	withDate := buildProjection(liveFormation(), gatedDone, port.ProjectRef{}, "A Project", "2026-12-01", nil, time.Now())
 	if !withDate.IsActivating {
 		t.Error("is_activating = false with gates cleared and a date set, want true")
 	}
@@ -81,7 +81,7 @@ func TestGatesClearedAndIsActivatingAreSeparate(t *testing.T) {
 func TestNoGatingItemsIsNeitherClearedNorActivating(t *testing.T) {
 	doc := buildProjection(liveFormation(),
 		[]*model.Item{{ItemKey: "a", Status: model.StatusDone}},
-		port.ProjectRef{}, "A Project", "2026-12-01", nil)
+		port.ProjectRef{}, "A Project", "2026-12-01", nil, time.Now())
 
 	if doc.GatesCleared {
 		t.Error("gates_cleared = true with zero gating items, want false")
@@ -99,7 +99,7 @@ func TestOnlyDoneSatisfiesAGate(t *testing.T) {
 	} {
 		doc := buildProjection(liveFormation(),
 			[]*model.Item{{ItemKey: "gate", Gate: true, Status: status}},
-			port.ProjectRef{}, "A Project", "2026-12-01", nil)
+			port.ProjectRef{}, "A Project", "2026-12-01", nil, time.Now())
 
 		if doc.GatesCleared {
 			t.Errorf("gates_cleared = true with its only gating item %q, want false", status)
@@ -120,7 +120,7 @@ func TestProjectionPublishesTheSignalsAndNotAType(t *testing.T) {
 			UID: "project-1", Slug: "a-project", IsFoundation: true,
 			ParentUID: "parent-1", SubStage: model.StageFormationEngaged,
 		},
-		"A Project", "", nil)
+		"A Project", "", nil, time.Now())
 
 	if !doc.IsFoundation {
 		t.Error("is_foundation = false, want true")
@@ -141,7 +141,7 @@ func TestAssigneesAreDistinctAndExcludeTheUnassigned(t *testing.T) {
 		{ItemKey: "b", Assignee: "person-one"},
 		{ItemKey: "c", Assignee: "person-two"},
 		{ItemKey: "d", Assignee: ""},
-	}, port.ProjectRef{}, "A Project", "", nil)
+	}, port.ProjectRef{}, "A Project", "", nil, time.Now())
 
 	if len(doc.Assignees) != 2 {
 		t.Fatalf("assignees = %v, want two distinct entries", doc.Assignees)
@@ -162,10 +162,11 @@ func TestRepublishingIsStableForAnUnchangedChecklist(t *testing.T) {
 		{ItemKey: "b", Title: "Beta", Status: model.StatusBlocked, Assignee: "person-two"},
 		{ItemKey: "a", Title: "Alpha", Status: model.StatusBlocked, Assignee: "person-one"},
 	}
-	first := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil)
+	now := time.Now()
+	first := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, now)
 
 	reordered := []*model.Item{items[1], items[0]}
-	second := buildProjection(liveFormation(), reordered, port.ProjectRef{}, "A Project", "", nil)
+	second := buildProjection(liveFormation(), reordered, port.ProjectRef{}, "A Project", "", nil, now)
 
 	if len(first.BlockedItemTitles) != len(second.BlockedItemTitles) {
 		t.Fatalf("titles = %v and %v, want the same", first.BlockedItemTitles, second.BlockedItemTitles)
@@ -754,5 +755,164 @@ func TestTheRowCarriesTheLifecycleItWasMovedToThisSweep(t *testing.T) {
 	}
 	if got := publisher.Latest("project-1").Lifecycle; got != string(model.LifecycleCompleted) {
 		t.Errorf("lifecycle = %q, want completed in the same sweep that moved it", got)
+	}
+}
+
+// StalledCount is nil when no items are assigned — nil means "nothing to
+// chase", which is a different signal from zero ("assigned work exists, none
+// of it is overdue"). The queue must not render a count cell for unassigned
+// checklists, and nil is the flag it checks.
+func TestStalledCountIsNilWhenNothingIsAssigned(t *testing.T) {
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusNotStarted},
+		{ItemKey: "b", Status: model.StatusInProgress},
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
+	if doc.StalledCount != nil {
+		t.Errorf("stalled_count = %d, want nil — no items are assigned", *doc.StalledCount)
+	}
+}
+
+// StalledCount is a pointer to zero (not nil) when items are assigned but none
+// are past their due date. Zero and nil are deliberately different signals.
+func TestStalledCountIsZeroWhenAssignedButNotPastDue(t *testing.T) {
+	future := time.Now().Add(7 * 24 * time.Hour)
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe", DueDate: &future},
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
+	if doc.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want a pointer to 0 — an assigned item is present")
+	}
+	if *doc.StalledCount != 0 {
+		t.Errorf("stalled_count = %d, want 0 — due date is in the future", *doc.StalledCount)
+	}
+}
+
+// An assigned item past its due date with a non-terminal status counts as
+// stalled. Items with no due date are not counted — a fallback for undeadlined
+// assigned work requires an assigned_at column that does not yet exist.
+func TestStalledCountIncludesPastDueAssignedItems(t *testing.T) {
+	yesterday := time.Now().Add(-24 * time.Hour)
+	future := time.Now().Add(7 * 24 * time.Hour)
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe", DueDate: &yesterday},
+		{ItemKey: "b", Status: model.StatusInProgress, Assignee: "asmith", DueDate: &future},
+		{ItemKey: "c", Status: model.StatusInProgress, Assignee: "bkim"}, // assigned, no due date
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
+	if doc.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want non-nil — assigned items are present")
+	}
+	if *doc.StalledCount != 1 {
+		t.Errorf("stalled_count = %d, want 1 — only the past-due item is stalled", *doc.StalledCount)
+	}
+}
+
+// Done and skipped items are never stalled, even when they are past their due
+// date. Terminal states mean the work is finished or excused; overdue is only
+// meaningful for open work.
+//
+// StalledCount must be a pointer-to-zero (not nil) here: the item IS assigned,
+// so the formation has assigned work — the queue cell must say "0 stalled",
+// not be suppressed entirely. Nil would wrongly read as "nothing to chase".
+func TestTerminalItemsAreNeverStalled(t *testing.T) {
+	yesterday := time.Now().Add(-24 * time.Hour)
+	for _, status := range []model.ItemStatus{model.StatusDone, model.StatusSkipped} {
+		items := []*model.Item{
+			// Past-due terminal item — must not raise the count.
+			{ItemKey: "a", Status: status, Assignee: "jdoe", DueDate: &yesterday},
+		}
+		doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
+		if doc.StalledCount == nil {
+			t.Errorf("status %q: stalled_count = nil, want &0 — the item is assigned, "+
+				"so the cell must be present even though no items are stalled", status)
+			continue
+		}
+		if *doc.StalledCount != 0 {
+			t.Errorf("status %q: stalled_count = %d, want 0 — terminal items are never stalled",
+				status, *doc.StalledCount)
+		}
+	}
+}
+
+// Republishing an unchanged checklist must produce the same StalledCount —
+// the field must be stable, just like BlockedItemTitles and Assignees.
+func TestStalledCountIsStableOnRepublish(t *testing.T) {
+	yesterday := time.Now().Add(-24 * time.Hour)
+	now := time.Now()
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe", DueDate: &yesterday},
+	}
+	first := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, now)
+	second := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, now)
+
+	if first.StalledCount == nil || second.StalledCount == nil {
+		t.Fatal("stalled_count = nil on one or both publishes, want non-nil")
+	}
+	if *first.StalledCount != *second.StalledCount {
+		t.Errorf("stalled_count changed between identical publishes: %d vs %d",
+			*first.StalledCount, *second.StalledCount)
+	}
+}
+
+// Items without a due date are not counted as stalled. The definition is
+// explicit about this: a fallback for undeadlined assigned work requires an
+// assigned_at timestamp that does not yet exist on the model.
+// stalledCount must produce the same result regardless of the timezone the
+// process is running in, because DueDate is stored as midnight UTC. A
+// non-UTC now.Location() would build a different midnight (e.g. UTC-7
+// midnight is 07:00Z, already after the stored 00:00Z), marking an item
+// due today as stalled hours early. This pins the correct behavior using a
+// fixed non-UTC now.
+func TestStalledCountIsTimezoneIndependent(t *testing.T) {
+	loc := time.FixedZone("UTC-7", -7*60*60)
+
+	// Due date: 2026-09-17 (stored as 2026-09-17T00:00:00Z by Postgres).
+	dueDate := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
+
+	// now = 2026-09-17T10:00:00 in UTC-7 = 2026-09-17T17:00:00Z.
+	// The UTC calendar date is still 2026-09-17, so the item is NOT yet
+	// stalled (it becomes stalled on 2026-09-18 UTC).
+	nowInNonUTC := time.Date(2026, 9, 17, 10, 0, 0, 0, loc)
+
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe", DueDate: &dueDate},
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, nowInNonUTC)
+	if doc.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want &0 — an assigned item is present")
+	}
+	if *doc.StalledCount != 0 {
+		t.Errorf("stalled_count = %d, want 0 — item is due today in UTC, not yet past due; "+
+			"a non-UTC now.Location() would incorrectly mark this as stalled", *doc.StalledCount)
+	}
+
+	// now = 2026-09-18T00:30:00 in UTC-7 = 2026-09-18T07:30:00Z.
+	// The UTC calendar date is 2026-09-18, which is after the due date, so
+	// the item IS stalled.
+	nowNextDayUTC := time.Date(2026, 9, 18, 0, 30, 0, 0, loc)
+	doc2 := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, nowNextDayUTC)
+	if doc2.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want &1 — an assigned item is present")
+	}
+	if *doc2.StalledCount != 1 {
+		t.Errorf("stalled_count = %d, want 1 — UTC date is 2026-09-18, past the due date of 2026-09-17",
+			*doc2.StalledCount)
+	}
+}
+
+func TestAssignedItemsWithNoDueDateAreNotStalled(t *testing.T) {
+	items := []*model.Item{
+		{ItemKey: "a", Status: model.StatusInProgress, Assignee: "jdoe"},
+		{ItemKey: "b", Status: model.StatusBlocked, Assignee: "asmith"},
+	}
+	doc := buildProjection(liveFormation(), items, port.ProjectRef{}, "A Project", "", nil, time.Now())
+	if doc.StalledCount == nil {
+		t.Fatal("stalled_count = nil, want a pointer — assigned items are present")
+	}
+	if *doc.StalledCount != 0 {
+		t.Errorf("stalled_count = %d, want 0 — no due dates set, so nothing is stalled by definition",
+			*doc.StalledCount)
 	}
 }

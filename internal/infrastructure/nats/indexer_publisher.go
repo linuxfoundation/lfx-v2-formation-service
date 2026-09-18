@@ -316,7 +316,7 @@ type indexerMessage struct {
 // the queue may show, and a reviewer reading it sees exactly that. The keys are
 // the wire contract the queue's search filters and sorts on.
 func projectionData(doc *port.FormationProjection) map[string]any {
-	return map[string]any{
+	d := map[string]any{
 		"formation_uid": doc.FormationUID,
 		"project_uid":   doc.ProjectUID,
 		"project_name":  doc.ProjectName,
@@ -342,6 +342,16 @@ func projectionData(doc *port.FormationProjection) map[string]any {
 		"blocked_item_titles": doc.BlockedItemTitles,
 		"assignees":           doc.Assignees,
 	}
+	// stalled_count is omitted entirely when nil (no assigned items at all),
+	// which lets the UI distinguish "nothing to chase" from "0 stalled among
+	// assigned work". 0 is a meaningful value — it must reach the index when
+	// assignment exists but nothing is overdue — so omitEmpty is not safe here.
+	// A nil *int in a map[string]any marshals as JSON null rather than as an
+	// absent key, so we add the field only when the pointer is non-nil.
+	if doc.StalledCount != nil {
+		d["stalled_count"] = *doc.StalledCount
+	}
+	return d
 }
 
 // omitEmpty returns nil for an empty string so the field is absent from the

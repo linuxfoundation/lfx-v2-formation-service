@@ -475,6 +475,15 @@ type FormationProjection struct {
 	// holding the project's audit relation.
 	BlockedItemTitles []string
 
+	// StalledCount is the number of assigned, non-terminal items that have gone
+	// quiet by the service's stalled definition (see stalledCount in
+	// projection.go). Nil means no items are assigned at all — distinct from a
+	// pointer to zero, which means "assigned items exist but none are stalled".
+	// The two are different: nil suppresses the cell entirely on the queue
+	// ("nothing to chase"), while zero is a meaningful "all assigned work is on
+	// track". Only non-nil when at least one assigned item is present.
+	StalledCount *int
+
 	// Assignees is what the "Mine" filter matches on.
 	Assignees []string
 
