@@ -85,8 +85,9 @@ const (
 	// notifications when FORMATION_INBOX_EMAIL is not set.
 	DefaultFormationInboxEmail = "formation@linuxfoundation.org"
 
-	// DefaultFormationAdminBaseURL is the base URL used to build checklist
-	// deep links in formation emails when FORMATION_ADMIN_BASE_URL is not set.
+	// DefaultFormationAdminBaseURL is the base URL used to build checklist deep
+	// links in formation emails when FORMATION_ADMIN_BASE_URL is not set.
+	// Item links resolve to: <base>/foundation/formations/<item_key>?project=<slug>.
 	DefaultFormationAdminBaseURL = "https://app.lfx.dev"
 
 	// DefaultReconcileInterval is the period of the reconcile ticker. The

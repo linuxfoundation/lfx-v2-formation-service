@@ -1288,7 +1288,7 @@ func TestReconcileActivatingEmailSentWhenConditionsMet(t *testing.T) {
 	if sent.To != "formation@linuxfoundation.org" {
 		t.Errorf("To = %q, want formation inbox", sent.To)
 	}
-	const wantAdminURL = "https://app.lfx.dev/project/formation?project=project-1"
+	const wantAdminURL = "https://app.lfx.dev/foundation/formations?project=project-1"
 	if !strings.Contains(sent.Text, wantAdminURL) {
 		t.Errorf("activating email Text does not contain admin tool URL %q", wantAdminURL)
 	}
@@ -1530,7 +1530,7 @@ func TestReconcileActiveEmailFanOutOnTransition(t *testing.T) {
 		t.Errorf("formation inbox received %d Active emails, want 0", n)
 	}
 	// Every Active email must carry the LFX One project URL.
-	const wantProjectURL = "https://app.lfx.dev/project/formation?project=project-1"
+	const wantProjectURL = "https://app.lfx.dev/foundation/formations?project=project-1"
 	for _, m := range sent {
 		if !strings.Contains(m.Text, wantProjectURL) {
 			t.Errorf("Active email to %q does not contain project URL %q", m.To, wantProjectURL)

@@ -237,10 +237,10 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	projectName, slug := s.projectNameAndSlug(ctx, projectUID)
-	checklistURL := fmt.Sprintf("%s/project/formation?project=%s&item=%s", s.emailCfg.AdminBaseURL, slug, item.UID.String())
+	checklistURL := fmt.Sprintf("%s/foundation/formations/%s?project=%s", s.emailCfg.AdminBaseURL, item.ItemKey, slug)
 	if slug == "" {
 		// Fall back to a URL keyed on the project UID when the slug is unavailable.
-		checklistURL = fmt.Sprintf("%s/project/formation?project=%s&item=%s", s.emailCfg.AdminBaseURL, projectUID, item.UID.String())
+		checklistURL = fmt.Sprintf("%s/foundation/formations/%s?project=%s", s.emailCfg.AdminBaseURL, item.ItemKey, projectUID)
 	}
 
 	var dueDate string
