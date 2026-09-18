@@ -917,8 +917,8 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	assert.Equal(t, 1, mailer.SentCount(), "expected one item-assigned email")
 	sent := mailer.Sent()[0]
 	assert.Equal(t, addr, sent.To, "email must be sent to the resolved address, not the bare username")
-	wantURL := "https://app.lfx.dev/foundation/formations/test-project?project=parent-foundation"
-	assert.Contains(t, sent.Text, wantURL, "email text must contain the LFX One deep link")
+	wantURL := "https://app.lfx.dev/foundation/formations/test-project?project=parent-foundation&item=item-1"
+	assert.Contains(t, sent.Text, wantURL, "email text must contain the LFX One deep link with item key")
 }
 
 func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {
