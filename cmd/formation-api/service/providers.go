@@ -502,13 +502,20 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecas
 	// Wire the email dispatcher into the reconciler so the sweep can dispatch
 	// Activating + announcement-reminder notifications. A nil emailer (no NATS)
 	// is silently skipped — notifications degrade rather than blocking the sweep.
-	if deps.Emailer != nil {
-		reconciler.SetEmailer(deps.Items, deps.Emailer, usecaseSvc.EmailConfig{
-			Enabled:        cfg.Email.Enabled,
-			FormationInbox: cfg.Email.FormationInbox,
-			AdminBaseURL:   cfg.Email.AdminBaseURL,
-		})
-	}
+	//
+	// TODO(re-enable): The reconciler emails (Project Active, Activating,
+	// 3-day reminder, Overdue reminder) are intentionally disabled while the
+	// feature is developed under the radar. Only the Item Assigned email
+	// (dispatched by the HTTP service above) is active. Remove this comment
+	// block and uncomment the block below to re-enable sweep notifications.
+	//
+	// if deps.Emailer != nil {
+	// 	reconciler.SetEmailer(deps.Items, deps.Emailer, usecaseSvc.EmailConfig{
+	// 		Enabled:        cfg.Email.Enabled,
+	// 		FormationInbox: cfg.Email.FormationInbox,
+	// 		AdminBaseURL:   cfg.Email.AdminBaseURL,
+	// 	})
+	// }
 
 	go reconciler.Run(ctx)
 
