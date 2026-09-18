@@ -109,12 +109,14 @@ func (p *ProjectClient) Writers(ctx context.Context, projectUID string) ([]strin
 }
 
 // projectUser is the per-person shape inside a grant roster. Username is the
-// identifier an assignee is recorded as. Email is carried alongside it so
-// notification dispatch can route to a real mailbox: the service stores
-// usernames, not addresses, so email must be resolved at send time from the
-// same grant roster that accepted the assignee.
+// identifier an assignee is recorded as. Name and Email are carried alongside
+// it so notification dispatch can personalise the greeting and route to a real
+// mailbox: the service stores usernames, not addresses or display names, so
+// both must be resolved at send time from the same grant roster that accepted
+// the assignee.
 type projectUser struct {
 	Username string `json:"username"`
+	Name     string `json:"name"`
 	Email    string `json:"email"`
 }
 
@@ -210,6 +212,7 @@ func (p *ProjectClient) GetSettings(ctx context.Context, projectUID string) (*po
 	allUsers = append(allUsers, decoded.Writers...)
 	allUsers = append(allUsers, decoded.Auditors...)
 	settings.UserEmails = userEmailMap(allUsers)
+	settings.UserNames = userNameMap(allUsers)
 	// Narrowed to a date deliberately. Due dates are computed by offsetting
 	// whole days from this, so the time of day is precision the calculation
 	// cannot use and would only introduce timezone questions into a comparison
@@ -388,6 +391,21 @@ func userEmailMap(users []projectUser) map[string]string {
 		if u.Username != "" && u.Email != "" {
 			if _, exists := out[u.Username]; !exists {
 				out[u.Username] = u.Email
+			}
+		}
+	}
+	return out
+}
+
+// userNameMap builds a username→display-name index from a grant roster, used
+// by notification dispatch to personalise the greeting. Entries with a blank
+// username or blank name are skipped for the same reasons as userEmailMap.
+func userNameMap(users []projectUser) map[string]string {
+	out := make(map[string]string, len(users))
+	for _, u := range users {
+		if u.Username != "" && u.Name != "" {
+			if _, exists := out[u.Username]; !exists {
+				out[u.Username] = u.Name
 			}
 		}
 	}
