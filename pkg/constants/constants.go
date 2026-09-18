@@ -58,6 +58,30 @@ const (
 	// ArgoCD values override) cannot silently authenticate every request
 	// as a fixed principal; both must be set deliberately.
 	EnvJWTMockBypassConfirm = "JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL_CONFIRM"
+
+	// EnvQueryServiceURL is the base URL of the shared read layer the
+	// platform checks resolve against. Unset is a supported, and the
+	// default, state: the lookup registry is then built empty and every
+	// platform row stays unanswerable exactly as it did before, which is
+	// the correct fallback because the alternative is rows failing rather
+	// than going unanswered. Enablement is per environment through the
+	// values hierarchy, never through a code change.
+	EnvQueryServiceURL = "QUERY_SERVICE_URL"
+
+	// The service identity's credentials. Outbound reads are made as this
+	// service rather than as the caller whose request happened to trigger
+	// the sweep — a sweep has no caller at all, so there is no bearer token
+	// to forward even in principle.
+	//
+	// These are the names lfx-v2-committee-service already uses for the
+	// same purpose against the same read layer; the flow is an Auth0
+	// client-credentials grant with a private-key JWT assertion (RS256),
+	// not a client secret. Reusing the names means one deployment-time
+	// convention across services instead of two.
+	EnvM2MClientID   = "M2M_AUTH_CLIENT_ID"
+	EnvM2MPrivateKey = "M2M_AUTH_PRIVATE_KEY"
+	EnvM2MDomain     = "M2M_AUTH_DOMAIN"
+	EnvM2MAudience   = "M2M_AUTH_AUDIENCE"
 )
 
 // Default values
@@ -98,4 +122,11 @@ const (
 	// ninety-six times a day to shorten a window the listener already closes
 	// is load spent against the project service for nothing.
 	DefaultReconcileInterval = 24 * time.Hour
+
+	// DefaultQueryServiceTimeout bounds one outbound lookup. A sweep runs a
+	// lookup per platform row per project, so a read layer that has stopped
+	// answering must fail the row quickly rather than hold the sweep open;
+	// a row left unresolved is retried by the next sweep, which is the only
+	// retry this feature has by design.
+	DefaultQueryServiceTimeout = 15 * time.Second
 )

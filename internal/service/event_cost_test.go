@@ -144,15 +144,15 @@ func TestOneSweepOfASettledProjectCostsAKnownAmountOfIO(t *testing.T) {
 	// rows are waiting on a lookup nobody has written yet, and once a day per
 	// project is what that measurement costs.
 	//
-	// One of the three formation reads is the locking one, which is the
-	// platform pass's: it writes rows after checking the lifecycle, so it takes
-	// the row for the length of its transaction the same way the write routes
-	// do. Same count either way — the lock changes what the read costs the rest
-	// of the system, not what it costs here.
+	// None of the three formation reads is the locking one. The platform pass
+	// locks only to write, and a settled project gives it nothing to write, so
+	// it plans against the unlocked read and stops. A sweep over a catalogue of
+	// settled checklists therefore takes no row lock at all — the same count of
+	// reads as before, and none of the contention.
 	want := map[string]int{
 		"formations.ListProjectUIDs":       1,
-		"formations.GetByProject":          2,
-		"formations.GetByProjectForUpdate": 1,
+		"formations.GetByProject":          3,
+		"formations.GetByProjectForUpdate": 0,
 		"items.ListByFormation":            2,
 		"uow.Do":                           1,
 	}

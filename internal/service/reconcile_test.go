@@ -160,7 +160,7 @@ func newReconcilerWithIndex(
 	// pass resolves nothing while the registry is empty, and wiring it here is
 	// what keeps that a fact the sweep tests observe instead of an assumption.
 	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations),
-		projector, NewPlatformChecker(f.uow), time.Minute)
+		projector, NewPlatformChecker(f.uow, nil), time.Minute)
 	return r, f, publisher
 }
 
@@ -1151,15 +1151,15 @@ func TestAFailedLifecycleSyncSkipsThePlatformPass(t *testing.T) {
 	}
 
 	// A lookup that answers, so a pass that ran would be visible in the report.
-	// The registry is empty in the deployed shape, which would make this test
-	// pass for the wrong reason.
+	// Supplied here rather than relying on whatever an environment configures,
+	// which could make this test pass for the wrong reason.
 	asked := 0
-	checker := &PlatformChecker{uow: f.uow, lookups: map[string]platformLookup{
+	checker := NewPlatformChecker(f.uow, map[string]PlatformLookup{
 		"mailing_list": func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
 			asked++
 			return 1, &model.ResolvedRef{Type: "mailing_list", UID: "list-1"}, nil
 		},
-	}}
+	})
 
 	broken := &failingUpdateLifecycle{FormationRepository: f.formations, err: errors.New("connection reset")}
 	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(broken), nil, checker, time.Minute)
@@ -1601,5 +1601,84 @@ func TestOnlyTheTemplateFailingStillReportsBlocked(t *testing.T) {
 	}
 	if report.Degraded != 0 {
 		t.Errorf("degraded = %d, want 0 — the checklist set was readable", report.Degraded)
+	}
+}
+
+// One sweep moves both surfaces the checklist is read through.
+//
+// Progress is visible in two places that are computed separately: the counts
+// derived when a checklist is read directly, and the counts published onto the
+// indexed document the queue sorts and filters on. A platform check that
+// advanced a row in the database but left the queue showing the old number
+// would be the worst version of this feature — the work is done, the row says
+// done, and the list staff work from still says it is outstanding.
+//
+// What actually holds that together is an ordering inside the sweep: the
+// platform pass runs before the projection refresh, so the refresh reads rows
+// the pass has already moved. Nothing about the code says so at the call site,
+// and swapping the two would still compile, still pass every other test here,
+// and quietly put the index one sweep behind. This is the test that notices.
+func TestAResolvedRowMovesBothTheDerivedAndThePublishedCounts(t *testing.T) {
+	ctx := context.Background()
+	projects := &listProjects{refs: []port.ProjectRef{
+		{UID: "engaged", Slug: "engaged", SubStage: model.StageFormationEngaged},
+	}}
+
+	f := newExpansionFixture(t, onePlatformRowSections(), projects)
+	publisher := mock.NewIndexerPublisher()
+	projector := NewProjector(f.formations, f.items, projects, publisher)
+
+	checker := NewPlatformChecker(f.uow, map[string]PlatformLookup{
+		"committee": func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+			return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+		},
+	})
+	r := NewReconciler(projects, f.formations, f.expander, NewLifecycler(f.formations),
+		projector, checker, time.Minute)
+
+	report, err := r.ReconcileOnce(ctx)
+	if err != nil {
+		t.Fatalf("ReconcileOnce() = %v, want no error", err)
+	}
+
+	// The derived surface: the sweep says it resolved the row.
+	if report.PlatformResolved != 1 {
+		t.Errorf("platform resolved = %d, want 1", report.PlatformResolved)
+	}
+	if report.PlatformCheckFailed != 0 {
+		t.Errorf("platform check failed = %d, want 0", report.PlatformCheckFailed)
+	}
+
+	// The published surface: the document the queue reads says so too, in the
+	// same sweep rather than the next one.
+	doc := publisher.Latest("engaged")
+	if doc == nil {
+		t.Fatal("the sweep published nothing for a project it resolved a row on")
+	}
+	if doc.Done != 1 {
+		t.Errorf("published done = %d, want 1 — the row was resolved in the database but the "+
+			"indexed document still shows it outstanding; the platform pass must run before "+
+			"the projection refresh", doc.Done)
+	}
+}
+
+// onePlatformRowSections is a template with a single platform-checked row, so
+// a test can attribute a change in the counts to the platform pass and to
+// nothing else.
+func onePlatformRowSections() []model.TemplateSection {
+	return []model.TemplateSection{
+		{
+			Key:   "community",
+			Title: "Community",
+			Items: []model.TemplateItem{
+				{
+					Key:           "tsc_kickoff",
+					Title:         "Charter the TSC",
+					OwnerTeam:     "formation",
+					StatusSource:  model.SourcePlatform,
+					PlatformCheck: &model.PlatformCheck{ResourceType: "committee", MinCount: 1},
+				},
+			},
+		},
 	}
 }

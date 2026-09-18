@@ -17,12 +17,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/auth"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/config"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/nats"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/postgres"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/query"
 	usecaseSvc "github.com/linuxfoundation/lfx-v2-formation-service/internal/service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 )
@@ -486,12 +488,12 @@ func StartReconcile(ctx context.Context, cfg *config.Config, deps *Deps) *usecas
 		// write-path refresher publish through one projector. Two would be two
 		// places to decide what a document looks like.
 		deps.Projector,
-		// The platform checker resolves nothing yet — no owning service answers a
-		// project-scoped existence lookup, so its registry is empty and every
-		// platform row is reported unanswerable. Wired regardless, so the count is
-		// real and the first lookup is a registry entry rather than a search for
-		// where the check was supposed to run.
-		usecaseSvc.NewPlatformChecker(deps.UnitOfWork),
+		// The platform checker's registry is built here rather than declared in
+		// the service package, because a lookup needs an infrastructure client
+		// and that package must not import infrastructure. An environment with
+		// no read layer configured gets an empty registry and reports every
+		// platform row unanswerable, exactly as this service did before.
+		usecaseSvc.NewPlatformChecker(deps.UnitOfWork, PlatformLookupsImpl(ctx, cfg)),
 		// Configured, not hardcoded. The interval is the worst-case delay before
 		// a project that entered formation gets its checklist, so it is the one
 		// knob worth turning during an incident — and it previously parsed from
@@ -579,4 +581,76 @@ func StartProjectListener(
 	go listener.ReportEvery(ctx, cfg.ReconcileInterval)
 
 	return stop
+}
+
+// PlatformLookupsImpl builds the registry of platform checks, keyed by the
+// resource_type a template row names.
+//
+// Empty is a supported and default result, and the important one. Without a
+// read layer configured the service behaves exactly as it did before these
+// lookups existed: platform rows are reported unanswerable and left to a
+// person, rather than failing. That is what lets the identity be granted and
+// the layer be enabled one environment at a time, through values rather than
+// through a release.
+//
+// A misconfiguration is not the same as an absence. A base URL with no
+// identity behind it would read a per-principal filtered layer as nobody,
+// which returns nothing and would record every project as having done no
+// work — so it is refused here rather than allowed to degrade quietly into
+// the one wrong answer that looks like a right one.
+func PlatformLookupsImpl(ctx context.Context, cfg *config.Config) map[string]usecaseSvc.PlatformLookup {
+	qs := cfg.QueryService
+	if qs.BaseURL == "" {
+		slog.InfoContext(ctx, "no query service configured; platform checks stay unanswerable",
+			"env", constants.EnvQueryServiceURL)
+		return nil
+	}
+	if !qs.Enabled() {
+		log.Fatalf(
+			"%s is set but the service identity is incomplete — refusing to read the query service unauthenticated, "+
+				"which would report every project as having done no work. "+
+				"Set %s, %s and %s, or unset %s. Got client_id_set=%t, private_key_set=%t, domain_set=%t",
+			constants.EnvQueryServiceURL,
+			constants.EnvM2MClientID, constants.EnvM2MPrivateKey, constants.EnvM2MDomain,
+			constants.EnvQueryServiceURL,
+			qs.ClientID != "", qs.PrivateKey != "", qs.Domain != "",
+		)
+	}
+
+	httpClient, err := query.NewIdentityClient(ctx, query.IdentityConfig{
+		ClientID:   qs.ClientID,
+		PrivateKey: qs.PrivateKey,
+		Domain:     qs.Domain,
+		Audience:   qs.Audience,
+	}, qs.Timeout)
+	if err != nil {
+		// Almost always the tenant's metadata being unreachable, not bad
+		// configuration — the credentials were checked above and the key is
+		// not parsed until the first token is minted. An identity provider
+		// that is briefly down is not a reason to take the API down with it,
+		// so this degrades to the unconfigured behaviour: platform rows stay
+		// unanswerable and a restart picks the lookups back up.
+		slog.ErrorContext(ctx, "could not build the query service identity; platform checks stay unanswerable",
+			"error", err, "domain", qs.Domain)
+		return nil
+	}
+
+	client, err := query.NewClient(query.Config{BaseURL: qs.BaseURL, Timeout: qs.Timeout}, httpClient)
+	if err != nil {
+		log.Fatalf("could not build the query service client: %v", err)
+	}
+
+	// One closure per resource type the adapter can answer for. The service
+	// holds no reference to the adapter itself — only to these.
+	var checker port.ResourceChecker = client
+	lookups := make(map[string]usecaseSvc.PlatformLookup)
+	for _, resourceType := range query.SupportedResourceTypes() {
+		lookups[resourceType] = func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error) {
+			return checker.Count(ctx, projectUID, resourceType)
+		}
+	}
+
+	slog.InfoContext(ctx, "platform checks enabled against the query service",
+		"base_url", qs.BaseURL, "resource_types", query.SupportedResourceTypes())
+	return lookups
 }
