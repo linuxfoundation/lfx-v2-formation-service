@@ -884,6 +884,7 @@ func newEmailTestService(t *testing.T, username, email string) (*Service, *model
 		ProjectUID: formation.ProjectUID,
 		Writers:    []string{username},
 		UserEmails: map[string]string{},
+		UserNames:  map[string]string{},
 	}
 	if email != "" {
 		settings.UserEmails[username] = email
@@ -922,6 +923,35 @@ func TestItemAssignedEmailDispatchedOnAssigneeSet(t *testing.T) {
 	assert.Contains(t, sent.HTML, "Hi alice,", "HTML must contain personalized greeting")
 	assert.Contains(t, sent.Text, "Hi alice,", "plain text must contain personalized greeting")
 	assert.Contains(t, sent.HTML, "&amp;item=item-1", "HTML must contain HTML-escaped item key in the fallback link")
+}
+
+func TestItemAssignedEmailUsesDisplayNameWhenAvailable(t *testing.T) {
+	// When the project service carries a display name for the assignee the
+	// greeting must use it instead of the bare username.
+	username := "alice"
+	addr := "alice@example.com"
+	s, formation, itemOne, mailer := newEmailTestService(t, username, addr)
+	// Re-seed the settings to include a display name for the assignee.
+	projects := s.projects.(*mock.ProjectReader)
+	projects.SetSettings(formation.ProjectUID, &port.ProjectSettings{
+		ProjectUID: formation.ProjectUID,
+		Writers:    []string{username},
+		UserEmails: map[string]string{username: addr},
+		UserNames:  map[string]string{username: "Alice Smith"},
+	})
+
+	_, err := s.AssignItem(context.Background(), &svc.AssignItemPayload{
+		ProjectUID: formation.ProjectUID,
+		ItemKey:    itemOne.ItemKey,
+		IfMatch:    itemOne.Revision,
+		Assignee:   &username,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, mailer.SentCount(), "expected one item-assigned email")
+	sent := mailer.Sent()[0]
+	assert.Contains(t, sent.HTML, "Hi Alice Smith,", "HTML greeting must use the display name, not the username")
+	assert.Contains(t, sent.Text, "Hi Alice Smith,", "plain text greeting must use the display name, not the username")
 }
 
 func TestItemAssignedEmailNotDispatchedWhenAssigneeUnchanged(t *testing.T) {

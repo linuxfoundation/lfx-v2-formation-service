@@ -381,10 +381,12 @@ func TestProjectClientGetSettings(t *testing.T) {
 	var gotRequest string
 	respondOn(t, url, ProjectGetSettingsSubject, func(request string) []byte {
 		gotRequest = request
+		// Include name so UserNames extraction is exercised. The auditor
+		// entry has a blank name to pin the skip-blank-name behaviour.
 		return []byte(`{"uid":"project-1",
 		                "announcement_date":"2026-06-17T00:00:00Z",
-		                "writers":[{"username":"awriter","email":"a@example.org"}],
-		                "auditors":[{"username":"anauditor"},{"username":""}]}`)
+		                "writers":[{"username":"awriter","name":"Alice Writer","email":"a@example.org"}],
+		                "auditors":[{"username":"anauditor","name":""},{"username":""}]}`)
 	})
 
 	p := NewProjectClient(newTestClient(t, url, 2*time.Second))
@@ -408,6 +410,18 @@ func TestProjectClientGetSettings(t *testing.T) {
 	// Narrowed to a date, which is the precision due-date arithmetic uses.
 	if settings.AnnouncementDate == nil || *settings.AnnouncementDate != "2026-06-17" {
 		t.Errorf("announcement_date = %v, want 2026-06-17", settings.AnnouncementDate)
+	}
+	// UserEmails maps username → email for notification dispatch.
+	if got := settings.UserEmails["awriter"]; got != "a@example.org" {
+		t.Errorf("UserEmails[awriter] = %q, want %q", got, "a@example.org")
+	}
+	// UserNames maps username → display name. The auditor entry has a blank
+	// name and must be absent (userNameMap skips blank names).
+	if got := settings.UserNames["awriter"]; got != "Alice Writer" {
+		t.Errorf("UserNames[awriter] = %q, want %q", got, "Alice Writer")
+	}
+	if _, ok := settings.UserNames["anauditor"]; ok {
+		t.Errorf("UserNames[anauditor] present, want absent (blank name must be skipped)")
 	}
 }
 

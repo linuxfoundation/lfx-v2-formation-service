@@ -508,6 +508,11 @@ type ProjectSettings struct {
 	// settings reply when the field is present; absent entries mean the
 	// service returned no email for that user.
 	UserEmails map[string]string
+	// UserNames maps each username in Writers and Auditors to the display
+	// name the project service carries for them. Absent entries mean the
+	// service returned no name for that user; callers must fall back to the
+	// username in that case.
+	UserNames map[string]string
 }
 
 // ProjectRef identifies a project and the facts template selection needs.

@@ -216,11 +216,14 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 	}
 
 	// The assignee is stored as a username. Resolve it to an email address
-	// using the project settings roster; the email field on each grantee
-	// entry is what the project service carries alongside the username.
+	// and display name using the project settings roster; both fields on each
+	// grantee entry are what the project service carries alongside the username.
 	// A missing or unresolvable address is logged and silently skipped —
 	// the write already succeeded and best-effort dispatch must not block it.
-	var to string
+	var (
+		to        string
+		userNames map[string]string
+	)
 	if s.projects != nil {
 		settings, err := s.projects.GetSettings(ctx, projectUID)
 		if err != nil {
@@ -229,6 +232,7 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 			return
 		}
 		to = settings.UserEmails[item.Assignee]
+		userNames = settings.UserNames
 	}
 	if to == "" {
 		slog.WarnContext(ctx, "item-assigned email: no email address on record for assignee; not sent",
@@ -249,8 +253,13 @@ func (s *Service) dispatchItemAssigned(ctx context.Context, projectUID string, i
 		dueDate = item.DueDate.Format("2006-01-02")
 	}
 
+	recipientName := item.Assignee
+	if displayName := userNames[item.Assignee]; displayName != "" {
+		recipientName = displayName
+	}
+
 	subject, html, text, err := email.RenderItemAssigned(email.ItemAssignedData{
-		RecipientName: item.Assignee,
+		RecipientName: recipientName,
 		ProjectName:   projectName,
 		ItemTitle:     item.Title,
 		IsGating:      item.Gate,
