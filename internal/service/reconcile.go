@@ -686,16 +686,22 @@ func platformPassApplies(trigger Trigger) bool {
 // resolvePlatformItems runs one platform pass over a project's checklist,
 // logging rather than propagating a failure so the sweep continues.
 //
-// This resolves nothing today, and that is a statement about the platform rather
-// than about this call: no owning service answers a project-scoped existence
-// lookup, so the registry the checker consults is empty and every platform row
-// lands in PlatformUnanswerable. The pass runs anyway, because the sweep is where
-// this service establishes correctness — an item whose truth lives in another
-// service is only ever going to be caught by something that looks again, and a
-// check reachable from nowhere would go on being correct and unused. It also
-// makes the gap countable: the sweep reports how many rows are waiting on a
-// lookup that does not exist, which is the number to put in front of the teams
-// who own those subjects.
+// What it can resolve depends on what the environment has configured. With no
+// read layer wired the registry is empty and every platform row lands in
+// PlatformUnanswerable, exactly as before; with it wired, the rows whose
+// resource type the read layer indexes under a project resolve here. The pass
+// runs either way, because the sweep is where this service establishes
+// correctness — an item whose truth lives in another service is only ever
+// going to be caught by something that looks again.
+//
+// It also keeps the gap countable in both states: the sweep reports how many
+// rows were resolved, how many are still waiting, and how many could not be
+// asked about at all. Those three have to be read together, because
+// unanswerable falling while failed rises is not progress.
+//
+// This runs before the projection step on purpose, so one sweep moves both the
+// counts derived on read and the counts published to the index. Reversing the
+// order would leave the queue a sweep behind the checklist.
 func (r *Reconciler) resolvePlatformItems(
 	ctx context.Context, project port.ProjectRef, report *ReconcileReport,
 ) {

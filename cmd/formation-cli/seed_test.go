@@ -76,13 +76,19 @@ func TestSeedContent(t *testing.T) {
 	})
 
 	// The platform/manual split is settled by rule, not by preference: a row is
-	// platform only where a service can actually answer for it. These three are
-	// the only ones with a countable resource in a service we can ask.
-	t.Run("exactly three platform rows, each with a check", func(t *testing.T) {
+	// platform only where something can actually answer for it.
+	//
+	// The repository row is the one that is deliberately absent. It was marked
+	// platform originally and nothing ever answered it, because no service in
+	// the platform owns repositories and the read layer indexes none — so it
+	// sat permanently unanswerable, counted against every sweep and explained
+	// away in every report. Manual is the honest description of a row a person
+	// has to answer, and it is what removes the residual rather than leaving a
+	// number that never reaches zero.
+	t.Run("exactly two platform rows, each with a check", func(t *testing.T) {
 		want := map[string]string{
-			"repositories_github_owner": "repository",
-			"mailing_lists":             "mailing_list",
-			"tsc_kickoff":               "committee",
+			"mailing_lists": "mailing_list",
+			"tsc_kickoff":   "committee",
 		}
 		got := make(map[string]string)
 		for _, section := range sections {
@@ -103,6 +109,33 @@ func TestSeedContent(t *testing.T) {
 			if got[key] != resource {
 				t.Errorf("platform row %q checks %q, want %q", key, got[key], resource)
 			}
+		}
+	})
+
+	// Stated as its own assertion rather than left implied by the count above,
+	// because the count would still pass if the row were dropped from the
+	// template altogether. The row has to survive and be manual: staff still
+	// have to confirm the repositories and the GitHub owner, they just do it
+	// by hand and say so.
+	t.Run("the repository row is manual with nothing to check", func(t *testing.T) {
+		var found bool
+		for _, section := range sections {
+			for _, item := range section.Items {
+				if item.Key != "repositories_github_owner" {
+					continue
+				}
+				found = true
+				if item.StatusSource != model.SourceManual {
+					t.Errorf("status_source = %q, want manual", item.StatusSource)
+				}
+				if item.PlatformCheck != nil {
+					t.Errorf("platform_check = %+v, want none — nothing can answer this row",
+						item.PlatformCheck)
+				}
+			}
+		}
+		if !found {
+			t.Error("the repositories row is missing; it should have become manual, not disappeared")
 		}
 	})
 

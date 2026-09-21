@@ -15,68 +15,63 @@ import (
 
 // Which template rows the platform can answer for itself, and which it cannot.
 //
-// The seed template marks three rows status_source: platform — a repository, a
-// mailing list, and a committee. None of the three is resolvable today, and the
-// reason is the same in each case: no owning service answers "does one of these
-// exist for this project".
+// The seeded template marks three rows status_source: platform — a repository,
+// a mailing list, and a committee. Two of the three are answerable, and the one
+// that is not is not a gap to be closed here:
 //
-//   - committee. lfx-v2-committee-service answers three request subjects —
-//     get_name, list_members and get_project — and every one of them takes a
-//     *committee* UID. There is no project-to-committees lookup, so a caller
-//     holding only a project UID has no way in.
-//   - mailing_list. lfx-v2-mailing-list-service publishes events and subscribes
-//     to none of its own: it exposes no request/reply lookup at all.
-//   - repository. No service in the platform owns repositories, so there is
-//     nothing to ask.
+//   - committee and mailing_list are resolved against the shared read layer,
+//     which indexes both with the owning project as their parent. That is the
+//     one place in the platform where "does this project have one of these"
+//     is a single question rather than a per-service lookup that none of the
+//     owning services expose: lfx-v2-committee-service answers only by
+//     *committee* UID, and lfx-v2-mailing-list-service exposes no
+//     request/reply lookup at all.
+//   - repository has no owner anywhere in the platform, so there is nothing
+//     to ask and no read layer entry to find. That row is manual, and saying
+//     so is more honest than leaving it permanently unanswerable.
 //
-// The transport is not an open question, and it is worth saying so here because
-// the obvious alternative looks available. Asking query-service for the resource
-// type scoped to parent_refs = project:<uid> would be answerable today, but it
-// was tried for this exact purpose and failed in production, and the decision
-// recorded against this feature is request/reply to the owning service with no
-// token on the wire — the plane both donor services already read over, and the
-// same one this service reads projects on, Confidential ones included.
+// Reading an index rather than asking each owning service carries one exposure
+// worth stating plainly, because it is accepted rather than absent. A resource
+// that exists but is not yet indexed leaves the row alone and corrects itself on
+// a later sweep, which is harmless. The other direction does not correct itself:
+// a resource deleted before the index catches up can advance a row against
+// nothing, and forward-only means no later sweep walks that back. The window is
+// small, the rows are gates on work that has visibly happened, and a staff
+// writer can always set the row by hand — so the cost of being briefly wrong is
+// bounded, while the cost of the alternative is that these rows stay
+// unanswerable indefinitely.
 //
-// That is also why no service identity appears anywhere in this file. A token
-// would only be needed to satisfy query-service, which access-checks every hit
-// against a user; the internal plane asks for nothing. So the registry is empty
-// for want of a subject to send, not for want of permission to send it, and each
-// row becomes resolvable when its owning service adds a project-scoped lookup and
-// this map gains one entry.
-//
-// Choosing the owning service also removes a hazard the derived-copy route
-// carries, which is worth recording in case it is ever revisited: advancing on an
-// index is safe in one direction only. A resource that exists but is not yet
-// indexed leaves the row alone for another sweep and corrects itself, while a
-// resource deleted before the index catches up would mark a gating row done with
-// nothing behind it, and forward-only means nothing walks that back. A service
-// answering for its own state cannot be stale about it.
-//
-// Nothing else here changes when that happens, which is why the unsupported case
-// is a first-class outcome rather than an error path: the sweep runs this pass on
-// every project already and reports how many rows it could not answer for.
-var platformLookups = map[string]platformLookup{
-	// Deliberately empty. See above.
-}
+// The registry is supplied by the wiring layer rather than declared here: a
+// lookup needs an infrastructure client, and this package must not import
+// infrastructure. An environment with no read layer configured gets an empty
+// registry and behaves exactly as this service did before — which is why the
+// unsupported case is a first-class outcome rather than an error path. The
+// sweep runs this pass on every project already and reports how many rows it
+// could not answer for.
 
-// platformLookup asks an owning service how many of a resource a project has.
+// PlatformLookup asks the read layer how many of a resource a project has.
 //
 // Shaped as port.ResourceChecker.Count, and it returns both halves for a reason.
 // The count is what the row's min_count is compared against, so a row requiring
 // two committees is not satisfied by the first one found. The reference is what
 // turns a "Create committee" row into "Open committee" pointing at the real one,
 // which a lookup answering only yes or no could not do.
-type platformLookup func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error)
+//
+// Exported because the wiring layer builds these as closures over an
+// infrastructure client, which this package cannot construct itself.
+type PlatformLookup func(ctx context.Context, projectUID string) (int, *model.ResolvedRef, error)
 
 // PlatformChecker resolves the checklist rows the platform can answer for itself.
 type PlatformChecker struct {
 	uow     port.UnitOfWork
-	lookups map[string]platformLookup
+	lookups map[string]PlatformLookup
 }
 
-// NewPlatformChecker wires a checker over the registered lookups.
-func NewPlatformChecker(uow port.UnitOfWork) *PlatformChecker {
-	return &PlatformChecker{uow: uow, lookups: platformLookups}
+// NewPlatformChecker wires a checker over the supplied lookups, keyed by the
+// resource_type a template row names. A nil or empty registry is valid and
+// means every platform row is reported unanswerable.
+func NewPlatformChecker(uow port.UnitOfWork, lookups map[string]PlatformLookup) *PlatformChecker {
+	return &PlatformChecker{uow: uow, lookups: lookups}
 }
 
 // PlatformCheckReport is what one pass over a checklist did.
@@ -109,18 +104,77 @@ type PlatformCheckReport struct {
 // Reaching done here needs no staff action. The platform is not attesting to
 // its own work, it is reporting a fact, and the two-person rule exists to stop
 // somebody attesting to theirs.
+// It runs in three phases — read, ask, write — and the split is the point
+// rather than an arrangement of convenience. A lookup is a call to another
+// service over the network, and the earlier shape of this method made those
+// calls with the formation row locked, so a read layer that was slow or down
+// held one project's lock for as long as its lookups took to give up. Every
+// replica sweeps without leader election, so those waits queued behind each
+// other on the same row and a person saving a checklist waited behind all of
+// them. Asking outside any transaction costs nothing to correctness: the write
+// below is already guarded by the item revision read in the first phase, so a
+// row that moved while this pass was asking is dropped by the same check that
+// has always dropped it.
 func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*PlatformCheckReport, error) {
 	report := &PlatformCheckReport{}
 	if c.uow == nil {
 		return report, errors.New("no unit of work wired")
 	}
 
-	txErr := c.uow.Do(ctx, func(tx port.Tx) error {
-		// Locked for the same reason the three write routes lock it: the
-		// lifecycle read below is a precondition for writing other rows, and
-		// nothing else stops a freeze committing in between. The pass is one
-		// project's checklist, so the lock it holds is narrow.
-		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
+	candidates, err := c.plan(ctx, projectUID, report)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// No checklist for this project. Not a failure — the reconcile has
+			// not created one yet, or the project never needed one.
+			return report, nil
+		}
+		return report, err
+	}
+
+	resolved := c.ask(ctx, projectUID, candidates, report)
+	if len(resolved) == 0 {
+		// Nothing to write, so nothing to lock. The ordinary outcome of a sweep
+		// over a checklist whose platform rows are all settled or all waiting,
+		// and the reason a full pass no longer costs a write transaction per
+		// project.
+		return report, nil
+	}
+
+	if err := c.apply(ctx, projectUID, resolved, report); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// The checklist went away between asking and writing. Same reading
+			// as finding none at the start.
+			return report, nil
+		}
+		return report, err
+	}
+	return report, nil
+}
+
+// candidate is a platform row that may advance, carried between phases.
+//
+// It carries the item as it was read rather than re-reading it before writing,
+// because the revision on that copy is what makes the deferred write safe: an
+// update against a revision a person has since bumped is refused.
+type candidate struct {
+	item   *model.Item
+	lookup PlatformLookup
+	ref    *model.ResolvedRef
+}
+
+// plan reads the checklist and returns the rows worth asking about, counting
+// the rows that need no question along the way.
+//
+// The read takes no row lock. Nothing is written in this phase, and the
+// lifecycle it reads here is only an early exit — the decision that governs the
+// writes is taken again under the lock in apply.
+func (c *PlatformChecker) plan(
+	ctx context.Context, projectUID string, report *PlatformCheckReport,
+) ([]*candidate, error) {
+	var candidates []*candidate
+
+	err := c.uow.Do(ctx, func(tx port.Tx) error {
+		formation, err := tx.Formations().GetByProject(ctx, projectUID)
 		if err != nil {
 			return err
 		}
@@ -137,85 +191,132 @@ func (c *PlatformChecker) ResolveFor(ctx context.Context, projectUID string) (*P
 		}
 
 		for _, item := range items {
-			c.resolveItem(ctx, tx, formation, item, projectUID, report)
+			if item.StatusSource != model.SourcePlatform || item.PlatformCheck == nil {
+				continue
+			}
+
+			// Already done, or excused. Nothing a check may do to either: done is
+			// where this pass's only move leads, and skipped was a person's
+			// decision with a reason attached.
+			if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
+				report.Unchanged++
+				continue
+			}
+
+			lookup, ok := c.lookups[item.PlatformCheck.ResourceType]
+			if !ok {
+				// Left to a person. Counted rather than logged per item: the
+				// reason is the same for every project and every sweep, so a
+				// per-item log would say the same sentence thousands of times a
+				// day.
+				report.Unsupported++
+				continue
+			}
+
+			candidates = append(candidates, &candidate{item: item, lookup: lookup})
 		}
 		return nil
 	})
-	if txErr != nil {
-		if errors.Is(txErr, domain.ErrNotFound) {
-			// No checklist for this project. Not a failure — the reconcile has
-			// not created one yet, or the project never needed one.
-			return report, nil
-		}
-		return report, txErr
+	if err != nil {
+		return nil, err
 	}
-	return report, nil
+	return candidates, nil
 }
 
-// resolveItem applies at most one forward move to one item.
-func (c *PlatformChecker) resolveItem(
+// ask runs each candidate's lookup and returns the rows that should advance.
+//
+// No transaction is open here, which is the whole reason the phases exist.
+func (c *PlatformChecker) ask(
+	ctx context.Context, projectUID string, candidates []*candidate, report *PlatformCheckReport,
+) []*candidate {
+	resolved := make([]*candidate, 0, len(candidates))
+
+	for _, cand := range candidates {
+		count, ref, err := cand.lookup(ctx, projectUID)
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			// Asked, and the thing does not exist yet. The ordinary state of a
+			// row still to be done.
+			report.Pending++
+		case err != nil:
+			report.Failed++
+			slog.WarnContext(ctx, "a platform check could not be resolved; the item is unchanged",
+				"project_uid", projectUID, "item_key", cand.item.ItemKey,
+				"resource_type", cand.item.PlatformCheck.ResourceType, "error", err)
+		case ref == nil || count < cand.item.PlatformCheck.MinCount:
+			// Found something, but not enough of it. Every row in the seeded
+			// template asks for one, so this is the same "not yet" as finding
+			// nothing — the distinction only starts to matter for a row asking
+			// for two, which the template validation already allows.
+			report.Pending++
+		default:
+			cand.ref = ref
+			resolved = append(resolved, cand)
+		}
+	}
+	return resolved
+}
+
+// apply writes the rows the lookups settled, in one short transaction.
+//
+// The lock is taken for the same reason the three write routes take it: the
+// lifecycle is a precondition for writing the item rows, and nothing else stops
+// a freeze committing in between. It is held across local writes only.
+func (c *PlatformChecker) apply(
+	ctx context.Context, projectUID string, resolved []*candidate, report *PlatformCheckReport,
+) error {
+	return c.uow.Do(ctx, func(tx port.Tx) error {
+		formation, err := tx.Formations().GetByProjectForUpdate(ctx, projectUID)
+		if err != nil {
+			return err
+		}
+		// Read again rather than trusted from the planning phase. A freeze may
+		// have committed while the lookups were running, and this is the read
+		// that decides whether the writes below happen.
+		if !formation.Lifecycle.Mutable() {
+			report.Unchanged += len(resolved)
+			return nil
+		}
+
+		for _, cand := range resolved {
+			c.advance(ctx, tx, formation, cand, projectUID, report)
+		}
+		return nil
+	})
+}
+
+// advance moves one settled row to done and records who moved it.
+func (c *PlatformChecker) advance(
 	ctx context.Context,
 	tx port.Tx,
 	formation *model.Formation,
-	item *model.Item,
+	cand *candidate,
 	projectUID string,
 	report *PlatformCheckReport,
 ) {
-	if item.StatusSource != model.SourcePlatform || item.PlatformCheck == nil {
-		return
-	}
+	item := cand.item
+	done := model.StatusDone
+	patch := port.ItemPatch{Status: &done, ResolvedRef: cand.ref}
 
-	// Already done, or excused. Nothing a check may do to either: done is where
-	// this method's only move leads, and skipped was a person's decision with a
-	// reason attached.
-	if item.Status == model.StatusDone || item.Status == model.StatusSkipped {
-		report.Unchanged++
-		return
-	}
-
-	lookup, ok := c.lookups[item.PlatformCheck.ResourceType]
-	if !ok {
-		// Left to a person. Counted rather than logged per item: the reason is
-		// the same for every project and every sweep, so a per-item log would say
-		// the same sentence thousands of times a day.
-		report.Unsupported++
-		return
-	}
-
-	count, ref, err := lookup(ctx, projectUID)
+	updated, err := tx.Items().Update(ctx, item.UID, item.Revision, patch)
 	switch {
-	case errors.Is(err, domain.ErrNotFound):
-		// Asked, and the thing does not exist yet. The ordinary state of a row
-		// still to be done.
-		report.Pending++
+	case errors.Is(err, domain.ErrVersionMismatch):
+		// The row moved while this pass was asking. Whoever moved it wins and
+		// this write is dropped rather than retried: the next pass reads the
+		// row again, and a check that retried until it won would be the
+		// backward move this pass is arranged to prevent.
+		//
+		// Counted as unchanged and not as a failure. Both a person's edit and
+		// another replica's identical conclusion land here — every replica
+		// sweeps, so two planning the same revision and one losing the write is
+		// the ordinary shape of a healthy fleet, not a fault. Counting it as
+		// failed would raise the number an operator watches for an outage every
+		// time the service was working correctly.
+		report.Unchanged++
 		return
 	case err != nil:
 		report.Failed++
-		slog.WarnContext(ctx, "a platform check could not be resolved; the item is unchanged",
-			"project_uid", projectUID, "item_key", item.ItemKey,
-			"resource_type", item.PlatformCheck.ResourceType, "error", err)
-		return
-	case ref == nil || count < item.PlatformCheck.MinCount:
-		// Found something, but not enough of it. Every row in the seeded template
-		// asks for one, so this is the same "not yet" as finding nothing — the
-		// distinction only starts to matter for a row asking for two, which the
-		// template validation already allows.
-		report.Pending++
-		return
-	}
-
-	done := model.StatusDone
-	patch := port.ItemPatch{Status: &done, ResolvedRef: ref}
-
-	updated, err := tx.Items().Update(ctx, item.UID, item.Revision, patch)
-	if err != nil {
-		// Includes a version mismatch, which here means a person edited the row
-		// while this pass was running. Their write wins and this one is dropped
-		// rather than retried: the next pass reads the row again, and a check
-		// that retried until it won would be the backward move this method is
-		// arranged to prevent.
-		report.Failed++
-		slog.WarnContext(ctx, "a platform check lost a race with a person's edit; leaving their value",
+		slog.WarnContext(ctx, "a platform check could not write the item it resolved",
 			"project_uid", projectUID, "item_key", item.ItemKey, "error", err)
 		return
 	}

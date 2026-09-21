@@ -14,19 +14,19 @@ import (
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
 
 // platformFixture seeds a checklist with one platform item in a chosen status, and
 // a checker whose lookup can be set per test.
 //
-// The lookup is injected rather than taken from the package-level registry,
-// because that registry is deliberately empty — no owning service answers a
-// project-scoped lookup yet. Testing only against the empty registry would leave
-// the forward-only rule, which is the whole point of this file, unexercised until
-// the first lookup lands.
+// The lookup is supplied per test for the same reason the real registry is
+// supplied by the wiring layer: the resolution rules are what this file is
+// about, and they have to hold for any lookup rather than for the particular
+// ones an environment happens to have configured.
 func platformFixture(
-	t *testing.T, status model.ItemStatus, lookup platformLookup,
+	t *testing.T, status model.ItemStatus, lookup PlatformLookup,
 ) (*PlatformChecker, *platformRepos, *model.Formation) {
 	t.Helper()
 	return platformFixtureRequiring(t, status, lookup, 1)
@@ -35,7 +35,7 @@ func platformFixture(
 // platformFixtureRequiring is platformFixture with the row's min_count chosen,
 // for the one case that needs a row asking for more than a single resource.
 func platformFixtureRequiring(
-	t *testing.T, status model.ItemStatus, lookup platformLookup, minCount int,
+	t *testing.T, status model.ItemStatus, lookup PlatformLookup, minCount int,
 ) (*PlatformChecker, *platformRepos, *model.Formation) {
 	t.Helper()
 
@@ -62,10 +62,11 @@ func platformFixtureRequiring(
 	}})
 	require.NoError(t, err)
 
-	checker := &PlatformChecker{uow: uow, lookups: map[string]platformLookup{}}
+	lookups := map[string]PlatformLookup{}
 	if lookup != nil {
-		checker.lookups["committee"] = lookup
+		lookups["committee"] = lookup
 	}
+	checker := NewPlatformChecker(uow, lookups)
 	return checker, &platformRepos{
 		formations: formations, items: items, activity: activity, uow: uow,
 	}, formation
@@ -253,16 +254,12 @@ func TestWithNoRegisteredLookupTheRowIsLeftToAPerson(t *testing.T) {
 		"the row stays marked platform; it is the lookup that is missing, not the intent")
 }
 
-// The registry is empty on purpose, and the three template rows depend on that
-// being true rather than on it being an oversight. If a lookup is added, this
-// fails and whoever added it has to say so here.
-func TestTheLookupRegistryIsDeliberatelyEmpty(t *testing.T) {
-	if len(platformLookups) != 0 {
-		t.Errorf("platformLookups has %d entries. If an owning service now answers a "+
-			"project-scoped lookup, update this test and the comment above the registry — "+
-			"and check the row is still one the platform should decide.", len(platformLookups))
-	}
-}
+// The test that used to sit here asserted the registry was empty in every
+// environment. That is no longer a fact about this package: the registry is
+// supplied by the wiring layer, and which resource types it covers is decided
+// by the adapter and asserted there. What remains true here, and is covered by
+// the test directly above, is that a registry without an entry for a row leaves
+// that row alone rather than failing it.
 
 // A lookup that fails leaves the item alone and does not fail the pass: one
 // resource type being unreachable must not stop the others being resolved.
@@ -337,13 +334,93 @@ func TestAPersonSettingAPlatformItemsStatusTakesItOverFromTheCheck(t *testing.T)
 	assert.Equal(t, model.StatusNotStarted, after.Status)
 	assert.Equal(t, model.SourceManual, after.StatusSource,
 		"a person set this status, so the row is no longer the platform's to move")
+
+	// The trail has to say a person did this, not the service. Both kinds of
+	// change land in the same feed, so the attribution is the only thing that
+	// distinguishes "the platform observed something" from "somebody decided
+	// something" — and auditing whether a check ever overrode a person is
+	// exactly the question that needs answering from this feed alone.
+	entries, _, err := repos.activity.List(context.Background(), formation.UID, nil, "", 50)
+	require.NoError(t, err)
+
+	var byUser bool
+	for _, entry := range entries {
+		if entry.SetBy == model.SetByUser {
+			byUser = true
+			assert.NotEqual(t, actorSystem, entry.Actor,
+				"a person's status change was attributed to the system")
+		}
+	}
+	assert.True(t, byUser, "a person setting the status recorded nothing attributed to them")
+}
+
+// Both answerable rows resolve in one pass, each against its own lookup and
+// each naming its own resource.
+//
+// The registry being keyed by resource type is what makes that work, and it is
+// worth one test: a lookup wired under the wrong key, or one shared between
+// both rows, would still advance both rows and still pass every single-row
+// test in this file — while pointing the mailing-list row at a committee.
+func TestEachRowResolvesAgainstItsOwnLookup(t *testing.T) {
+	formations := mock.NewFormationRepository()
+	items := mock.NewItemRepository()
+	templates := mock.NewTemplateRepository()
+	activity := mock.NewActivityRepository()
+	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+
+	formation, err := formations.Create(context.Background(), &model.Formation{
+		ProjectUID: "project-1", Lifecycle: model.LifecycleLive,
+	})
+	require.NoError(t, err)
+
+	_, err = items.InsertMany(context.Background(), []*model.Item{
+		{
+			FormationUID: formation.UID, ItemKey: "tsc_kickoff", SectionKey: "sec-1",
+			Title: "Charter the TSC", Status: model.StatusNotStarted,
+			StatusSource:  model.SourcePlatform,
+			PlatformCheck: &model.PlatformCheck{ResourceType: "committee", MinCount: 1},
+		},
+		{
+			FormationUID: formation.UID, ItemKey: "mailing_list", SectionKey: "sec-1",
+			Title: "Create the mailing list", Status: model.StatusNotStarted,
+			StatusSource:  model.SourcePlatform,
+			PlatformCheck: &model.PlatformCheck{ResourceType: "mailing_list", MinCount: 1},
+		},
+	})
+	require.NoError(t, err)
+
+	checker := NewPlatformChecker(uow, map[string]PlatformLookup{
+		"committee": foundCommittee,
+		"mailing_list": func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+			return 1, &model.ResolvedRef{Type: "groupsio_mailing_list", UID: "list-1"}, nil
+		},
+	})
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 2, report.Advanced)
+	assert.Zero(t, report.Unsupported, "a row was left unanswered with a lookup registered for it")
+
+	committee, err := items.GetByKey(context.Background(), formation.UID, "tsc_kickoff")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusDone, committee.Status)
+	require.NotNil(t, committee.ResolvedRef)
+	assert.Equal(t, "committee-1", committee.ResolvedRef.UID)
+
+	list, err := items.GetByKey(context.Background(), formation.UID, "mailing_list")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusDone, list.Status)
+	require.NotNil(t, list.ResolvedRef)
+	assert.Equal(t, "list-1", list.ResolvedRef.UID,
+		"the mailing-list row was resolved against something other than its own lookup")
 }
 
 // The sweep is a writer too, so it takes the same row lock the three write
-// routes take. Reading the lifecycle unlocked and then writing items lets a
-// freeze commit in between, and this pass writes more rows per transaction than
-// any of them.
-func TestTheSweepReadsTheChecklistsLifecycleUnderARowLock(t *testing.T) {
+// routes take — but around the writes, not around the whole pass. It plans
+// against an unlocked read, and locks again to decide the lifecycle immediately
+// before it writes, so a freeze that commits while the lookups are running is
+// seen rather than overtaken.
+func TestTheSweepLocksTheChecklistItWritesTo(t *testing.T) {
 	checker, repos, _ := platformFixture(t, model.StatusNotStarted, foundCommittee)
 	repos.formations.ResetCalls()
 
@@ -351,10 +428,96 @@ func TestTheSweepReadsTheChecklistsLifecycleUnderARowLock(t *testing.T) {
 	require.NoError(t, err)
 
 	calls := repos.formations.Calls()
+	assert.Equal(t, 1, calls["formations.GetByProject"],
+		"the sweep did not plan against the unlocked read")
 	assert.Equal(t, 1, calls["formations.GetByProjectForUpdate"],
-		"the sweep did not lock the formation row it checked the lifecycle on")
-	assert.Zero(t, calls["formations.GetByProject"],
-		"the sweep took the unlocked read, which a concurrent freeze can overtake")
+		"the sweep wrote items without locking the formation it checked the lifecycle on")
+}
+
+// A pass that settles nothing writes nothing, and so locks nothing. This is the
+// ordinary shape of a sweep over a catalogue whose platform rows are all done
+// or all still waiting, and it is what keeps a daily pass over every project
+// from being a daily lock on every project.
+func TestAPassWithNothingToWriteTakesNoLock(t *testing.T) {
+	notYet := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		return 0, nil, domain.ErrNotFound
+	}
+	checker, repos, _ := platformFixture(t, model.StatusNotStarted, notYet)
+	repos.formations.ResetCalls()
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Pending)
+
+	calls := repos.formations.Calls()
+	assert.Zero(t, calls["formations.GetByProjectForUpdate"],
+		"the sweep locked a formation it had nothing to write to")
+}
+
+// The reason the phases exist. A lookup is a call to another service, and while
+// one is in flight this pass must hold no formation lock: every replica sweeps
+// without leader election, so a read layer that hangs would otherwise queue
+// those waits on the same row and block people saving their checklists.
+//
+// Asserted by blocking inside the lookup and checking, from there, that the
+// locking read has not been reached.
+func TestNoLockIsHeldWhileALookupIsInFlight(t *testing.T) {
+	var repos *platformRepos
+	lockedDuringLookup := -1
+
+	blocking := func(_ context.Context, _ string) (int, *model.ResolvedRef, error) {
+		lockedDuringLookup = repos.formations.Calls()["formations.GetByProjectForUpdate"]
+		return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+
+	checker, r, _ := platformFixture(t, model.StatusNotStarted, blocking)
+	repos = r
+	repos.formations.ResetCalls()
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+	require.Equal(t, 1, report.Advanced, "the fixture did not reach the lookup")
+
+	assert.Zero(t, lockedDuringLookup,
+		"a formation row was locked while an outbound lookup was in flight")
+}
+
+// Losing the write to another writer is not a failure.
+//
+// Every replica sweeps, so two planning the same revision and both reaching the
+// same conclusion is the ordinary shape of a healthy fleet — one of them writes
+// and the other's revision is stale by the time it tries. Counting that as
+// Failed would raise the number an operator watches for an outage precisely
+// when the service is working, so it is counted as unchanged: the row is
+// already where this pass wanted to put it.
+func TestAWriteLostToAnotherWriterIsUnchangedRatherThanFailed(t *testing.T) {
+	var repos *platformRepos
+	var formation *model.Formation
+
+	// Writes the row from inside the lookup, which is precisely the window the
+	// three-phase pass opened: the other replica reached the same conclusion
+	// and got there first, leaving this pass holding a revision that has moved.
+	racing := func(ctx context.Context, _ string) (int, *model.ResolvedRef, error) {
+		current, err := repos.items.GetByKey(ctx, formation.UID, "tsc_kickoff")
+		require.NoError(t, err)
+		done := model.StatusDone
+		_, err = repos.items.Update(ctx, current.UID, current.Revision, port.ItemPatch{
+			Status:      &done,
+			ResolvedRef: &model.ResolvedRef{Type: "committee", UID: "committee-1"},
+		})
+		require.NoError(t, err)
+		return 1, &model.ResolvedRef{Type: "committee", UID: "committee-1"}, nil
+	}
+
+	checker, r, f := platformFixture(t, model.StatusNotStarted, racing)
+	repos, formation = r, f
+
+	report, err := checker.ResolveFor(context.Background(), "project-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, report.Failed, "a write lost to another writer was reported as a fault")
+	assert.Equal(t, 1, report.Unchanged)
+	assert.Equal(t, 0, report.Advanced)
 }
 
 // A project with no checklist is not an error. The reconcile may not have created

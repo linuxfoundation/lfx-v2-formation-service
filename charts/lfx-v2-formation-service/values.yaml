@@ -164,6 +164,11 @@ networkPolicy:
   postgresPort: 5432
   heimdallPort: 4456
   heimdallJWKSPort: 4457
+  # httpsPort is outbound 443, for the platform-check lookups: the query
+  # service they read and the identity provider their token comes from. Both
+  # are external to the cluster, so they need an egress rule that the
+  # in-cluster ports above do not cover.
+  httpsPort: 443
 
 # openfga is the configuration for the OpenFGA server
 openfga:
@@ -342,6 +347,48 @@ app:
     # leader, so lowering it multiplies the read load by the replica count.
     RECONCILE_INTERVAL:
       value: 24h
+
+    # QUERY_SERVICE_URL is the base URL of the shared read layer that the
+    # platform-checked checklist rows (committee, mailing list) resolve
+    # against. Optional, and empty here on purpose.
+    #
+    # Empty is the off switch: the service builds its lookup registry empty,
+    # makes no outbound call, and reports those rows unanswerable exactly as
+    # it did before this setting existed. Turning it on is an override in the
+    # per-environment values hierarchy — dev first — and never a code change,
+    # so an environment whose service identity has not been granted read
+    # access yet simply leaves this unset rather than failing every row.
+    QUERY_SERVICE_URL:
+      value: ''
+
+    # The service identity used for those lookups. A sweep has no caller, so
+    # there is no bearer token to forward and the reads are made as this
+    # service. The flow is an Auth0 client-credentials grant with a
+    # private-key JWT assertion (RS256) — there is no client secret — and the
+    # variable names match the ones lfx-v2-committee-service already uses to
+    # read the same layer.
+    #
+    # All three are required once QUERY_SERVICE_URL is set. Leaving the URL
+    # set and these empty is refused at startup rather than degraded, because
+    # an unauthenticated read returns nothing and would report every row as
+    # failed instead of unanswered.
+    M2M_AUTH_CLIENT_ID:
+      value: ''
+
+    # M2M_AUTH_PRIVATE_KEY is an RSA private key in PEM form. Supply it with
+    # valueFrom.secretKeyRef when enabling this in an environment; never as a
+    # literal value, which would be readable from the pod spec.
+    M2M_AUTH_PRIVATE_KEY:
+      value: ''
+
+    # M2M_AUTH_DOMAIN is the Auth0 tenant domain, e.g.
+    # "linuxfoundation-dev.auth0.com".
+    M2M_AUTH_DOMAIN:
+      value: ''
+
+    # M2M_AUTH_AUDIENCE is optional.
+    M2M_AUTH_AUDIENCE:
+      value: ''
 
 # serviceAccount is the configuration for the Kubernetes service account (used by multiple components)
 serviceAccount:

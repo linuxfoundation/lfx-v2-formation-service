@@ -52,4 +52,11 @@ spec:
           protocol: TCP
         - port: {{ .Values.networkPolicy.heimdallJWKSPort }}
           protocol: TCP
+    # External HTTPS — the query service the platform checks read, and the
+    # identity provider the token for those reads is minted at. Both are
+    # reached over the public API hostname rather than in-cluster, so this is
+    # one rule. Service-to-service calls still go via NATS, not HTTPS.
+    - ports:
+        - port: {{ .Values.networkPolicy.httpsPort }}
+          protocol: TCP
 {{- end }}

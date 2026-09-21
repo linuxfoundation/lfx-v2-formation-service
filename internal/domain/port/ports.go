@@ -519,8 +519,9 @@ type ProjectRef struct {
 	SubStage     string
 }
 
-// ResourceChecker answers a platform check by asking the service that owns the
-// resource, over NATS request/reply.
+// ResourceChecker answers a platform check by asking the shared read layer
+// what a project has, as this service's own identity rather than as the caller
+// — a sweep has no caller to borrow a token from.
 type ResourceChecker interface {
 	// Count reports how many resources of the given type the project has,
 	// and a reference to one of them when the check resolves.

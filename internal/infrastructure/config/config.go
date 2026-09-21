@@ -35,6 +35,40 @@ type Config struct {
 
 	// Email carries the formation notification email settings.
 	Email EmailConfig
+
+	// QueryService carries the read layer's address and the identity used to
+	// read it. Absent by default.
+	QueryService QueryServiceConfig
+}
+
+// QueryServiceConfig addresses the shared read layer the platform checks
+// resolve against, and carries the service identity used to reach it.
+//
+// An empty BaseURL is the off switch and the default: the lookup registry is
+// built empty, no outbound call is ever made, and platform rows stay
+// unanswerable. Every other field is meaningless without it.
+type QueryServiceConfig struct {
+	BaseURL string
+
+	// Timeout bounds a single lookup.
+	Timeout time.Duration
+
+	// The Auth0 client-credentials identity. PrivateKey is an RSA key in PEM
+	// form, used to sign the client assertion; there is no client secret.
+	// Audience is optional — the rest are required once BaseURL is set, and
+	// Enabled is what states that pairing.
+	ClientID   string
+	PrivateKey string
+	Domain     string
+	Audience   string
+}
+
+// Enabled reports whether outbound lookups are configured. It deliberately
+// requires the credentials as well as the address: a base URL on its own
+// would mean calling the read layer with no identity, which returns nothing
+// readable and would report every row as failed rather than unanswered.
+func (q QueryServiceConfig) Enabled() bool {
+	return q.BaseURL != "" && q.ClientID != "" && q.PrivateKey != "" && q.Domain != ""
 }
 
 // EmailConfig holds outbound email settings for formation notifications.
@@ -141,6 +175,14 @@ func LoadConfig() *Config {
 			Enabled:        emailEnabled(),
 			FormationInbox: envOrDefault(constants.EnvFormationInboxEmail, constants.DefaultFormationInboxEmail),
 			AdminBaseURL:   envOrDefault(constants.EnvFormationAdminBaseURL, constants.DefaultFormationAdminBaseURL),
+		},
+		QueryService: QueryServiceConfig{
+			BaseURL:    os.Getenv(constants.EnvQueryServiceURL),
+			Timeout:    constants.DefaultQueryServiceTimeout,
+			ClientID:   os.Getenv(constants.EnvM2MClientID),
+			PrivateKey: os.Getenv(constants.EnvM2MPrivateKey),
+			Domain:     os.Getenv(constants.EnvM2MDomain),
+			Audience:   os.Getenv(constants.EnvM2MAudience),
 		},
 	}
 
