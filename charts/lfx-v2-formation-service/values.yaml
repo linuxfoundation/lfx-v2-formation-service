@@ -235,9 +235,11 @@ app:
   # per-environment identifier. `type team` already defines `member: [user]` in the
   # platform model, so no model change is needed either.
   #
-  # Dev has the object with no members, which means the status route answers 403
-  # there until somebody is added. That is a write to live permissions and is done
-  # deliberately rather than by this chart.
+  # Both environments have the object populated. Membership is maintained by the
+  # IT team outside this platform: nothing in these repos writes it, and the
+  # LDAP-backed sync-global-groups CronJob covers only lf-staff and
+  # lf-contractor. This chart neither creates the team nor seeds it, so a caller
+  # refused by the second check is an IT membership question, not a chart defect.
   formationTeamName: "formation"
   # jwt is the configuration for JWT authentication
   # audience is the intended audience for the JWT token
