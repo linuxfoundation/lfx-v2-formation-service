@@ -116,12 +116,8 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 // mutateApplication runs one write against an application inside a
 // transaction, then republishes it.
 //
-// The read is a locking read and the mutation happens under that lock,
-// because an application carries no revision counter: there is no optimistic
-// check that would notice the row moved between the read and the write. A
-// revise and a decision arriving together would otherwise both read
-// "submitted" and both write, and the later write would win in silence — a
-// decision recorded against answers the reviewer never saw.
+// The locking read serializes concurrent database mutations for this
+// application. It does not assert that a reviewer saw the latest indexed copy.
 func (s *Service) mutateApplication(
 	ctx context.Context,
 	operation string,

@@ -19,23 +19,18 @@ import (
 )
 
 // Reasons the intake route can refuse a payload.
-//
-// The list is deliberately two entries long. The intake field set is not
-// settled — it is still being reconciled against the PCC add-project fields
-// and the Google Form it replaces — so a service that enforced today's
-// questions would refuse tomorrow's form. These two are here because the
-// shapes they check were chosen for this intake specifically: a website in
-// place of an asset upload, and a set of people recorded as addresses.
 const (
-	reasonProjectWebsiteBad    = "project_website_invalid"
-	reasonFormationListInvalid = "formation_list_invalid"
+	reasonSubmitterUsernameRequired = "submitter_username_required"
+	reasonProjectWebsiteBad         = "project_website_invalid"
+	reasonFormationListInvalid      = "formation_list_invalid"
 )
 
 var applicationReasonMessages = map[string]string{
-	reasonNotFound:             "no such application",
-	reasonProjectWebsiteBad:    "project_website must be an http or https URL",
-	reasonFormationListInvalid: "formation_list must be a list of email addresses",
-	reasonApplicationUIDBad:    "the application identifier is not a uuid",
+	reasonNotFound:                  "no such application",
+	reasonSubmitterUsernameRequired: "submitter_username is required",
+	reasonProjectWebsiteBad:         "project_website must be an http or https URL",
+	reasonFormationListInvalid:      "formation_list must be a list of email addresses",
+	reasonApplicationUIDBad:         "the application identifier is not a uuid",
 }
 
 // Intake payload keys this service knows about by name. Everything else in
@@ -166,6 +161,10 @@ func applicationProjection(a *model.Application) *port.ApplicationProjection {
 // types or requiredness. Only the two approved product shapes are enforced:
 // the project website and formation-contact email addresses.
 func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
+	p.SubmitterUsername = strings.TrimSpace(p.SubmitterUsername)
+	if p.SubmitterUsername == "" {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
+	}
 	return validateAnswers(p.Application)
 }
 

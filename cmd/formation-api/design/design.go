@@ -697,6 +697,7 @@ var ApplicationError = dsl.Type("ApplicationError", func() {
 		dsl.Enum(
 			"not_found",
 			"application_uid_invalid",
+			"submitter_username_required",
 			"project_website_invalid",
 			"formation_list_invalid",
 		)

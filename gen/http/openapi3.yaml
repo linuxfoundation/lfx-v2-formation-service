@@ -877,7 +877,7 @@ paths:
                                 code: "400"
                                 message: Voluptatem accusantium quia hic velit illum.
                                 name: Voluptatem laudantium ipsum rerum dignissimos quaerat voluptas.
-                                reason: formation_list_invalid
+                                reason: application_uid_invalid
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -941,7 +941,7 @@ paths:
                                 code: "400"
                                 message: Consequatur soluta iure accusantium magni ea.
                                 name: Qui eos et.
-                                reason: application_uid_invalid
+                                reason: project_website_invalid
             security:
                 - jwt_header_Authorization: []
         put:
@@ -1012,7 +1012,7 @@ paths:
                                 code: "400"
                                 message: Aut fugit et sit.
                                 name: Optio expedita.
-                                reason: application_uid_invalid
+                                reason: project_website_invalid
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1032,7 +1032,7 @@ paths:
                                 code: "400"
                                 message: Ducimus incidunt aut quidem.
                                 name: Aut amet ad.
-                                reason: not_found
+                                reason: project_website_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/accept:
@@ -1103,7 +1103,7 @@ paths:
                                 code: "400"
                                 message: Quam eos doloremque nihil.
                                 name: Et esse.
-                                reason: application_uid_invalid
+                                reason: not_found
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/deny:
@@ -1244,7 +1244,7 @@ paths:
                                 code: "400"
                                 message: Explicabo ratione.
                                 name: Incidunt nobis.
-                                reason: formation_list_invalid
+                                reason: application_uid_invalid
             security:
                 - jwt_header_Authorization: []
 components:
@@ -1267,17 +1267,18 @@ components:
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: not_found
+                    example: submitter_username_required
                     enum:
                         - not_found
                         - application_uid_invalid
+                        - submitter_username_required
                         - project_website_invalid
                         - formation_list_invalid
             example:
                 code: "400"
                 message: Esse laudantium ut molestiae.
                 name: Sit sit qui.
-                reason: project_website_invalid
+                reason: submitter_username_required
             required:
                 - name
                 - code

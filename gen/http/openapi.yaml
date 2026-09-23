@@ -803,10 +803,11 @@ definitions:
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: application_uid_invalid
+                example: not_found
                 enum:
                     - not_found
                     - application_uid_invalid
+                    - submitter_username_required
                     - project_website_invalid
                     - formation_list_invalid
         description: The payload itself is invalid
@@ -814,7 +815,7 @@ definitions:
             code: "400"
             message: Molestiae aut.
             name: Eaque ut.
-            reason: formation_list_invalid
+            reason: project_website_invalid
         required:
             - name
             - code

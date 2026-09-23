@@ -144,9 +144,6 @@ CREATE TABLE IF NOT EXISTS project_applications (
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS project_applications_submitter_idx ON project_applications (submitter_username);
-CREATE INDEX IF NOT EXISTS project_applications_state_idx     ON project_applications (state);
-
 -- Append-only activity feed. ULID primary keys give a time-ordered feed and
 -- cursor paging from a plain index read. Rows are never updated, so there is
 -- no revision column. Entries are written in the same transaction as the

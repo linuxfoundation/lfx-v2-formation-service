@@ -56,10 +56,7 @@ func (r *ApplicationRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Applic
 // GetForUpdate returns one application, holding the row until the transaction
 // ends.
 //
-// The lock is the concurrency control for every write path. An application has
-// no revision column, so nothing detects that the row moved between a read and
-// a write: two callers deciding and revising at once would both succeed, and
-// the decision would be recorded against a payload the reviewer never read.
+// The lock serializes concurrent database writes for this application.
 func (r *ApplicationRepo) GetForUpdate(ctx context.Context, uid uuid.UUID) (*model.Application, error) {
 	return r.get(ctx, uid, true)
 }

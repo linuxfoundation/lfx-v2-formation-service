@@ -6,9 +6,12 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
@@ -156,6 +159,83 @@ func TestApplicationDelete(t *testing.T) {
 	}
 	if _, err := repo.Get(ctx, created.UID); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("get after delete = %v, want ErrNotFound", err)
+	}
+}
+
+func TestApplicationGetForUpdateHoldsTheRowUntilCommit(t *testing.T) {
+	db := testDB(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	created := createApplication(t, NewApplicationRepo(db))
+
+	type lockAttempt struct {
+		pid int
+		err error
+	}
+	started := make(chan lockAttempt, 1)
+	competing := make(chan error, 1)
+
+	err := NewUnitOfWork(db).Do(ctx, func(transaction port.Tx) error {
+		if _, err := transaction.Applications().GetForUpdate(ctx, created.UID); err != nil {
+			return err
+		}
+
+		go func() {
+			competing <- NewUnitOfWork(db).Do(ctx, func(transaction port.Tx) error {
+				concrete := transaction.(*tx)
+				var pid int
+				if err := concrete.applications.db.NewRaw("SELECT pg_backend_pid()").Scan(ctx, &pid); err != nil {
+					started <- lockAttempt{err: err}
+					return err
+				}
+				started <- lockAttempt{pid: pid}
+				_, err := transaction.Applications().GetForUpdate(ctx, created.UID)
+				return err
+			})
+		}()
+
+		attempt := <-started
+		if attempt.err != nil {
+			return fmt.Errorf("start competing lock: %w", attempt.err)
+		}
+		return waitForBackendLock(ctx, transaction.(*tx).applications.db, attempt.pid)
+	})
+	if err != nil {
+		t.Fatalf("holding application lock: %v", err)
+	}
+
+	select {
+	case err := <-competing:
+		if err != nil {
+			t.Fatalf("competing lock after commit: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("competing lock stayed blocked after commit: %v", ctx.Err())
+	}
+}
+
+func waitForBackendLock(ctx context.Context, db bun.IDB, pid int) error {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		var waiting bool
+		err := db.NewRaw(`
+			SELECT EXISTS (
+				SELECT 1 FROM pg_stat_activity
+				WHERE pid = ? AND wait_event_type = 'Lock'
+			)`, pid).Scan(ctx, &waiting)
+		if err != nil {
+			return fmt.Errorf("inspect competing lock: %w", err)
+		}
+		if waiting {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for competing lock: %w", ctx.Err())
+		case <-ticker.C:
+		}
 	}
 }
 

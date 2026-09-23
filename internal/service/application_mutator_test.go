@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
@@ -106,22 +108,26 @@ func TestCreateApplicationIndexesReviewDetails(t *testing.T) {
 	assert.Equal(t, target, *projected.TargetParentUID)
 }
 
-// A failed grant does not undo the record.
+// A publish failure does not undo the record.
 //
 // The application is already committed by the time the publish is attempted,
 // and telling the caller their submission failed would get it filed twice.
 // What they lose is visibility until something republishes.
-func TestCreateApplicationSurvivesAFailedGrant(t *testing.T) {
-	d := applicationService(t)
-	d.access.Err = assert.AnError
+func TestCreateApplicationSurvivesPublishFailures(t *testing.T) {
+	for name, fail := range applicationPublisherFailures() {
+		t.Run(name, func(t *testing.T) {
+			d := applicationService(t)
+			fail(d)
 
-	created, err := d.service.CreateApplication(asPrincipal("lfx-ui@clients"), intakePayload())
+			created, err := d.service.CreateApplication(asPrincipal("lfx-ui@clients"), intakePayload())
 
-	require.NoError(t, err, "a publish failure must not be reported as a rejected submission")
-	require.NotNil(t, created)
-	stored, err := d.applications.Get(context.Background(), mustUUID(t, created.UID))
-	require.NoError(t, err, "the record must survive the failed grant")
-	assert.Equal(t, model.ApplicationSubmitted, stored.State)
+			require.NoError(t, err, "a publish failure must not be reported as a rejected submission")
+			require.NotNil(t, created)
+			stored, err := d.applications.Get(context.Background(), mustUUID(t, created.UID))
+			require.NoError(t, err, "the record must survive the failed publish")
+			assert.Equal(t, model.ApplicationSubmitted, stored.State)
+		})
+	}
 }
 
 func TestReviseApplicationReplacesTheAnswers(t *testing.T) {
@@ -223,4 +229,100 @@ func TestMutationsRefuseAnIdentifierThatIsNotAUUID(t *testing.T) {
 	var refusal *svc.ApplicationError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, "400", refusal.Code)
+}
+
+func TestApplicationMutationsSurvivePublishFailures(t *testing.T) {
+	operations := applicationMutationCases()
+
+	for _, operation := range operations {
+		for publisher, fail := range applicationPublisherFailures() {
+			t.Run(operation.name+"/"+publisher, func(t *testing.T) {
+				d := applicationService(t)
+				created := submitOne(t, d.service)
+				fail(d)
+
+				require.NoError(t, operation.act(d.service, created.UID))
+				operation.assertCommitted(t, d, created.UID)
+			})
+		}
+	}
+}
+
+func applicationPublisherFailures() map[string]func(applicationDoubles) {
+	return map[string]func(applicationDoubles){
+		"access":  func(d applicationDoubles) { d.access.Err = assert.AnError },
+		"indexer": func(d applicationDoubles) { d.indexer.SetError(assert.AnError) },
+	}
+}
+
+func TestApplicationMutationsFailClosedWithoutAUnitOfWork(t *testing.T) {
+	s := NewService(WithApplications(mock.NewApplicationRepository()))
+	uid := uuid.NewString()
+
+	for _, operation := range applicationMutationCases() {
+		t.Run(operation.name, func(t *testing.T) {
+			err := operation.act(s, uid)
+			require.Error(t, err)
+			var refusal *svc.ApplicationError
+			assert.False(t, errors.As(err, &refusal))
+		})
+	}
+}
+
+type applicationMutationCase struct {
+	name            string
+	act             func(*Service, string) error
+	assertCommitted func(*testing.T, applicationDoubles, string)
+}
+
+func applicationMutationCases() []applicationMutationCase {
+	stateIs := func(want model.ApplicationState) func(*testing.T, applicationDoubles, string) {
+		return func(t *testing.T, d applicationDoubles, uid string) {
+			stored, err := d.applications.Get(context.Background(), mustUUID(t, uid))
+			require.NoError(t, err)
+			assert.Equal(t, want, stored.State)
+		}
+	}
+	return []applicationMutationCase{
+		{"revise", reviseApplication, stateIs(model.ApplicationSubmitted)},
+		{"withdraw", withdrawApplication, stateIs(model.ApplicationWithdrawn)},
+		{"accept", acceptApplication, stateIs(model.ApplicationAccepted)},
+		{"deny", denyApplication, stateIs(model.ApplicationDenied)},
+		{"delete", deleteApplication, assertApplicationDeleted},
+	}
+}
+
+func reviseApplication(s *Service, uid string) error {
+	_, err := s.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+		Version: "1", UID: uid, Application: map[string]any{"project_name": "Revised"},
+	})
+	return err
+}
+
+func withdrawApplication(s *Service, uid string) error {
+	_, err := s.WithdrawApplication(asPrincipal("asmith"),
+		&svc.WithdrawApplicationPayload{Version: "1", UID: uid})
+	return err
+}
+
+func acceptApplication(s *Service, uid string) error {
+	_, err := s.AcceptApplication(asPrincipal("staff"),
+		&svc.AcceptApplicationPayload{Version: "1", UID: uid})
+	return err
+}
+
+func denyApplication(s *Service, uid string) error {
+	_, err := s.DenyApplication(asPrincipal("staff"),
+		&svc.DenyApplicationPayload{Version: "1", UID: uid})
+	return err
+}
+
+func deleteApplication(s *Service, uid string) error {
+	return s.DeleteApplication(asPrincipal("staff"),
+		&svc.DeleteApplicationPayload{Version: "1", UID: uid})
+}
+
+func assertApplicationDeleted(t *testing.T, d applicationDoubles, uid string) {
+	_, err := d.applications.Get(context.Background(), mustUUID(t, uid))
+	assert.ErrorIs(t, err, domain.ErrNotFound)
 }

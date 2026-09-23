@@ -2175,8 +2175,8 @@ func ValidateCreateApplicationBadRequestResponseBody(body *CreateApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2210,8 +2210,8 @@ func ValidateReviseApplicationBadRequestResponseBody(body *ReviseApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2233,8 +2233,8 @@ func ValidateReviseApplicationNotFoundResponseBody(body *ReviseApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2268,8 +2268,8 @@ func ValidateWithdrawApplicationNotFoundResponseBody(body *WithdrawApplicationNo
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2303,8 +2303,8 @@ func ValidateAcceptApplicationNotFoundResponseBody(body *AcceptApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2338,8 +2338,8 @@ func ValidateDenyApplicationNotFoundResponseBody(body *DenyApplicationNotFoundRe
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2373,8 +2373,8 @@ func ValidateDeleteApplicationNotFoundResponseBody(body *DeleteApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return

@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,7 +66,18 @@ func TestCreateApplicationRecordsSubmitterFromThePayload(t *testing.T) {
 	assert.Nil(t, got.TargetParentUID)
 }
 
-// SC-002: a submission produces an application and no other platform state.
+func TestCreateApplicationNormalizesSubmitterUsername(t *testing.T) {
+	s, _, _, _ := intakeService(t)
+	p := intakePayload()
+	p.SubmitterUsername = "  asmith\t"
+
+	got, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+	require.NoError(t, err)
+	assert.Equal(t, "asmith", got.SubmitterUsername)
+}
+
+// A submission produces an application and no other platform state.
 // The doubles are inspected directly rather than through the API, because the
 // failure this guards against is a create that quietly does something extra.
 func TestCreateApplicationCreatesNothingElse(t *testing.T) {
@@ -102,6 +114,13 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 		mutate func(*svc.CreateApplicationPayload)
 		reason string
 	}{
+		{
+			name: "submitter username is blank",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = " \t "
+			},
+			reason: "submitter_username_required",
+		},
 		{
 			name: "website is not a URL",
 			mutate: func(p *svc.CreateApplicationPayload) {
@@ -160,5 +179,5 @@ func TestCreateApplicationWithNoStoreFailsClosed(t *testing.T) {
 
 	require.Error(t, err)
 	var appErr *svc.ApplicationError
-	assert.NotErrorAs(t, err, &appErr, "an unwired store must not surface as a declared refusal")
+	assert.False(t, errors.As(err, &appErr), "an unwired store must not surface as a declared refusal")
 }
