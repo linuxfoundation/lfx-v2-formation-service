@@ -387,8 +387,15 @@ func applicationMutationCases() []applicationMutationCase {
 			assert.Equal(t, want, stored.State)
 		}
 	}
+	payloadProjectNameIs := func(want string) func(*testing.T, applicationDoubles, string) {
+		return func(t *testing.T, d applicationDoubles, uid string) {
+			stored, err := d.applications.Get(context.Background(), mustUUID(t, uid))
+			require.NoError(t, err)
+			assert.Equal(t, want, stored.Payload["project_name"])
+		}
+	}
 	return []applicationMutationCase{
-		{"revise", reviseApplication, stateIs(model.ApplicationSubmitted)},
+		{"revise", reviseApplication, payloadProjectNameIs("Revised")},
 		{"withdraw", withdrawApplication, stateIs(model.ApplicationWithdrawn)},
 		{"accept", acceptApplication, stateIs(model.ApplicationAccepted)},
 		{"deny", denyApplication, stateIs(model.ApplicationDenied)},

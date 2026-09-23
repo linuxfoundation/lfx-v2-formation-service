@@ -18,7 +18,7 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
 )
 
-// Reasons the intake route can refuse a payload.
+// Refusals cover an unusable access subject and the two payload shapes this service interprets.
 const (
 	reasonSubmitterUsernameRequired = "submitter_username_required"
 	reasonProjectWebsiteBad         = "project_website_invalid"
