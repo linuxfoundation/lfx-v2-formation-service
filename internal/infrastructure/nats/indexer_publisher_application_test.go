@@ -43,6 +43,19 @@ func TestPublishApplicationRefusesAnOversizedEnvelope(t *testing.T) {
 	}
 }
 
+func TestPublishApplicationReservesSpaceForNATSHeaders(t *testing.T) {
+	projection := sampleApplicationProjection()
+	projection.Payload = map[string]any{
+		"description": strings.Repeat("x", (1<<20)-(32<<10)),
+	}
+
+	_, err := encodeApplicationProjection(projection)
+
+	if err == nil {
+		t.Fatal("encodeApplicationProjection() = nil error, want space reserved for NATS headers")
+	}
+}
+
 // An application has no project, and the document must not claim indexing
 // parentage.
 //

@@ -132,6 +132,20 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			reason: "submitter_username_required",
 		},
 		{
+			name: "submitter username contains internal whitespace",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "a smith"
+			},
+			reason: "submitter_username_required",
+		},
+		{
+			name: "submitter username contains an internal format character",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "a\u200bsmith"
+			},
+			reason: "submitter_username_required",
+		},
+		{
 			name: "submitter username is the FGA wildcard",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.SubmitterUsername = "*"
@@ -141,7 +155,14 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 		{
 			name: "submitter username names another subject type",
 			mutate: func(p *svc.CreateApplicationPayload) {
-				p.SubmitterUsername = "team:formation#member"
+				p.SubmitterUsername = "team:formation"
+			},
+			reason: "submitter_username_required",
+		},
+		{
+			name: "submitter username names a userset relation",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "readers#member"
 			},
 			reason: "submitter_username_required",
 		},

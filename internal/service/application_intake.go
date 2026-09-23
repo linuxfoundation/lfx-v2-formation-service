@@ -40,9 +40,8 @@ var applicationReasonMessages = map[string]string{
 	reasonApplicationUIDBad:         "the application identifier is not a uuid",
 }
 
-// Each limit sits below the one outside it: the request body cap in
-// cmd/formation-api/server.go, then these answers, then the index envelope
-// cap in the nats publisher, which adds submitter fields on top.
+// The answer limit leaves room below the index envelope cap for submitter
+// fields and JSON overhead.
 const (
 	maxApplicationPayloadBytes = 512 << 10
 	maxProjectNameBytes        = 64 << 10
@@ -199,15 +198,13 @@ func (s *Service) validateApplicationProjection(a *model.Application) error {
 // the project website and formation-contact email addresses.
 func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 	p.SubmitterUsername = strings.TrimSpace(p.SubmitterUsername)
-	// Format-only identities look blank but would create grants for nonexistent principals.
-	if strings.IndexFunc(p.SubmitterUsername, func(r rune) bool {
-		return !unicode.IsSpace(r) && !unicode.Is(unicode.Cf, r)
-	}) == -1 {
-		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
-	}
-	// fga-sync prefixes this value with `user:` verbatim, so `*` and `:` would
-	// name a wildcard or another subject type rather than one user.
-	if strings.ContainsAny(p.SubmitterUsername, "*:") {
+	// fga-sync prefixes this value with `user:` verbatim, so FGA subject
+	// syntax here would name something other than one user.
+	if p.SubmitterUsername == "" ||
+		strings.ContainsAny(p.SubmitterUsername, "*:#") ||
+		strings.IndexFunc(p.SubmitterUsername, func(r rune) bool {
+			return unicode.IsSpace(r) || unicode.Is(unicode.Cf, r)
+		}) != -1 {
 		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
 	}
 	return validateAnswers(p.Application)

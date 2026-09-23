@@ -286,7 +286,12 @@ func (p *IndexerPublisher) DeleteItem(ctx context.Context, itemUID string) error
 	return p.deleteDocument(ctx, IndexItemSubject, itemUID, "item_uid")
 }
 
-const maxApplicationProjectionBytes = 1 << 20
+const (
+	natsDefaultMaxPayloadBytes = 1 << 20
+	// Publish injects trace context and baggage after encoding the envelope.
+	maxApplicationNATSHeaderBytes = 64 << 10
+	maxApplicationProjectionBytes = natsDefaultMaxPayloadBytes - maxApplicationNATSHeaderBytes
+)
 
 // ApplicationProjectionValidator checks the exact application index envelope
 // without publishing it.
@@ -361,7 +366,10 @@ func encodeApplicationProjection(doc *port.ApplicationProjection) ([]byte, error
 		return nil, fmt.Errorf("encoding the application projection: %w", err)
 	}
 	if len(payload) > maxApplicationProjectionBytes {
-		return nil, fmt.Errorf("application projection is %d bytes; maximum is 1 MiB", len(payload))
+		return nil, fmt.Errorf(
+			"application projection is %d bytes; maximum is %d bytes after reserving NATS headers",
+			len(payload), maxApplicationProjectionBytes,
+		)
 	}
 	return payload, nil
 }
