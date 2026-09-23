@@ -3,12 +3,11 @@
 
 package constants
 
-// Relation names this service writes to the tuple store.
+// Application relation names used for tuple writes and indexed access checks.
 //
-// Spelled once, because fga-sync copies a relation name through without
-// validating it against the authorization model: a misspelling is written
-// successfully and then never matches a check, which surfaces as "this person
-// has no access" with nothing anywhere naming the cause.
+// Spelled once because relation strings are not validated against the
+// authorization model before use: a misspelling never matches a check and
+// surfaces only as "this person has no access."
 //
 // Prefixed with the type they belong to, unlike committee-service's bare
 // RelationWriter and RelationAuditor. Necessary here rather than a stylistic

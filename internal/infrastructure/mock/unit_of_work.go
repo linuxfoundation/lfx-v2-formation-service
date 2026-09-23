@@ -5,6 +5,7 @@ package mock
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
@@ -39,11 +40,14 @@ func NewUnitOfWork(
 	}}
 }
 
-// Do runs fn against the wired repositories. It never fails on its own; only
-// fn's own return value can make it fail.
+// Do runs fn against the wired repositories and preserves the production
+// adapter's error chain.
 func (u *UnitOfWork) Do(_ context.Context, fn func(port.Tx) error) error {
 	u.record("uow.Do")
-	return fn(u.tx)
+	if err := fn(u.tx); err != nil {
+		return fmt.Errorf("unit of work: %w", err)
+	}
+	return nil
 }
 
 // tx implements port.Tx by returning the same repository instances the

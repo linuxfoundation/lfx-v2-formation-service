@@ -297,6 +297,22 @@ func TestApplicationMutationsFailClosedWithoutAUnitOfWork(t *testing.T) {
 	}
 }
 
+func TestApplicationMutationsReturnNotFoundForUnknownUID(t *testing.T) {
+	d := applicationService(t)
+	uid := uuid.NewString()
+
+	for _, operation := range applicationMutationCases() {
+		t.Run(operation.name, func(t *testing.T) {
+			err := operation.act(d.service, uid)
+
+			var refusal *svc.ApplicationError
+			require.ErrorAs(t, err, &refusal)
+			assert.Equal(t, "404", refusal.Code)
+			assert.Equal(t, reasonNotFound, refusal.Reason)
+		})
+	}
+}
+
 func TestApplicationMutationsRejectAStaleRevision(t *testing.T) {
 	cases := map[string]func(*Service, string) error{
 		"revise": func(s *Service, uid string) error {

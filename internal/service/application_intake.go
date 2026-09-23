@@ -85,10 +85,6 @@ func (s *Service) CreateApplication(
 
 	slog.InfoContext(ctx, "formationService.create-application",
 		"application_uid", created.UID,
-		// The applicant's name and email are deliberately not logged. They
-		// are PII on a record that is not public, and a log line is the one
-		// copy of them nothing here can later delete.
-		"submitter_username", created.SubmitterUsername,
 		"has_target_parent", created.TargetParentUID != nil,
 	)
 

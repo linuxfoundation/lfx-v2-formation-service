@@ -145,8 +145,6 @@ CREATE TABLE IF NOT EXISTS project_applications (
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
-
 -- Append-only activity feed. ULID primary keys give a time-ordered feed and
 -- cursor paging from a plain index read. Rows are never updated, so there is
 -- no revision column. Entries are written in the same transaction as the
@@ -184,6 +182,9 @@ CREATE INDEX IF NOT EXISTS formation_activity_item_idx ON formation_activity (fo
 -- the missing column. Columns therefore have to be added twice: in the
 -- definition, for a new database, and here, for an existing one. Each statement
 -- stays idempotent for the same reason the rest of the file does.
+
+-- project_applications.revision supports databases created before application revisioning.
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
 
 -- formations.sections carries the section snapshot the checklist serves.
 ALTER TABLE formations ADD COLUMN IF NOT EXISTS sections JSONB NOT NULL DEFAULT '[]';

@@ -51,6 +51,8 @@ func ETagAttribute() {
 	})
 }
 
+// ApplicationETagAttribute carries an application's new revision as bare
+// digits so it can be echoed into the Int64 If-Match field.
 func ApplicationETagAttribute() {
 	dsl.Attribute("etag", dsl.String, "The application's new revision. Send as If-Match on the next write.", func() {
 		dsl.Example("2")
