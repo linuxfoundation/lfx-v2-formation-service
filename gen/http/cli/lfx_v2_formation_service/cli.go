@@ -24,13 +24,13 @@ import (
 //	command (subcommand1|subcommand2|...)
 func UsageCommands() []string {
 	return []string{
-		"lfx-v2-formation-service (get-formation|get-formation-activity|set-item-status|assign-item|update-item|livez|readyz)",
+		"lfx-v2-formation-service (get-formation|get-formation-activity|set-item-status|assign-item|update-item|create-application|revise-application|withdraw-application|accept-application|deny-application|delete-application|livez|readyz)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Animi quod aperiam.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Harum optio aut quibusdam.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -83,6 +83,37 @@ func ParseEndpoint(
 		lfxV2FormationServiceUpdateItemBearerTokenFlag = lfxV2FormationServiceUpdateItemFlags.String("bearer-token", "", "")
 		lfxV2FormationServiceUpdateItemIfMatchFlag     = lfxV2FormationServiceUpdateItemFlags.String("if-match", "REQUIRED", "")
 
+		lfxV2FormationServiceCreateApplicationFlags           = flag.NewFlagSet("create-application", flag.ExitOnError)
+		lfxV2FormationServiceCreateApplicationBodyFlag        = lfxV2FormationServiceCreateApplicationFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceCreateApplicationVersionFlag     = lfxV2FormationServiceCreateApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceCreateApplicationBearerTokenFlag = lfxV2FormationServiceCreateApplicationFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceReviseApplicationFlags           = flag.NewFlagSet("revise-application", flag.ExitOnError)
+		lfxV2FormationServiceReviseApplicationBodyFlag        = lfxV2FormationServiceReviseApplicationFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceReviseApplicationUIDFlag         = lfxV2FormationServiceReviseApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
+		lfxV2FormationServiceReviseApplicationVersionFlag     = lfxV2FormationServiceReviseApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceReviseApplicationBearerTokenFlag = lfxV2FormationServiceReviseApplicationFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceWithdrawApplicationFlags           = flag.NewFlagSet("withdraw-application", flag.ExitOnError)
+		lfxV2FormationServiceWithdrawApplicationUIDFlag         = lfxV2FormationServiceWithdrawApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
+		lfxV2FormationServiceWithdrawApplicationVersionFlag     = lfxV2FormationServiceWithdrawApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceWithdrawApplicationBearerTokenFlag = lfxV2FormationServiceWithdrawApplicationFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceAcceptApplicationFlags           = flag.NewFlagSet("accept-application", flag.ExitOnError)
+		lfxV2FormationServiceAcceptApplicationUIDFlag         = lfxV2FormationServiceAcceptApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
+		lfxV2FormationServiceAcceptApplicationVersionFlag     = lfxV2FormationServiceAcceptApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceAcceptApplicationBearerTokenFlag = lfxV2FormationServiceAcceptApplicationFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceDenyApplicationFlags           = flag.NewFlagSet("deny-application", flag.ExitOnError)
+		lfxV2FormationServiceDenyApplicationUIDFlag         = lfxV2FormationServiceDenyApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
+		lfxV2FormationServiceDenyApplicationVersionFlag     = lfxV2FormationServiceDenyApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceDenyApplicationBearerTokenFlag = lfxV2FormationServiceDenyApplicationFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceDeleteApplicationFlags           = flag.NewFlagSet("delete-application", flag.ExitOnError)
+		lfxV2FormationServiceDeleteApplicationUIDFlag         = lfxV2FormationServiceDeleteApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
+		lfxV2FormationServiceDeleteApplicationVersionFlag     = lfxV2FormationServiceDeleteApplicationFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceDeleteApplicationBearerTokenFlag = lfxV2FormationServiceDeleteApplicationFlags.String("bearer-token", "", "")
+
 		lfxV2FormationServiceLivezFlags = flag.NewFlagSet("livez", flag.ExitOnError)
 
 		lfxV2FormationServiceReadyzFlags = flag.NewFlagSet("readyz", flag.ExitOnError)
@@ -93,6 +124,12 @@ func ParseEndpoint(
 	lfxV2FormationServiceSetItemStatusFlags.Usage = lfxV2FormationServiceSetItemStatusUsage
 	lfxV2FormationServiceAssignItemFlags.Usage = lfxV2FormationServiceAssignItemUsage
 	lfxV2FormationServiceUpdateItemFlags.Usage = lfxV2FormationServiceUpdateItemUsage
+	lfxV2FormationServiceCreateApplicationFlags.Usage = lfxV2FormationServiceCreateApplicationUsage
+	lfxV2FormationServiceReviseApplicationFlags.Usage = lfxV2FormationServiceReviseApplicationUsage
+	lfxV2FormationServiceWithdrawApplicationFlags.Usage = lfxV2FormationServiceWithdrawApplicationUsage
+	lfxV2FormationServiceAcceptApplicationFlags.Usage = lfxV2FormationServiceAcceptApplicationUsage
+	lfxV2FormationServiceDenyApplicationFlags.Usage = lfxV2FormationServiceDenyApplicationUsage
+	lfxV2FormationServiceDeleteApplicationFlags.Usage = lfxV2FormationServiceDeleteApplicationUsage
 	lfxV2FormationServiceLivezFlags.Usage = lfxV2FormationServiceLivezUsage
 	lfxV2FormationServiceReadyzFlags.Usage = lfxV2FormationServiceReadyzUsage
 
@@ -145,6 +182,24 @@ func ParseEndpoint(
 			case "update-item":
 				epf = lfxV2FormationServiceUpdateItemFlags
 
+			case "create-application":
+				epf = lfxV2FormationServiceCreateApplicationFlags
+
+			case "revise-application":
+				epf = lfxV2FormationServiceReviseApplicationFlags
+
+			case "withdraw-application":
+				epf = lfxV2FormationServiceWithdrawApplicationFlags
+
+			case "accept-application":
+				epf = lfxV2FormationServiceAcceptApplicationFlags
+
+			case "deny-application":
+				epf = lfxV2FormationServiceDenyApplicationFlags
+
+			case "delete-application":
+				epf = lfxV2FormationServiceDeleteApplicationFlags
+
 			case "livez":
 				epf = lfxV2FormationServiceLivezFlags
 
@@ -191,6 +246,24 @@ func ParseEndpoint(
 			case "update-item":
 				endpoint = c.UpdateItem()
 				data, err = lfxv2formationservicec.BuildUpdateItemPayload(*lfxV2FormationServiceUpdateItemBodyFlag, *lfxV2FormationServiceUpdateItemProjectUIDFlag, *lfxV2FormationServiceUpdateItemItemKeyFlag, *lfxV2FormationServiceUpdateItemVersionFlag, *lfxV2FormationServiceUpdateItemBearerTokenFlag, *lfxV2FormationServiceUpdateItemIfMatchFlag)
+			case "create-application":
+				endpoint = c.CreateApplication()
+				data, err = lfxv2formationservicec.BuildCreateApplicationPayload(*lfxV2FormationServiceCreateApplicationBodyFlag, *lfxV2FormationServiceCreateApplicationVersionFlag, *lfxV2FormationServiceCreateApplicationBearerTokenFlag)
+			case "revise-application":
+				endpoint = c.ReviseApplication()
+				data, err = lfxv2formationservicec.BuildReviseApplicationPayload(*lfxV2FormationServiceReviseApplicationBodyFlag, *lfxV2FormationServiceReviseApplicationUIDFlag, *lfxV2FormationServiceReviseApplicationVersionFlag, *lfxV2FormationServiceReviseApplicationBearerTokenFlag)
+			case "withdraw-application":
+				endpoint = c.WithdrawApplication()
+				data, err = lfxv2formationservicec.BuildWithdrawApplicationPayload(*lfxV2FormationServiceWithdrawApplicationUIDFlag, *lfxV2FormationServiceWithdrawApplicationVersionFlag, *lfxV2FormationServiceWithdrawApplicationBearerTokenFlag)
+			case "accept-application":
+				endpoint = c.AcceptApplication()
+				data, err = lfxv2formationservicec.BuildAcceptApplicationPayload(*lfxV2FormationServiceAcceptApplicationUIDFlag, *lfxV2FormationServiceAcceptApplicationVersionFlag, *lfxV2FormationServiceAcceptApplicationBearerTokenFlag)
+			case "deny-application":
+				endpoint = c.DenyApplication()
+				data, err = lfxv2formationservicec.BuildDenyApplicationPayload(*lfxV2FormationServiceDenyApplicationUIDFlag, *lfxV2FormationServiceDenyApplicationVersionFlag, *lfxV2FormationServiceDenyApplicationBearerTokenFlag)
+			case "delete-application":
+				endpoint = c.DeleteApplication()
+				data, err = lfxv2formationservicec.BuildDeleteApplicationPayload(*lfxV2FormationServiceDeleteApplicationUIDFlag, *lfxV2FormationServiceDeleteApplicationVersionFlag, *lfxV2FormationServiceDeleteApplicationBearerTokenFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -216,6 +289,12 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, `    set-item-status: Move one checklist item to a new status — in progress, blocked, done, skipped, or back to not started — or set the status of its sub-items. At least one of status and sub_items is required; both may travel together. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag. Blocking, skipping and sending an item back each require a reason; the other transitions ignore one if sent.`)
 	fmt.Fprintln(os.Stderr, `    assign-item: Direct one checklist item's work: set or clear its assignee, set or clear its due date. Send only the fields being changed; at least one is required. Assignment is limited to people already holding a grant on the project. If-Match is required and must equal the item's current version. The response returns the new version as ETag.`)
 	fmt.Fprintln(os.Stderr, `    update-item: Leave an update on one checklist item: a note, an evidence link. Neither moves a status nor directs anybody's work, so this is the one item route open on read access. Send only the fields being changed; at least one is required. If-Match is required and must equal the item's current version — a stale value means re-read and retry. The response returns the new version as ETag.`)
+	fmt.Fprintln(os.Stderr, `    create-application: Submit an application to start a new foundation. Creates an application record and nothing else — no project, no checklist, no stage, no entity placement. The submitter's identity is recorded from the payload rather than from the caller's token: this route is called by the UI authenticating as itself, so the end user never presents a credential here. Anti-automation belongs to that caller; this service adds no second control.`)
+	fmt.Fprintln(os.Stderr, `    revise-application: Replace an application's answers without changing its state.`)
+	fmt.Fprintln(os.Stderr, `    withdraw-application: Withdraw an application and retain its record.`)
+	fmt.Fprintln(os.Stderr, `    accept-application: Accept an application without creating a project.`)
+	fmt.Fprintln(os.Stderr, `    deny-application: Deny an application and retain its record.`)
+	fmt.Fprintln(os.Stderr, `    delete-application: Delete an application from storage and search, and remove its submitter grant. The formation-team tuple is retained.`)
 	fmt.Fprintln(os.Stderr, `    livez: Liveness probe.`)
 	fmt.Fprintln(os.Stderr, `    readyz: Readiness probe.`)
 	fmt.Fprintln(os.Stderr)
@@ -241,7 +320,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Animi quod aperiam.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Harum optio aut quibusdam.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -269,7 +348,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Provident error voluptatum dolores corporis.\" --version \"1\" --cursor \"Inventore aut officia ipsum id.\" --item-uid \"dcec846d-397b-4f9b-8852-9ad59daede81\" --limit 71 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Voluptatem quia.\" --version \"1\" --cursor \"Facilis est voluptatum.\" --item-uid \"ce906d9a-e946-48c3-98b4-eb17a74407ee\" --limit 57 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceSetItemStatusUsage() {
@@ -297,7 +376,7 @@ func lfxV2FormationServiceSetItemStatusUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Dolorem esse fugiat aperiam.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         }\n      ]\n   }' --project-uid \"Accusantium doloremque quasi ad officia.\" --item-key \"Nobis blanditiis assumenda labore architecto voluptatem quaerat.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5784508678040415601")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Eum laboriosam quidem suscipit harum in.\",\n      \"status\": \"skipped\",\n      \"sub_items\": [\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }' --project-uid \"Vel provident quas.\" --item-key \"Laborum culpa modi ratione fugiat.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8769000837009531518")
 }
 
 func lfxV2FormationServiceAssignItemUsage() {
@@ -325,7 +404,7 @@ func lfxV2FormationServiceAssignItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Non sunt et velit.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Saepe corporis et similique sunt.\" --item-key \"Quis molestias.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4020586704849698528")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Ea vitae aut modi officia nihil.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Est quos ratione ipsam dolores est illum.\" --item-key \"Voluptates voluptatem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8573593535633967341")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -353,7 +432,141 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Dolorem facere.\"\n   }' --project-uid \"Nihil numquam consequatur et rem illum.\" --item-key \"Autem et quis.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1447735193481797474")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Quae quasi.\"\n   }' --project-uid \"Aut provident sit dicta culpa.\" --item-key \"Laudantium consequatur aut nulla aut.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4141311935613513418")
+}
+
+func lfxV2FormationServiceCreateApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service create-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Submit an application to start a new foundation. Creates an application record and nothing else — no project, no checklist, no stage, no entity placement. The submitter's identity is recorded from the payload rather than from the caller's token: this route is called by the UI authenticating as itself, so the end user never presents a credential here. Anti-automation belongs to that caller; this service adds no second control.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Perferendis culpa amet eos.\": \"Laborum sequi itaque sed.\"\n      },\n      \"submitter_email\": \"jo.herman@kiehn.info\",\n      \"submitter_name\": \"Labore eius ut.\",\n      \"submitter_username\": \"Nostrum quam optio nihil et inventore odio.\",\n      \"target_parent_uid\": \"Et reprehenderit qui qui omnis ea.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceReviseApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service revise-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Replace an application's answers without changing its state.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Maxime qui in minus.\": \"Saepe illo est tempore sit nulla in.\",\n         \"Soluta amet.\": \"Est et amet quos.\"\n      }\n   }' --uid \"db4130e5-28de-433a-8914-d98947b80e36\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceWithdrawApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service withdraw-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Withdraw an application and retain its record.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"afd49fea-d181-4084-9be3-6374cb7fbca3\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceAcceptApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service accept-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Accept an application without creating a project.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"1d1e4a40-8ca7-4f54-ad55-93710b20daca\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceDenyApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service deny-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Deny an application and retain its record.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"f2601d5f-0d9c-49ec-b069-1feafa30e6b6\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceDeleteApplicationUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service delete-application", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Delete an application from storage and search, and remove its submitter grant. The formation-team tuple is retained.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"a7494d98-890d-4060-96f1-85b682b30f29\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceLivezUsage() {

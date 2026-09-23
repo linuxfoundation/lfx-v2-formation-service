@@ -25,6 +25,12 @@ type Server struct {
 	SetItemStatus        http.Handler
 	AssignItem           http.Handler
 	UpdateItem           http.Handler
+	CreateApplication    http.Handler
+	ReviseApplication    http.Handler
+	WithdrawApplication  http.Handler
+	AcceptApplication    http.Handler
+	DenyApplication      http.Handler
+	DeleteApplication    http.Handler
 	Livez                http.Handler
 	Readyz               http.Handler
 }
@@ -61,6 +67,12 @@ func New(
 			{"SetItemStatus", "POST", "/formations/{project_uid}/items/{item_key}/status"},
 			{"AssignItem", "POST", "/formations/{project_uid}/items/{item_key}/assignment"},
 			{"UpdateItem", "PATCH", "/formations/{project_uid}/items/{item_key}"},
+			{"CreateApplication", "POST", "/project-applications"},
+			{"ReviseApplication", "PUT", "/project-applications/{uid}"},
+			{"WithdrawApplication", "POST", "/project-applications/{uid}/withdraw"},
+			{"AcceptApplication", "POST", "/project-applications/{uid}/accept"},
+			{"DenyApplication", "POST", "/project-applications/{uid}/deny"},
+			{"DeleteApplication", "DELETE", "/project-applications/{uid}"},
 			{"Livez", "GET", "/livez"},
 			{"Readyz", "GET", "/readyz"},
 		},
@@ -69,6 +81,12 @@ func New(
 		SetItemStatus:        NewSetItemStatusHandler(e.SetItemStatus, mux, decoder, encoder, errhandler, formatter),
 		AssignItem:           NewAssignItemHandler(e.AssignItem, mux, decoder, encoder, errhandler, formatter),
 		UpdateItem:           NewUpdateItemHandler(e.UpdateItem, mux, decoder, encoder, errhandler, formatter),
+		CreateApplication:    NewCreateApplicationHandler(e.CreateApplication, mux, decoder, encoder, errhandler, formatter),
+		ReviseApplication:    NewReviseApplicationHandler(e.ReviseApplication, mux, decoder, encoder, errhandler, formatter),
+		WithdrawApplication:  NewWithdrawApplicationHandler(e.WithdrawApplication, mux, decoder, encoder, errhandler, formatter),
+		AcceptApplication:    NewAcceptApplicationHandler(e.AcceptApplication, mux, decoder, encoder, errhandler, formatter),
+		DenyApplication:      NewDenyApplicationHandler(e.DenyApplication, mux, decoder, encoder, errhandler, formatter),
+		DeleteApplication:    NewDeleteApplicationHandler(e.DeleteApplication, mux, decoder, encoder, errhandler, formatter),
 		Livez:                NewLivezHandler(e.Livez, mux, decoder, encoder, errhandler, formatter),
 		Readyz:               NewReadyzHandler(e.Readyz, mux, decoder, encoder, errhandler, formatter),
 	}
@@ -84,6 +102,12 @@ func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.SetItemStatus = m(s.SetItemStatus)
 	s.AssignItem = m(s.AssignItem)
 	s.UpdateItem = m(s.UpdateItem)
+	s.CreateApplication = m(s.CreateApplication)
+	s.ReviseApplication = m(s.ReviseApplication)
+	s.WithdrawApplication = m(s.WithdrawApplication)
+	s.AcceptApplication = m(s.AcceptApplication)
+	s.DenyApplication = m(s.DenyApplication)
+	s.DeleteApplication = m(s.DeleteApplication)
 	s.Livez = m(s.Livez)
 	s.Readyz = m(s.Readyz)
 }
@@ -98,6 +122,12 @@ func Mount(mux goahttp.Muxer, h *Server) {
 	MountSetItemStatusHandler(mux, h.SetItemStatus)
 	MountAssignItemHandler(mux, h.AssignItem)
 	MountUpdateItemHandler(mux, h.UpdateItem)
+	MountCreateApplicationHandler(mux, h.CreateApplication)
+	MountReviseApplicationHandler(mux, h.ReviseApplication)
+	MountWithdrawApplicationHandler(mux, h.WithdrawApplication)
+	MountAcceptApplicationHandler(mux, h.AcceptApplication)
+	MountDenyApplicationHandler(mux, h.DenyApplication)
+	MountDeleteApplicationHandler(mux, h.DeleteApplication)
 	MountLivezHandler(mux, h.Livez)
 	MountReadyzHandler(mux, h.Readyz)
 }
@@ -350,6 +380,330 @@ func NewUpdateItemHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
 		ctx = context.WithValue(ctx, goa.MethodKey, "update_item")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountCreateApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "create_application" endpoint.
+func MountCreateApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/project-applications", f)
+}
+
+// NewCreateApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service
+// "create_application" endpoint.
+func NewCreateApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeCreateApplicationRequest(mux, decoder)
+		encodeResponse = EncodeCreateApplicationResponse(encoder)
+		encodeError    = EncodeCreateApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "create_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountReviseApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "revise_application" endpoint.
+func MountReviseApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("PUT", "/project-applications/{uid}", f)
+}
+
+// NewReviseApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service
+// "revise_application" endpoint.
+func NewReviseApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeReviseApplicationRequest(mux, decoder)
+		encodeResponse = EncodeReviseApplicationResponse(encoder)
+		encodeError    = EncodeReviseApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "revise_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountWithdrawApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint.
+func MountWithdrawApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/project-applications/{uid}/withdraw", f)
+}
+
+// NewWithdrawApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service
+// "withdraw_application" endpoint.
+func NewWithdrawApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeWithdrawApplicationRequest(mux, decoder)
+		encodeResponse = EncodeWithdrawApplicationResponse(encoder)
+		encodeError    = EncodeWithdrawApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "withdraw_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountAcceptApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "accept_application" endpoint.
+func MountAcceptApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/project-applications/{uid}/accept", f)
+}
+
+// NewAcceptApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service
+// "accept_application" endpoint.
+func NewAcceptApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeAcceptApplicationRequest(mux, decoder)
+		encodeResponse = EncodeAcceptApplicationResponse(encoder)
+		encodeError    = EncodeAcceptApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "accept_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountDenyApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "deny_application" endpoint.
+func MountDenyApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/project-applications/{uid}/deny", f)
+}
+
+// NewDenyApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service "deny_application"
+// endpoint.
+func NewDenyApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeDenyApplicationRequest(mux, decoder)
+		encodeResponse = EncodeDenyApplicationResponse(encoder)
+		encodeError    = EncodeDenyApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "deny_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountDeleteApplicationHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "delete_application" endpoint.
+func MountDeleteApplicationHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("DELETE", "/project-applications/{uid}", f)
+}
+
+// NewDeleteApplicationHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service
+// "delete_application" endpoint.
+func NewDeleteApplicationHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeDeleteApplicationRequest(mux, decoder)
+		encodeResponse = EncodeDeleteApplicationResponse(encoder)
+		encodeError    = EncodeDeleteApplicationError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "delete_application")
 		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
 		payload, err := decodeRequest(r)
 		if err != nil {

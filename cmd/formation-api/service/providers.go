@@ -135,6 +135,22 @@ func TemplateRepositoryImpl(ctx context.Context, cfg *config.Config) port.Templa
 	return nil
 }
 
+// ApplicationRepositoryImpl initializes the application repository
+// implementation based on REPOSITORY_SOURCE.
+func ApplicationRepositoryImpl(ctx context.Context, cfg *config.Config) port.ApplicationRepository {
+	switch repositorySource() {
+	case "mock":
+		slog.InfoContext(ctx, "initializing mock application repository")
+		return mock.NewApplicationRepository()
+	case "postgres":
+		slog.InfoContext(ctx, "initializing postgres application repository")
+		return postgres.NewApplicationRepo(postgresImpl(ctx, cfg).Bun)
+	default:
+		log.Fatalf("unsupported REPOSITORY_SOURCE: %s", repositorySource())
+	}
+	return nil
+}
+
 // UnitOfWorkImpl wires the transaction UpdateItem commits an item change and
 // its activity entry through. In mock mode it must share the same repository
 // instances formations, items and activity already reference — a fresh set
@@ -148,6 +164,7 @@ func UnitOfWorkImpl(
 	items port.ItemRepository,
 	activity port.ActivityRepository,
 	templates port.TemplateRepository,
+	applications port.ApplicationRepository,
 ) port.UnitOfWork {
 	switch repositorySource() {
 	case "mock":
@@ -157,6 +174,7 @@ func UnitOfWorkImpl(
 			items.(*mock.ItemRepository),
 			activity.(*mock.ActivityRepository),
 			templates.(*mock.TemplateRepository),
+			applications.(*mock.ApplicationRepository),
 		)
 	case "postgres":
 		slog.InfoContext(ctx, "initializing postgres unit of work")
@@ -247,6 +265,24 @@ func IndexerPublisherImpl(ctx context.Context, cfg *config.Config) port.IndexerP
 	return nats.NewIndexerPublisher(client)
 }
 
+// AccessPublisherImpl returns the publisher that grants access on
+// applications, or nil when NATS could not be reached.
+//
+// Nil is worse here than it is for the indexer, and the difference is worth
+// stating: a missing projection is repaired by the next sweep, but no sweep
+// covers application grants. An application created while this is nil stays
+// unreadable by the person who filed it until something else republishes it.
+// The intake route logs that at error rather than refusing the submission,
+// because the record itself is sound.
+func AccessPublisherImpl(ctx context.Context, cfg *config.Config) port.AccessPublisher {
+	client := natsImpl(ctx, cfg)
+	if client == nil {
+		return nil
+	}
+	slog.InfoContext(ctx, "initializing NATS access publisher")
+	return nats.NewAccessPublisher(client)
+}
+
 // SubscriberImpl returns the subscriber the project event listener attaches to.
 //
 // Nil when NATS could not be reached, and unlike the publisher that nil costs
@@ -320,15 +356,16 @@ func AuthServiceImpl(ctx context.Context, cfg *config.Config) port.Authenticator
 // nobody else can see — the failure UnitOfWorkImpl's doc comment describes, and
 // the reconcile loop reproduced it by wiring itself independently.
 type Deps struct {
-	Formations port.FormationRepository
-	Items      port.ItemRepository
-	Activity   port.ActivityRepository
-	Templates  port.TemplateRepository
-	UnitOfWork port.UnitOfWork
-	Projects   port.ProjectReader
-	Indexer    port.IndexerPublisher
-	Subscriber port.Subscriber
-	Emailer    port.EmailDispatcher
+	Formations   port.FormationRepository
+	Items        port.ItemRepository
+	Activity     port.ActivityRepository
+	Templates    port.TemplateRepository
+	Applications port.ApplicationRepository
+	UnitOfWork   port.UnitOfWork
+	Projects     port.ProjectReader
+	Indexer      port.IndexerPublisher
+	Subscriber   port.Subscriber
+	Emailer      port.EmailDispatcher
 
 	// Projector is shared by the reconcile sweep and the write-path refresher
 	// rather than built once for each.
@@ -358,7 +395,8 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 	items := ItemRepositoryImpl(ctx, cfg)
 	activity := ActivityRepositoryImpl(ctx, cfg)
 	templates := TemplateRepositoryImpl(ctx, cfg)
-	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates)
+	applications := ApplicationRepositoryImpl(ctx, cfg)
+	uow := UnitOfWorkImpl(ctx, cfg, formations, items, activity, templates, applications)
 	projects := ProjectReaderImpl(ctx, cfg)
 	emailer := EmailDispatcherImpl(ctx, cfg)
 
@@ -413,6 +451,10 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 		usecaseSvc.WithItems(items),
 		usecaseSvc.WithActivity(activity),
 		usecaseSvc.WithTemplates(templates),
+		usecaseSvc.WithApplications(applications),
+		usecaseSvc.WithApplicationAccess(AccessPublisherImpl(ctx, cfg)),
+		usecaseSvc.WithApplicationIndexer(indexer),
+		usecaseSvc.WithApplicationTeam(cfg.ApplicationFormationTeam),
 		usecaseSvc.WithProjects(projects),
 		usecaseSvc.WithUnitOfWork(uow),
 		usecaseSvc.WithEmailer(emailer),
@@ -435,17 +477,18 @@ func New(ctx context.Context, cfg *config.Config) (*usecaseSvc.Service, *Deps, f
 	}
 
 	deps := &Deps{
-		Formations: formations,
-		Items:      items,
-		Activity:   activity,
-		Templates:  templates,
-		UnitOfWork: uow,
-		Projects:   projects,
-		Indexer:    indexer,
-		Subscriber: SubscriberImpl(ctx, cfg),
-		Emailer:    emailer,
-		Projector:  projector,
-		Refresher:  refresherImpl,
+		Formations:   formations,
+		Items:        items,
+		Activity:     activity,
+		Templates:    templates,
+		Applications: applications,
+		UnitOfWork:   uow,
+		Projects:     projects,
+		Indexer:      indexer,
+		Subscriber:   SubscriberImpl(ctx, cfg),
+		Emailer:      emailer,
+		Projector:    projector,
+		Refresher:    refresherImpl,
 	}
 
 	slog.InfoContext(ctx, "service dependencies wired")

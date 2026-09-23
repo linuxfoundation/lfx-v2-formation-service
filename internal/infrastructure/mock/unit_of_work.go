@@ -28,8 +28,15 @@ func NewUnitOfWork(
 	items *ItemRepository,
 	activity *ActivityRepository,
 	templates *TemplateRepository,
+	applications *ApplicationRepository,
 ) *UnitOfWork {
-	return &UnitOfWork{tx: tx{formations: formations, items: items, activity: activity, templates: templates}}
+	return &UnitOfWork{tx: tx{
+		formations:   formations,
+		items:        items,
+		activity:     activity,
+		templates:    templates,
+		applications: applications,
+	}}
 }
 
 // Do runs fn against the wired repositories. It never fails on its own; only
@@ -42,13 +49,15 @@ func (u *UnitOfWork) Do(_ context.Context, fn func(port.Tx) error) error {
 // tx implements port.Tx by returning the same repository instances the
 // UnitOfWork was constructed with.
 type tx struct {
-	formations *FormationRepository
-	items      *ItemRepository
-	activity   *ActivityRepository
-	templates  *TemplateRepository
+	formations   *FormationRepository
+	items        *ItemRepository
+	activity     *ActivityRepository
+	templates    *TemplateRepository
+	applications *ApplicationRepository
 }
 
-func (t tx) Formations() port.FormationRepository { return t.formations }
-func (t tx) Items() port.ItemRepository           { return t.items }
-func (t tx) Activity() port.ActivityRepository    { return t.activity }
-func (t tx) Templates() port.TemplateRepository   { return t.templates }
+func (t tx) Formations() port.FormationRepository     { return t.formations }
+func (t tx) Items() port.ItemRepository               { return t.items }
+func (t tx) Activity() port.ActivityRepository        { return t.activity }
+func (t tx) Templates() port.TemplateRepository       { return t.templates }
+func (t tx) Applications() port.ApplicationRepository { return t.applications }

@@ -27,16 +27,18 @@ func NewUnitOfWork(db *bun.DB) *UnitOfWork {
 // tx implements port.Tx over a single bun.Tx, constructing repositories that
 // all share the same underlying connection and transaction state.
 type tx struct {
-	formations *FormationRepo
-	items      *ItemRepo
-	activity   *ActivityRepo
-	templates  *TemplateRepo
+	formations   *FormationRepo
+	items        *ItemRepo
+	activity     *ActivityRepo
+	templates    *TemplateRepo
+	applications *ApplicationRepo
 }
 
-func (t *tx) Formations() port.FormationRepository { return t.formations }
-func (t *tx) Items() port.ItemRepository           { return t.items }
-func (t *tx) Activity() port.ActivityRepository    { return t.activity }
-func (t *tx) Templates() port.TemplateRepository   { return t.templates }
+func (t *tx) Formations() port.FormationRepository     { return t.formations }
+func (t *tx) Items() port.ItemRepository               { return t.items }
+func (t *tx) Activity() port.ActivityRepository        { return t.activity }
+func (t *tx) Templates() port.TemplateRepository       { return t.templates }
+func (t *tx) Applications() port.ApplicationRepository { return t.applications }
 
 // Do runs fn inside a transaction, committing on a nil return and rolling
 // back otherwise — including on panic, since bun's RunInTx re-panics after
@@ -44,10 +46,11 @@ func (t *tx) Templates() port.TemplateRepository   { return t.templates }
 func (u *UnitOfWork) Do(ctx context.Context, fn func(port.Tx) error) error {
 	err := u.db.RunInTx(ctx, nil, func(ctx context.Context, btx bun.Tx) error {
 		t := &tx{
-			formations: NewFormationRepo(btx),
-			items:      NewItemRepo(btx),
-			activity:   NewActivityRepo(btx),
-			templates:  NewTemplateRepo(btx),
+			formations:   NewFormationRepo(btx),
+			items:        NewItemRepo(btx),
+			activity:     NewActivityRepo(btx),
+			templates:    NewTemplateRepo(btx),
+			applications: NewApplicationRepo(btx),
 		}
 		return fn(t)
 	})

@@ -151,6 +151,45 @@ type TemplateRepository interface {
 	Upsert(ctx context.Context, t *model.Template) (*model.Template, error)
 }
 
+// ApplicationRepository persists project applications.
+//
+// No list method, and that is the design rather than an omission. A staff
+// queue and a submitter's own applications are both served from the indexed
+// document through the query service, which resolves the reader's access per
+// document; a list built here would have to re-derive that access in Go,
+// which this service does not do anywhere and the gateway exists to prevent.
+type ApplicationRepository interface {
+	// Create inserts an application.
+	Create(ctx context.Context, a *model.Application) (*model.Application, error)
+
+	// Get returns one application, or ErrNotFound.
+	Get(ctx context.Context, uid uuid.UUID) (*model.Application, error)
+
+	// Delete removes the application. The design gives delete its own
+	// endpoint alongside revise and withdraw, reachable by submitter or
+	// formation team alike.
+	Delete(ctx context.Context, uid uuid.UUID) error
+
+	// GetForUpdate is Get holding the row until the surrounding transaction
+	// ends.
+	//
+	// Every write path uses it because an application carries no revision
+	// counter, so there is no optimistic lock to detect that the row moved.
+	// The row lock is the whole of the concurrency control: without it, a
+	// revise and a decision arriving together both read the same state and
+	// both write, and the later write wins silently — a reviewer's decision
+	// recorded against a payload they never saw.
+	GetForUpdate(ctx context.Context, uid uuid.UUID) (*model.Application, error)
+
+	// UpdatePayload replaces the intake answers, leaving the state alone.
+	UpdatePayload(ctx context.Context, uid uuid.UUID, payload map[string]any) (*model.Application, error)
+
+	// Transition moves the state.
+	Transition(
+		ctx context.Context, uid uuid.UUID, to model.ApplicationState,
+	) (*model.Application, error)
+}
+
 // UnitOfWork runs a function against repositories bound to one transaction, so
 // an item change and its activity entry commit together or not at all.
 type UnitOfWork interface {
@@ -163,6 +202,7 @@ type Tx interface {
 	Items() ItemRepository
 	Activity() ActivityRepository
 	Templates() TemplateRepository
+	Applications() ApplicationRepository
 }
 
 // ProjectReader reads the project facts this service needs and never stores.
@@ -329,6 +369,103 @@ type IndexerPublisher interface {
 	// today (FormationRepository has no Delete). This exists as the same
 	// operator-run repair DeleteFormation already is.
 	DeleteItem(ctx context.Context, itemUID string) error
+
+	// PublishApplication upserts one application's projection.
+	//
+	// Unlike the two above, this is not best-effort repaired by anything. The
+	// reconcile sweep walks forming projects, and an application has no
+	// project, so nothing republishes it. This document is also the only read
+	// path an application has — the service hosts no collection endpoint — so
+	// a publish that never lands is an application nobody can find, including
+	// the person who filed it.
+	PublishApplication(ctx context.Context, doc *ApplicationProjection) error
+
+	// DeleteApplication removes one application's projection from the index.
+	DeleteApplication(ctx context.Context, applicationUID string) error
+}
+
+// ApplicationProjection is one application as the search index holds it.
+//
+// Deliberately not a variant of FormationProjection. That document is built
+// from a project UID, carries the project's name, slug, stage and ancestry,
+// and declares its access check against `project:<uid>`. An application has
+// none of those, and the staff queue must not be narrowed by where in the
+// project tree a reader navigated from — the queue is a navigation location,
+// not a scoping boundary. Reusing the checklist's shape is the natural move
+// and it is the one that breaks this.
+type ApplicationProjection struct {
+	// ApplicationUID is the document's identity, the FGA object id, and the
+	// primary key of the row it came from — one value, three uses, so nothing
+	// has to be correlated to delete or re-read it.
+	ApplicationUID string
+
+	State string
+
+	// The submitter, carried so the queue can render a row without a second
+	// lookup. Email is PII, which is why the relation guarding this document
+	// must resolve through the subject rather than a wildcard.
+	SubmitterUsername string
+	SubmitterName     string
+	SubmitterEmail    string
+
+	// ProjectName is the proposed project's name, read out of the intake
+	// answers and copied out for name search and queue rendering.
+	ProjectName string
+
+	// Payload and TargetParentUID are private review details. They are indexed
+	// so the relation-checked query result can drive review and prefill the
+	// staff project-create handoff without a second read API.
+	Payload         map[string]any
+	TargetParentUID *string
+
+	CreatedAt string
+	UpdatedAt string
+
+	// AccessRelation is what a caller must hold on the application to read
+	// this document. Carried rather than chosen by the publisher, for the
+	// same reason the other two projections carry it, and refused when empty
+	// rather than defaulted — a document indexed with no access check is
+	// readable by everyone, and nothing downstream would report it.
+	AccessRelation string
+}
+
+// AccessPublisher writes the access grants on objects this service owns.
+//
+// The service's first outbound access path: until applications, it published
+// search projections and nothing else, because a checklist's grants come from
+// its project and another service maintains those. An application has no
+// project, so nobody else can grant anything on it.
+type AccessPublisher interface {
+	// PublishApplicationAccess sets the relations on one application.
+	//
+	// A full sync, not a patch. Any relation the message does not carry is
+	// removed, so every caller sends the complete set rather than the part it
+	// changed.
+	PublishApplicationAccess(ctx context.Context, access ApplicationAccess) error
+
+	// DeleteApplicationAccess removes the publisher-managed grants on one
+	// application. fga-sync preserves team-subject tuples, so the formation
+	// team's standing survives.
+	DeleteApplicationAccess(ctx context.Context, applicationUID string) error
+}
+
+// ApplicationAccess is the complete grant set on one application.
+//
+// Complete is the operative word: the update is a full sync, so a field left
+// empty here is a relation revoked there.
+type ApplicationAccess struct {
+	ApplicationUID string
+
+	// SubmitterUsername receives the relation that lets the applicant read,
+	// revise, withdraw and delete what they filed. It is the only reason they
+	// can see it at all: they hold nothing on any project, and the create
+	// carried no credential of theirs.
+	SubmitterUsername string
+
+	// FormationTeam is the team whose members review applications, granted as
+	// a team reference rather than per member, so membership changes need no
+	// republish of every application.
+	FormationTeam string
 }
 
 // ItemProjection is one row's worth of the Pending Actions surface: a single

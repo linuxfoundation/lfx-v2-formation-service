@@ -43,6 +43,33 @@ type UpdateItemRequestBody struct {
 	EvidenceLink *string `form:"evidence_link,omitempty" json:"evidence_link,omitempty" xml:"evidence_link,omitempty"`
 }
 
+// CreateApplicationRequestBody is the type of the "lfx_v2_formation_service"
+// service "create_application" endpoint HTTP request body.
+type CreateApplicationRequestBody struct {
+	// The applicant's username, as the calling UI knows it.
+	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
+	// The applicant's display name.
+	SubmitterName string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
+	// The applicant's email address.
+	SubmitterEmail string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
+	// Optional. Where the applicant started from, carried as a hint to prefill the
+	// approver's form. It does not decide the parent or the incorporated entity,
+	// and it grants nobody anything. Normally absent.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers. Carries the proposed project's website as a URL. People
+	// named for the formation work are email addresses only — they are not
+	// resolved to platform identities, granted anything, or notified.
+	Application map[string]any `form:"application" json:"application" xml:"application"`
+}
+
+// ReviseApplicationRequestBody is the type of the "lfx_v2_formation_service"
+// service "revise_application" endpoint HTTP request body.
+type ReviseApplicationRequestBody struct {
+	// The complete set of intake answers, replacing what is stored. Validated the
+	// same way the original submission was.
+	Application map[string]any `form:"application" json:"application" xml:"application"`
+}
+
 // GetFormationResponseBody is the type of the "lfx_v2_formation_service"
 // service "get_formation" endpoint HTTP response body.
 type GetFormationResponseBody struct {
@@ -78,6 +105,112 @@ type AssignItemResponseBody FormationItemResponseBody
 // UpdateItemResponseBody is the type of the "lfx_v2_formation_service" service
 // "update_item" endpoint HTTP response body.
 type UpdateItemResponseBody FormationItemResponseBody
+
+// CreateApplicationResponseBody is the type of the "lfx_v2_formation_service"
+// service "create_application" endpoint HTTP response body.
+type CreateApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+}
+
+// ReviseApplicationResponseBody is the type of the "lfx_v2_formation_service"
+// service "revise_application" endpoint HTTP response body.
+type ReviseApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+}
+
+// WithdrawApplicationResponseBody is the type of the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
+// response body.
+type WithdrawApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+}
+
+// AcceptApplicationResponseBody is the type of the "lfx_v2_formation_service"
+// service "accept_application" endpoint HTTP response body.
+type AcceptApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+}
+
+// DenyApplicationResponseBody is the type of the "lfx_v2_formation_service"
+// service "deny_application" endpoint HTTP response body.
+type DenyApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+}
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -325,6 +458,171 @@ type UpdateItemUnauthorizedResponseBody struct {
 	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
 }
 
+// CreateApplicationBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "create_application" endpoint HTTP
+// response body for the "BadRequest" error.
+type CreateApplicationBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// CreateApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "create_application" endpoint HTTP
+// response body for the "Unauthorized" error.
+type CreateApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// ReviseApplicationBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "revise_application" endpoint HTTP
+// response body for the "BadRequest" error.
+type ReviseApplicationBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// ReviseApplicationNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "revise_application" endpoint HTTP
+// response body for the "NotFound" error.
+type ReviseApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// ReviseApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "revise_application" endpoint HTTP
+// response body for the "Unauthorized" error.
+type ReviseApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// WithdrawApplicationNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
+// response body for the "NotFound" error.
+type WithdrawApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// WithdrawApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
+// response body for the "Unauthorized" error.
+type WithdrawApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// AcceptApplicationNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_application" endpoint HTTP
+// response body for the "NotFound" error.
+type AcceptApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// AcceptApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_application" endpoint HTTP
+// response body for the "Unauthorized" error.
+type AcceptApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// DenyApplicationNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
+// body for the "NotFound" error.
+type DenyApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// DenyApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
+// body for the "Unauthorized" error.
+type DenyApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// DeleteApplicationNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "delete_application" endpoint HTTP
+// response body for the "NotFound" error.
+type DeleteApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// DeleteApplicationUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "delete_application" endpoint HTTP
+// response body for the "Unauthorized" error.
+type DeleteApplicationUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
 // ReadyzServiceUnavailableResponseBody is the type of the
 // "lfx_v2_formation_service" service "readyz" endpoint HTTP response body for
 // the "ServiceUnavailable" error.
@@ -493,6 +791,43 @@ func NewUpdateItemRequestBody(p *lfxv2formationservice.UpdateItemPayload) *Updat
 	body := &UpdateItemRequestBody{
 		Note:         p.Note,
 		EvidenceLink: p.EvidenceLink,
+	}
+	return body
+}
+
+// NewCreateApplicationRequestBody builds the HTTP request body from the
+// payload of the "create_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewCreateApplicationRequestBody(p *lfxv2formationservice.CreateApplicationPayload) *CreateApplicationRequestBody {
+	body := &CreateApplicationRequestBody{
+		SubmitterUsername: p.SubmitterUsername,
+		SubmitterName:     p.SubmitterName,
+		SubmitterEmail:    p.SubmitterEmail,
+		TargetParentUID:   p.TargetParentUID,
+	}
+	if p.Application != nil {
+		body.Application = make(map[string]any, len(p.Application))
+		for key, val := range p.Application {
+			tk := key
+			tv := val
+			body.Application[tk] = tv
+		}
+	}
+	return body
+}
+
+// NewReviseApplicationRequestBody builds the HTTP request body from the
+// payload of the "revise_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewReviseApplicationRequestBody(p *lfxv2formationservice.ReviseApplicationPayload) *ReviseApplicationRequestBody {
+	body := &ReviseApplicationRequestBody{}
+	if p.Application != nil {
+		body.Application = make(map[string]any, len(p.Application))
+		for key, val := range p.Application {
+			tk := key
+			tv := val
+			body.Application[tk] = tv
+		}
 	}
 	return body
 }
@@ -940,6 +1275,280 @@ func NewUpdateItemBadRequest(body *UpdateItemBadRequestResponseBody) *lfxv2forma
 // NewUpdateItemUnauthorized builds a lfx_v2_formation_service service
 // update_item endpoint Unauthorized error.
 func NewUpdateItemUnauthorized(body *UpdateItemUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewCreateApplicationProjectApplicationCreated builds a
+// "lfx_v2_formation_service" service "create_application" endpoint result from
+// a HTTP "Created" response.
+func NewCreateApplicationProjectApplicationCreated(body *CreateApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+	v := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               body.UID,
+		State:             body.State,
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+		CreatedAt:         body.CreatedAt,
+		UpdatedAt:         body.UpdatedAt,
+	}
+	v.Application = make(map[string]any, len(body.Application))
+	for key, val := range body.Application {
+		tk := key
+		tv := val
+		v.Application[tk] = tv
+	}
+
+	return v
+}
+
+// NewCreateApplicationBadRequest builds a lfx_v2_formation_service service
+// create_application endpoint BadRequest error.
+func NewCreateApplicationBadRequest(body *CreateApplicationBadRequestResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewCreateApplicationUnauthorized builds a lfx_v2_formation_service service
+// create_application endpoint Unauthorized error.
+func NewCreateApplicationUnauthorized(body *CreateApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewReviseApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
+// service "revise_application" endpoint result from a HTTP "OK" response.
+func NewReviseApplicationProjectApplicationOK(body *ReviseApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+	v := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               body.UID,
+		State:             body.State,
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+		CreatedAt:         body.CreatedAt,
+		UpdatedAt:         body.UpdatedAt,
+	}
+	v.Application = make(map[string]any, len(body.Application))
+	for key, val := range body.Application {
+		tk := key
+		tv := val
+		v.Application[tk] = tv
+	}
+
+	return v
+}
+
+// NewReviseApplicationBadRequest builds a lfx_v2_formation_service service
+// revise_application endpoint BadRequest error.
+func NewReviseApplicationBadRequest(body *ReviseApplicationBadRequestResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewReviseApplicationNotFound builds a lfx_v2_formation_service service
+// revise_application endpoint NotFound error.
+func NewReviseApplicationNotFound(body *ReviseApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewReviseApplicationUnauthorized builds a lfx_v2_formation_service service
+// revise_application endpoint Unauthorized error.
+func NewReviseApplicationUnauthorized(body *ReviseApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewWithdrawApplicationProjectApplicationOK builds a
+// "lfx_v2_formation_service" service "withdraw_application" endpoint result
+// from a HTTP "OK" response.
+func NewWithdrawApplicationProjectApplicationOK(body *WithdrawApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+	v := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               body.UID,
+		State:             body.State,
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+		CreatedAt:         body.CreatedAt,
+		UpdatedAt:         body.UpdatedAt,
+	}
+	v.Application = make(map[string]any, len(body.Application))
+	for key, val := range body.Application {
+		tk := key
+		tv := val
+		v.Application[tk] = tv
+	}
+
+	return v
+}
+
+// NewWithdrawApplicationNotFound builds a lfx_v2_formation_service service
+// withdraw_application endpoint NotFound error.
+func NewWithdrawApplicationNotFound(body *WithdrawApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewWithdrawApplicationUnauthorized builds a lfx_v2_formation_service service
+// withdraw_application endpoint Unauthorized error.
+func NewWithdrawApplicationUnauthorized(body *WithdrawApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewAcceptApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
+// service "accept_application" endpoint result from a HTTP "OK" response.
+func NewAcceptApplicationProjectApplicationOK(body *AcceptApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+	v := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               body.UID,
+		State:             body.State,
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+		CreatedAt:         body.CreatedAt,
+		UpdatedAt:         body.UpdatedAt,
+	}
+	v.Application = make(map[string]any, len(body.Application))
+	for key, val := range body.Application {
+		tk := key
+		tv := val
+		v.Application[tk] = tv
+	}
+
+	return v
+}
+
+// NewAcceptApplicationNotFound builds a lfx_v2_formation_service service
+// accept_application endpoint NotFound error.
+func NewAcceptApplicationNotFound(body *AcceptApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAcceptApplicationUnauthorized builds a lfx_v2_formation_service service
+// accept_application endpoint Unauthorized error.
+func NewAcceptApplicationUnauthorized(body *AcceptApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewDenyApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
+// service "deny_application" endpoint result from a HTTP "OK" response.
+func NewDenyApplicationProjectApplicationOK(body *DenyApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+	v := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               body.UID,
+		State:             body.State,
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+		CreatedAt:         body.CreatedAt,
+		UpdatedAt:         body.UpdatedAt,
+	}
+	v.Application = make(map[string]any, len(body.Application))
+	for key, val := range body.Application {
+		tk := key
+		tv := val
+		v.Application[tk] = tv
+	}
+
+	return v
+}
+
+// NewDenyApplicationNotFound builds a lfx_v2_formation_service service
+// deny_application endpoint NotFound error.
+func NewDenyApplicationNotFound(body *DenyApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewDenyApplicationUnauthorized builds a lfx_v2_formation_service service
+// deny_application endpoint Unauthorized error.
+func NewDenyApplicationUnauthorized(body *DenyApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewDeleteApplicationNotFound builds a lfx_v2_formation_service service
+// delete_application endpoint NotFound error.
+func NewDeleteApplicationNotFound(body *DeleteApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewDeleteApplicationUnauthorized builds a lfx_v2_formation_service service
+// delete_application endpoint Unauthorized error.
+func NewDeleteApplicationUnauthorized(body *DeleteApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
 	v := &lfxv2formationservice.UnauthorizedError{
 		Code:    *body.Code,
 		Message: *body.Message,
@@ -1541,6 +2150,239 @@ func ValidateUpdateItemBadRequestResponseBody(body *UpdateItemBadRequestResponse
 // ValidateUpdateItemUnauthorizedResponseBody runs the validations defined on
 // update_item_Unauthorized_response_body
 func ValidateUpdateItemUnauthorizedResponseBody(body *UpdateItemUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateCreateApplicationBadRequestResponseBody runs the validations defined
+// on create_application_BadRequest_response_body
+func ValidateCreateApplicationBadRequestResponseBody(body *CreateApplicationBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateCreateApplicationUnauthorizedResponseBody runs the validations
+// defined on create_application_Unauthorized_response_body
+func ValidateCreateApplicationUnauthorizedResponseBody(body *CreateApplicationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateReviseApplicationBadRequestResponseBody runs the validations defined
+// on revise_application_BadRequest_response_body
+func ValidateReviseApplicationBadRequestResponseBody(body *ReviseApplicationBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateReviseApplicationNotFoundResponseBody runs the validations defined
+// on revise_application_NotFound_response_body
+func ValidateReviseApplicationNotFoundResponseBody(body *ReviseApplicationNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateReviseApplicationUnauthorizedResponseBody runs the validations
+// defined on revise_application_Unauthorized_response_body
+func ValidateReviseApplicationUnauthorizedResponseBody(body *ReviseApplicationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateWithdrawApplicationNotFoundResponseBody runs the validations defined
+// on withdraw_application_NotFound_response_body
+func ValidateWithdrawApplicationNotFoundResponseBody(body *WithdrawApplicationNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateWithdrawApplicationUnauthorizedResponseBody runs the validations
+// defined on withdraw_application_Unauthorized_response_body
+func ValidateWithdrawApplicationUnauthorizedResponseBody(body *WithdrawApplicationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateAcceptApplicationNotFoundResponseBody runs the validations defined
+// on accept_application_NotFound_response_body
+func ValidateAcceptApplicationNotFoundResponseBody(body *AcceptApplicationNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateAcceptApplicationUnauthorizedResponseBody runs the validations
+// defined on accept_application_Unauthorized_response_body
+func ValidateAcceptApplicationUnauthorizedResponseBody(body *AcceptApplicationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateDenyApplicationNotFoundResponseBody runs the validations defined on
+// deny_application_NotFound_response_body
+func ValidateDenyApplicationNotFoundResponseBody(body *DenyApplicationNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateDenyApplicationUnauthorizedResponseBody runs the validations defined
+// on deny_application_Unauthorized_response_body
+func ValidateDenyApplicationUnauthorizedResponseBody(body *DenyApplicationUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateDeleteApplicationNotFoundResponseBody runs the validations defined
+// on delete_application_NotFound_response_body
+func ValidateDeleteApplicationNotFoundResponseBody(body *DeleteApplicationNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateDeleteApplicationUnauthorizedResponseBody runs the validations
+// defined on delete_application_Unauthorized_response_body
+func ValidateDeleteApplicationUnauthorizedResponseBody(body *DeleteApplicationUnauthorizedResponseBody) (err error) {
 	if body.Code == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
 	}

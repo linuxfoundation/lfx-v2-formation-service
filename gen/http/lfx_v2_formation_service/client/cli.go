@@ -128,7 +128,7 @@ func BuildSetItemStatusPayload(lfxV2FormationServiceSetItemStatusBody string, lf
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceSetItemStatusBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Dolorem esse fugiat aperiam.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         },\n         {\n            \"key\": \"Dignissimos dolor aliquid.\",\n            \"status\": \"in_progress\"\n         }\n      ]\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Eum laboriosam quidem suscipit harum in.\",\n      \"status\": \"skipped\",\n      \"sub_items\": [\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }'")
 		}
 		if body.Status != nil {
 			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
@@ -208,7 +208,7 @@ func BuildAssignItemPayload(lfxV2FormationServiceAssignItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceAssignItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Non sunt et velit.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Ea vitae aut modi officia nihil.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -263,7 +263,7 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Dolorem facere.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Quae quasi.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -306,6 +306,261 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 	v.Version = version
 	v.BearerToken = bearerToken
 	v.IfMatch = ifMatch
+
+	return v, nil
+}
+
+// BuildCreateApplicationPayload builds the payload for the
+// lfx_v2_formation_service create_application endpoint from CLI flags.
+func BuildCreateApplicationPayload(lfxV2FormationServiceCreateApplicationBody string, lfxV2FormationServiceCreateApplicationVersion string, lfxV2FormationServiceCreateApplicationBearerToken string) (*lfxv2formationservice.CreateApplicationPayload, error) {
+	var err error
+	var body CreateApplicationRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceCreateApplicationBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Perferendis culpa amet eos.\": \"Laborum sequi itaque sed.\"\n      },\n      \"submitter_email\": \"jo.herman@kiehn.info\",\n      \"submitter_name\": \"Labore eius ut.\",\n      \"submitter_username\": \"Nostrum quam optio nihil et inventore odio.\",\n      \"target_parent_uid\": \"Et reprehenderit qui qui omnis ea.\"\n   }'")
+		}
+		if body.Application == nil {
+			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
+		}
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.submitter_email", body.SubmitterEmail, goa.FormatEmail))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceCreateApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceCreateApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceCreateApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.CreateApplicationPayload{
+		SubmitterUsername: body.SubmitterUsername,
+		SubmitterName:     body.SubmitterName,
+		SubmitterEmail:    body.SubmitterEmail,
+		TargetParentUID:   body.TargetParentUID,
+	}
+	if body.Application != nil {
+		v.Application = make(map[string]any, len(body.Application))
+		for key, val := range body.Application {
+			tk := key
+			tv := val
+			v.Application[tk] = tv
+		}
+	}
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildReviseApplicationPayload builds the payload for the
+// lfx_v2_formation_service revise_application endpoint from CLI flags.
+func BuildReviseApplicationPayload(lfxV2FormationServiceReviseApplicationBody string, lfxV2FormationServiceReviseApplicationUID string, lfxV2FormationServiceReviseApplicationVersion string, lfxV2FormationServiceReviseApplicationBearerToken string) (*lfxv2formationservice.ReviseApplicationPayload, error) {
+	var err error
+	var body ReviseApplicationRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceReviseApplicationBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Maxime qui in minus.\": \"Saepe illo est tempore sit nulla in.\",\n         \"Soluta amet.\": \"Est et amet quos.\"\n      }\n   }'")
+		}
+		if body.Application == nil {
+			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var uid string
+	{
+		uid = lfxV2FormationServiceReviseApplicationUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceReviseApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceReviseApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceReviseApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.ReviseApplicationPayload{}
+	if body.Application != nil {
+		v.Application = make(map[string]any, len(body.Application))
+		for key, val := range body.Application {
+			tk := key
+			tv := val
+			v.Application[tk] = tv
+		}
+	}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildWithdrawApplicationPayload builds the payload for the
+// lfx_v2_formation_service withdraw_application endpoint from CLI flags.
+func BuildWithdrawApplicationPayload(lfxV2FormationServiceWithdrawApplicationUID string, lfxV2FormationServiceWithdrawApplicationVersion string, lfxV2FormationServiceWithdrawApplicationBearerToken string) (*lfxv2formationservice.WithdrawApplicationPayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceWithdrawApplicationUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceWithdrawApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceWithdrawApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceWithdrawApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.WithdrawApplicationPayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildAcceptApplicationPayload builds the payload for the
+// lfx_v2_formation_service accept_application endpoint from CLI flags.
+func BuildAcceptApplicationPayload(lfxV2FormationServiceAcceptApplicationUID string, lfxV2FormationServiceAcceptApplicationVersion string, lfxV2FormationServiceAcceptApplicationBearerToken string) (*lfxv2formationservice.AcceptApplicationPayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceAcceptApplicationUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceAcceptApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceAcceptApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceAcceptApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.AcceptApplicationPayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildDenyApplicationPayload builds the payload for the
+// lfx_v2_formation_service deny_application endpoint from CLI flags.
+func BuildDenyApplicationPayload(lfxV2FormationServiceDenyApplicationUID string, lfxV2FormationServiceDenyApplicationVersion string, lfxV2FormationServiceDenyApplicationBearerToken string) (*lfxv2formationservice.DenyApplicationPayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceDenyApplicationUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceDenyApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceDenyApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceDenyApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.DenyApplicationPayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildDeleteApplicationPayload builds the payload for the
+// lfx_v2_formation_service delete_application endpoint from CLI flags.
+func BuildDeleteApplicationPayload(lfxV2FormationServiceDeleteApplicationUID string, lfxV2FormationServiceDeleteApplicationVersion string, lfxV2FormationServiceDeleteApplicationBearerToken string) (*lfxv2formationservice.DeleteApplicationPayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceDeleteApplicationUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceDeleteApplicationVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceDeleteApplicationBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceDeleteApplicationBearerToken
+		}
+	}
+	v := &lfxv2formationservice.DeleteApplicationPayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
 
 	return v, nil
 }

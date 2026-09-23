@@ -828,6 +828,742 @@ func DecodeUpdateItemResponse(decoder func(*http.Response) goahttp.Decoder, rest
 	}
 }
 
+// BuildCreateApplicationRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "create_application" endpoint
+func (c *Client) BuildCreateApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: CreateApplicationLfxV2FormationServicePath()}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "create_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeCreateApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service create_application server.
+func EncodeCreateApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.CreateApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "create_application", "*lfxv2formationservice.CreateApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewCreateApplicationRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "create_application", err)
+		}
+		return nil
+	}
+}
+
+// DecodeCreateApplicationResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service create_application endpoint. restoreBody
+// controls whether the response body should be restored after having been read.
+// DecodeCreateApplicationResponse may return the following errors:
+//   - "BadRequest" (type *lfxv2formationservice.ApplicationError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeCreateApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusCreated:
+			var (
+				body CreateApplicationResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_application", err)
+			}
+			p := NewCreateApplicationProjectApplicationCreated(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_application", err)
+			}
+			res := lfxv2formationservice.NewProjectApplication(vres)
+			return res, nil
+		case http.StatusBadRequest:
+			var (
+				body CreateApplicationBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_application", err)
+			}
+			err = ValidateCreateApplicationBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_application", err)
+			}
+			return nil, NewCreateApplicationBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body CreateApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_application", err)
+			}
+			err = ValidateCreateApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_application", err)
+			}
+			return nil, NewCreateApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "create_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildReviseApplicationRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "revise_application" endpoint
+func (c *Client) BuildReviseApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.ReviseApplicationPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "revise_application", "*lfxv2formationservice.ReviseApplicationPayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: ReviseApplicationLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("PUT", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "revise_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeReviseApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service revise_application server.
+func EncodeReviseApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.ReviseApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "revise_application", "*lfxv2formationservice.ReviseApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewReviseApplicationRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "revise_application", err)
+		}
+		return nil
+	}
+}
+
+// DecodeReviseApplicationResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service revise_application endpoint. restoreBody
+// controls whether the response body should be restored after having been read.
+// DecodeReviseApplicationResponse may return the following errors:
+//   - "BadRequest" (type *lfxv2formationservice.ApplicationError): http.StatusBadRequest
+//   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeReviseApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body ReviseApplicationResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
+			}
+			p := NewReviseApplicationProjectApplicationOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
+			}
+			res := lfxv2formationservice.NewProjectApplication(vres)
+			return res, nil
+		case http.StatusBadRequest:
+			var (
+				body ReviseApplicationBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
+			}
+			err = ValidateReviseApplicationBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
+			}
+			return nil, NewReviseApplicationBadRequest(&body)
+		case http.StatusNotFound:
+			var (
+				body ReviseApplicationNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
+			}
+			err = ValidateReviseApplicationNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
+			}
+			return nil, NewReviseApplicationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body ReviseApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
+			}
+			err = ValidateReviseApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
+			}
+			return nil, NewReviseApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "revise_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildWithdrawApplicationRequest instantiates a HTTP request object with
+// method and path set to call the "lfx_v2_formation_service" service
+// "withdraw_application" endpoint
+func (c *Client) BuildWithdrawApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.WithdrawApplicationPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "withdraw_application", "*lfxv2formationservice.WithdrawApplicationPayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: WithdrawApplicationLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "withdraw_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeWithdrawApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service withdraw_application server.
+func EncodeWithdrawApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.WithdrawApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "withdraw_application", "*lfxv2formationservice.WithdrawApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeWithdrawApplicationResponse returns a decoder for responses returned
+// by the lfx_v2_formation_service withdraw_application endpoint. restoreBody
+// controls whether the response body should be restored after having been read.
+// DecodeWithdrawApplicationResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeWithdrawApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body WithdrawApplicationResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			p := NewWithdrawApplicationProjectApplicationOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			res := lfxv2formationservice.NewProjectApplication(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body WithdrawApplicationNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			err = ValidateWithdrawApplicationNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			return nil, NewWithdrawApplicationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body WithdrawApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			err = ValidateWithdrawApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			return nil, NewWithdrawApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "withdraw_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildAcceptApplicationRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "accept_application" endpoint
+func (c *Client) BuildAcceptApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.AcceptApplicationPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "accept_application", "*lfxv2formationservice.AcceptApplicationPayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: AcceptApplicationLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "accept_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeAcceptApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service accept_application server.
+func EncodeAcceptApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.AcceptApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "accept_application", "*lfxv2formationservice.AcceptApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeAcceptApplicationResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service accept_application endpoint. restoreBody
+// controls whether the response body should be restored after having been read.
+// DecodeAcceptApplicationResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeAcceptApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body AcceptApplicationResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_application", err)
+			}
+			p := NewAcceptApplicationProjectApplicationOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
+			}
+			res := lfxv2formationservice.NewProjectApplication(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body AcceptApplicationNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_application", err)
+			}
+			err = ValidateAcceptApplicationNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
+			}
+			return nil, NewAcceptApplicationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body AcceptApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_application", err)
+			}
+			err = ValidateAcceptApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
+			}
+			return nil, NewAcceptApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "accept_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildDenyApplicationRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "deny_application" endpoint
+func (c *Client) BuildDenyApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.DenyApplicationPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "deny_application", "*lfxv2formationservice.DenyApplicationPayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: DenyApplicationLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "deny_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeDenyApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service deny_application server.
+func EncodeDenyApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.DenyApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "deny_application", "*lfxv2formationservice.DenyApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeDenyApplicationResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service deny_application endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodeDenyApplicationResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeDenyApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body DenyApplicationResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "deny_application", err)
+			}
+			p := NewDenyApplicationProjectApplicationOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
+			}
+			res := lfxv2formationservice.NewProjectApplication(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body DenyApplicationNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "deny_application", err)
+			}
+			err = ValidateDenyApplicationNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
+			}
+			return nil, NewDenyApplicationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body DenyApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "deny_application", err)
+			}
+			err = ValidateDenyApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
+			}
+			return nil, NewDenyApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "deny_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildDeleteApplicationRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "delete_application" endpoint
+func (c *Client) BuildDeleteApplicationRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.DeleteApplicationPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "delete_application", "*lfxv2formationservice.DeleteApplicationPayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: DeleteApplicationLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("DELETE", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "delete_application", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeDeleteApplicationRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service delete_application server.
+func EncodeDeleteApplicationRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.DeleteApplicationPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "delete_application", "*lfxv2formationservice.DeleteApplicationPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeDeleteApplicationResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service delete_application endpoint. restoreBody
+// controls whether the response body should be restored after having been read.
+// DecodeDeleteApplicationResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeDeleteApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusNoContent:
+			return nil, nil
+		case http.StatusNotFound:
+			var (
+				body DeleteApplicationNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "delete_application", err)
+			}
+			err = ValidateDeleteApplicationNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "delete_application", err)
+			}
+			return nil, NewDeleteApplicationNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body DeleteApplicationUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "delete_application", err)
+			}
+			err = ValidateDeleteApplicationUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "delete_application", err)
+			}
+			return nil, NewDeleteApplicationUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "delete_application", resp.StatusCode, string(body))
+		}
+	}
+}
+
 // BuildLivezRequest instantiates a HTTP request object with method and path
 // set to call the "lfx_v2_formation_service" service "livez" endpoint
 func (c *Client) BuildLivezRequest(ctx context.Context, v any) (*http.Request, error) {

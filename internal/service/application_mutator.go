@@ -1,0 +1,168 @@
+// Copyright The Linux Foundation and each contributor to LFX.
+// SPDX-License-Identifier: MIT
+
+package service
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+
+	"github.com/google/uuid"
+
+	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
+)
+
+// The one refusal these routes add to the intake reasons they share. It is
+// not a rule about applications — a uuid that will not parse names no row, so
+// there is nothing to look up.
+const reasonApplicationUIDBad = "application_uid_invalid"
+
+// ReviseApplication replaces the answers on an application.
+//
+// No audience appears anywhere in this function, and that is the point. The
+// submitter and the formation team both reach it, the gateway having resolved
+// `writer` on the application object for either of them, and the model grants
+// that relation to both. Branching on who the caller is here would put the
+// same rule in a second place, where the two copies drift.
+func (s *Service) ReviseApplication(
+	ctx context.Context, p *svc.ReviseApplicationPayload,
+) (*svc.ProjectApplication, error) {
+	return s.mutateApplication(ctx, "revise-application", p.UID, func(
+		ctx context.Context, tx port.Tx, current *model.Application,
+	) (*model.Application, error) {
+		answers, err := validateAnswers(p.Application)
+		if err != nil {
+			return nil, err
+		}
+		// The previous answers are overwritten. Payload versioning was not
+		// requested, and applications have no history table.
+		return tx.Applications().UpdatePayload(ctx, current.UID, answers)
+	})
+}
+
+// WithdrawApplication takes an application back.
+//
+// The record is kept rather than removed. Withdrawing and deleting are
+// different operations with different endpoints.
+func (s *Service) WithdrawApplication(
+	ctx context.Context, p *svc.WithdrawApplicationPayload,
+) (*svc.ProjectApplication, error) {
+	return s.mutateApplication(ctx, "withdraw-application", p.UID, func(
+		ctx context.Context, tx port.Tx, current *model.Application,
+	) (*model.Application, error) {
+		return tx.Applications().Transition(ctx, current.UID, model.ApplicationWithdrawn)
+	})
+}
+
+// DeleteApplication removes an application from storage and the search index,
+// and asks access sync to remove publisher-managed user grants. Access sync
+// deliberately preserves team-subject tuples, including formation_team.
+//
+// One endpoint for both audiences, like revise and withdraw: the gateway
+// resolves `writer` and the model grants it to the submitter and the
+// formation team alike, so nothing here asks who is calling.
+//
+// No state gate. No source enumerates a state set or says which actions are
+// legal in which state, so refusing a delete on a decided application would
+// be this service inventing a rule. Deleting and denying are different
+// requests — denying keeps the record, deleting removes it.
+//
+// Remove publisher-managed user access first, then remove the document. Both
+// publishes are fire-and-forget, so a partial failure is possible. Neither
+// failure is returned, for the same reason the create path swallows its own:
+// the row is already gone, and a caller told the delete failed would retry
+// against nothing.
+func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicationPayload) error {
+	if s.uow == nil {
+		slog.ErrorContext(ctx, "formationService.delete-application: no unit of work wired")
+		return errors.New("application storage is not available")
+	}
+
+	uid, err := uuid.Parse(p.UID)
+	if err != nil {
+		return mapApplicationError(
+			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
+	}
+
+	if err := s.uow.Do(ctx, func(tx port.Tx) error {
+		return tx.Applications().Delete(ctx, uid)
+	}); err != nil {
+		slog.ErrorContext(ctx, "formationService.delete-application", "application_uid", uid, log.ErrKey, err)
+		return mapApplicationError(withApplicationReason(err))
+	}
+
+	if s.applicationAccess != nil {
+		if err := s.applicationAccess.DeleteApplicationAccess(ctx, uid.String()); err != nil {
+			slog.ErrorContext(ctx, "formationService.delete-application: revoking access failed",
+				"application_uid", uid, log.ErrKey, err)
+		}
+	}
+	if s.applicationIndexer != nil {
+		if err := s.applicationIndexer.DeleteApplication(ctx, uid.String()); err != nil {
+			slog.ErrorContext(ctx, "formationService.delete-application: removing the document failed",
+				"application_uid", uid, log.ErrKey, err)
+		}
+	}
+
+	slog.InfoContext(ctx, "formationService.delete-application", "application_uid", uid)
+	return nil
+}
+
+// mutateApplication runs one write against an application inside a
+// transaction, then republishes it.
+//
+// The read is a locking read and the mutation happens under that lock,
+// because an application carries no revision counter: there is no optimistic
+// check that would notice the row moved between the read and the write. A
+// revise and a decision arriving together would otherwise both read
+// "submitted" and both write, and the later write would win in silence — a
+// decision recorded against answers the reviewer never saw.
+func (s *Service) mutateApplication(
+	ctx context.Context,
+	operation string,
+	rawUID string,
+	mutate func(context.Context, port.Tx, *model.Application) (*model.Application, error),
+) (*svc.ProjectApplication, error) {
+	if s.uow == nil {
+		// A deployment fault, not a refusal the caller can act on.
+		slog.ErrorContext(ctx, "formationService."+operation+": no unit of work wired")
+		return nil, errors.New("application storage is not available")
+	}
+
+	uid, err := uuid.Parse(rawUID)
+	if err != nil {
+		return nil, mapApplicationError(
+			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
+	}
+
+	var updated *model.Application
+	err = s.uow.Do(ctx, func(tx port.Tx) error {
+		current, err := tx.Applications().GetForUpdate(ctx, uid)
+		if err != nil {
+			return err
+		}
+		updated, err = mutate(ctx, tx, current)
+		return err
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "formationService."+operation, "application_uid", uid, log.ErrKey, err)
+		return nil, mapApplicationError(withApplicationReason(err))
+	}
+
+	// Republished rather than patched, for the same reason the create path
+	// publishes: the indexed document is the only thing any reader sees, and
+	// a revise that did not reach it would leave the queue showing answers
+	// that are no longer stored.
+	s.publishApplication(ctx, updated)
+
+	slog.InfoContext(ctx, "formationService."+operation,
+		"application_uid", updated.UID,
+		"state", updated.State,
+	)
+	return applicationToWire(updated), nil
+}

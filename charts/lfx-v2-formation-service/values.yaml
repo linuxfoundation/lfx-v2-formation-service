@@ -241,6 +241,9 @@ app:
   # lf-contractor. This chart neither creates the team nor seeds it, so a caller
   # refused by the second check is an IT membership question, not a chart defect.
   formationTeamName: "formation"
+  # Team whose members may create project applications.
+  # Add the UI service identity to this team before enabling the route.
+  applicationIntakeTeamName: "global_project_application_admin"
   # jwt is the configuration for JWT authentication
   # audience is the intended audience for the JWT token
   audience: lfx-v2-formation-service
@@ -309,6 +312,24 @@ app:
     # AUDIENCE is the intended audience for the JWT token (required)
     AUDIENCE:
       value: lfx-v2-formation-service
+
+    # APPLICATION_FORMATION_TEAM is the OpenFGA team granted `formation_team`
+    # on every project application — the relation that gates accepting and
+    # denying, and that lets staff read the queue.
+    #
+    # Unlike app.applicationIntakeTeamName this is not read by a gateway rule.
+    # It is written into the tuple store as `team:<this>#member`, so a value
+    # naming no real team produces a grant nobody satisfies: applications are
+    # created, no member of staff can open them, and nothing reports a fault,
+    # because the tuple write is fire-and-forget.
+    #
+    # It is a separate setting from the intake team, and now a different value
+    # too: the intake grant belongs to a platform super-admin team holding
+    # write on the type, while this one is the formation staff who work the
+    # queue. Collapsing them would let the reviewing team mint applications
+    # naming anyone as the applicant.
+    APPLICATION_FORMATION_TEAM:
+      value: formation
 
     # JWT_AUTH_DISABLED_MOCK_LOCAL_PRINCIPAL is used for local development to bypass JWT validation
     # Optional, local dev only. Set to a principal name to enable mock authentication.

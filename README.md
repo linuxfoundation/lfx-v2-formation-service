@@ -2,6 +2,13 @@
 
 A backend service for managing project formation checklists and other formation related activities
 
+## Documentation
+
+- [Indexer Contract](docs/indexer-contract.md) — messages sent to the indexer service
+- [FGA Contract](docs/fga-contract.md) — messages sent to the fga-sync service
+- [Activity Contract](docs/activity-contract.md) — lifecycle activity messages
+- [Query Lookup Contract](docs/query-lookup-contract.md) — project-service lookup behavior
+
 ## How a checklist comes to exist
 
 Nobody creates a checklist by hand. A project reaching a formation stage is what
@@ -94,21 +101,23 @@ the provisioned secret in every environment (`/cloudops/rds-managed/lfx-v2/forma
 deliberately no single-URL form — the DSN is composed in process so the password is never part
 of a value that could be logged whole.
 
-| Variable             | Default     | Note                                                              |
-|----------------------|-------------|-------------------------------------------------------------------|
-| `PGHOST`             | `localhost` |                                                                   |
-| `PGPORT`             | `5432`      |                                                                   |
-| `PGUSER`             | *(none)*    | required                                                          |
-| `PGPASSWORD`         | *(none)*    | required                                                          |
-| `PGDATABASE`         | `formation` |                                                                   |
-| `PGSSLMODE`          | `require`   | TLS is mandatory; set `disable` for a local container without TLS |
-| `RECONCILE_INTERVAL` | `24h`       | period of the reconcile sweep; any `time.ParseDuration` value     |
-| `NATS_URL`           | `nats://nats:4222` | one connection serves project lookups, the listener and the projection |
+| Variable | Default | Note |
+| --- | --- | --- |
+| `PGHOST` | `localhost` | |
+| `PGPORT` | `5432` | |
+| `PGUSER` | *(none)* | required |
+| `PGPASSWORD` | *(none)* | required |
+| `PGDATABASE` | `formation` | |
+| `PGSSLMODE` | `require` | TLS is mandatory; set `disable` for a local container without TLS |
+| `RECONCILE_INTERVAL` | `24h` | period of the reconcile sweep; any `time.ParseDuration` value |
+| `NATS_URL` | `nats://nats:4222` | one connection serves project lookups, the listener, projections, and access grants |
+| `APPLICATION_FORMATION_TEAM` | `formation` | OpenFGA team allowed to review project applications |
 
 Without NATS the service still serves requests and still creates checklists
 through the CLI, but it cannot list forming projects, cannot receive project
-events, and cannot refresh the queue's search projection. Each of those degrades
-with a log line at startup rather than a failure to boot.
+events, cannot refresh search projections, and cannot publish project-application
+access grants. Each of those degrades with a log line rather than a failure to
+boot.
 
 Against the container above:
 

@@ -30,6 +30,15 @@ type FormationActivityPage struct {
 	View string
 }
 
+// ProjectApplication is the viewed result type that is projected based on a
+// view.
+type ProjectApplication struct {
+	// Type to project
+	Projected *ProjectApplicationView
+	// View to render
+	View string
+}
+
 // FormationChecklistView is a type that runs validations on a projected type.
 type FormationChecklistView struct {
 	ProjectUID      *string
@@ -165,6 +174,26 @@ type FormationActivityEntryView struct {
 	At     *string
 }
 
+// ProjectApplicationView is a type that runs validations on a projected type.
+type ProjectApplicationView struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State             *string
+	SubmitterUsername *string
+	SubmitterName     *string
+	SubmitterEmail    *string
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string
+	// The intake answers, as submitted.
+	Application map[string]any
+	CreatedAt   *string
+	UpdatedAt   *string
+}
+
 var (
 	// FormationChecklistMap is a map indexing the attribute names of
 	// FormationChecklist by view name.
@@ -188,6 +217,21 @@ var (
 			"next_cursor",
 		},
 	}
+	// ProjectApplicationMap is a map indexing the attribute names of
+	// ProjectApplication by view name.
+	ProjectApplicationMap = map[string][]string{
+		"default": {
+			"uid",
+			"state",
+			"submitter_username",
+			"submitter_name",
+			"submitter_email",
+			"target_parent_uid",
+			"application",
+			"created_at",
+			"updated_at",
+		},
+	}
 )
 
 // ValidateFormationChecklist runs the validations defined on the viewed result
@@ -208,6 +252,18 @@ func ValidateFormationActivityPage(result *FormationActivityPage) (err error) {
 	switch result.View {
 	case "default", "":
 		err = ValidateFormationActivityPageView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateProjectApplication runs the validations defined on the viewed result
+// type ProjectApplication.
+func ValidateProjectApplication(result *ProjectApplication) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateProjectApplicationView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -470,6 +526,42 @@ func ValidateFormationActivityEntryView(result *FormationActivityEntryView) (err
 	}
 	if result.At != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("result.at", *result.At, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateProjectApplicationView runs the validations defined on
+// ProjectApplicationView using the "default" view.
+func ValidateProjectApplicationView(result *ProjectApplicationView) (err error) {
+	if result.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "result"))
+	}
+	if result.State == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("state", "result"))
+	}
+	if result.SubmitterUsername == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_username", "result"))
+	}
+	if result.SubmitterName == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_name", "result"))
+	}
+	if result.SubmitterEmail == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_email", "result"))
+	}
+	if result.Application == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("application", "result"))
+	}
+	if result.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "result"))
+	}
+	if result.UpdatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("updated_at", "result"))
+	}
+	if result.CreatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.created_at", *result.CreatedAt, goa.FormatDateTime))
+	}
+	if result.UpdatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.updated_at", *result.UpdatedAt, goa.FormatDateTime))
 	}
 	return
 }

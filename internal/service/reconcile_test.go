@@ -902,7 +902,7 @@ func TestReconcileSyncsLifecyclesWhenNoTemplateIsPublished(t *testing.T) {
 	formations := mock.NewFormationRepository()
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
-	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates)
+	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates, mock.NewApplicationRepository())
 
 	r := NewReconciler(
 		projects,
@@ -960,7 +960,7 @@ func TestAMissingTemplateDoesNotBlockProjectsThatAlreadyHaveChecklists(t *testin
 	formations := mock.NewFormationRepository()
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
-	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates)
+	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates, mock.NewApplicationRepository())
 
 	r := NewReconciler(
 		projects,

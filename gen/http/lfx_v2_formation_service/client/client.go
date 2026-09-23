@@ -38,6 +38,30 @@ type Client struct {
 	// endpoint.
 	UpdateItemDoer goahttp.Doer
 
+	// CreateApplication Doer is the HTTP client used to make requests to the
+	// create_application endpoint.
+	CreateApplicationDoer goahttp.Doer
+
+	// ReviseApplication Doer is the HTTP client used to make requests to the
+	// revise_application endpoint.
+	ReviseApplicationDoer goahttp.Doer
+
+	// WithdrawApplication Doer is the HTTP client used to make requests to the
+	// withdraw_application endpoint.
+	WithdrawApplicationDoer goahttp.Doer
+
+	// AcceptApplication Doer is the HTTP client used to make requests to the
+	// accept_application endpoint.
+	AcceptApplicationDoer goahttp.Doer
+
+	// DenyApplication Doer is the HTTP client used to make requests to the
+	// deny_application endpoint.
+	DenyApplicationDoer goahttp.Doer
+
+	// DeleteApplication Doer is the HTTP client used to make requests to the
+	// delete_application endpoint.
+	DeleteApplicationDoer goahttp.Doer
+
 	// Livez Doer is the HTTP client used to make requests to the livez endpoint.
 	LivezDoer goahttp.Doer
 
@@ -70,6 +94,12 @@ func NewClient(
 		SetItemStatusDoer:        doer,
 		AssignItemDoer:           doer,
 		UpdateItemDoer:           doer,
+		CreateApplicationDoer:    doer,
+		ReviseApplicationDoer:    doer,
+		WithdrawApplicationDoer:  doer,
+		AcceptApplicationDoer:    doer,
+		DenyApplicationDoer:      doer,
+		DeleteApplicationDoer:    doer,
 		LivezDoer:                doer,
 		ReadyzDoer:               doer,
 		RestoreResponseBody:      restoreBody,
@@ -195,6 +225,150 @@ func (c *Client) UpdateItem() goa.Endpoint {
 		resp, err := c.UpdateItemDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "update_item", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// CreateApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service create_application server.
+func (c *Client) CreateApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeCreateApplicationRequest(c.encoder)
+		decodeResponse = DecodeCreateApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildCreateApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.CreateApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "create_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// ReviseApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service revise_application server.
+func (c *Client) ReviseApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeReviseApplicationRequest(c.encoder)
+		decodeResponse = DecodeReviseApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildReviseApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.ReviseApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "revise_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// WithdrawApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service withdraw_application server.
+func (c *Client) WithdrawApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeWithdrawApplicationRequest(c.encoder)
+		decodeResponse = DecodeWithdrawApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildWithdrawApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.WithdrawApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "withdraw_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// AcceptApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service accept_application server.
+func (c *Client) AcceptApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeAcceptApplicationRequest(c.encoder)
+		decodeResponse = DecodeAcceptApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildAcceptApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.AcceptApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "accept_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// DenyApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service deny_application server.
+func (c *Client) DenyApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeDenyApplicationRequest(c.encoder)
+		decodeResponse = DecodeDenyApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildDenyApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.DenyApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "deny_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// DeleteApplication returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service delete_application server.
+func (c *Client) DeleteApplication() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeDeleteApplicationRequest(c.encoder)
+		decodeResponse = DecodeDeleteApplicationResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildDeleteApplicationRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.DeleteApplicationDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "delete_application", err)
 		}
 		return decodeResponse(resp)
 	}

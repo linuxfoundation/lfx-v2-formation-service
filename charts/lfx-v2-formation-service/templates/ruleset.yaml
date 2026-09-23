@@ -235,4 +235,233 @@ spec:
           config:
             values:
               aud: {{ .Values.app.audience }}
+
+    # Project application intake.
+    #
+    # DEPLOY ORDER: the configured intake team must exist and contain the UI
+    # service identity. The platform model defining `project_application` must
+    # also reach an environment before these rules do; otherwise application
+    # relation checks fail closed.
+    #
+    # The object is a team and there is no resource in it, because there is no
+    # resource yet: the application does not exist until this call succeeds.
+    # What is being asked is "is the caller allowed to operate the intake",
+    # and the caller is the UI authenticating as itself — a client-credentials
+    # token, which the gateway resolves to `user:<client_id>@clients`.
+    #
+    # This is what makes "any logged-in person may apply" work without granting
+    # anything per user: there is no per-user grant, and the absence of one is
+    # the design. The consequence is that membership of this team is as
+    # sensitive as the intake path itself, because the submitter arrives as
+    # payload data and a holder of this grant can name anyone as the applicant.
+    #
+    # Anti-automation lives in that caller — it is the authenticated party, so
+    # it can require a CAPTCHA before it calls — and deliberately not here.
+    - id: "rule:lfx:lfx-v2-formation-service:applications:create"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /project-applications
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: member
+              object: "team:{{ .Values.app.applicationIntakeTeamName | trim }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
+
+    # Revising and withdrawing an application.
+    #
+    # One rule per route and one route per action, both checking `writer` on
+    # the application itself. The submitter and the formation team both hold
+    # that relation through the platform model, which is what lets the two
+    # audiences share a route: the object answers who may act, so nothing here
+    # or in the service has to ask who is calling.
+    #
+    # The alternative — a staff route and a `/me`-scoped twin — was rejected
+    # for the reason it usually is: the same rule written twice is two rules,
+    # and they diverge the first time one of them is changed.
+    #
+    # `writer` and not `formation_team`: the latter is the staff grant alone
+    # and gates accepting and denying, which the submitter must never reach.
+    - id: "rule:lfx:lfx-v2-formation-service:applications:revise"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - PUT
+        routes:
+          - path: /project-applications/:uid
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: writer
+              object: "project_application:{{ "{{- .Request.URL.Captures.uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
+
+    - id: "rule:lfx:lfx-v2-formation-service:applications:withdraw"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /project-applications/:uid/withdraw
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: writer
+              object: "project_application:{{ "{{- .Request.URL.Captures.uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
+
+    # Deleting an application.
+    #
+    # `writer`, the same relation revising and withdrawing use, because the
+    # architecture review lists delete alongside them as one endpoint each,
+    # "called by requester or admin alike, resolving a relation check against
+    # the object". It is not a staff-only operation.
+    #
+    # No state check appears in this rule and none appears in the service: a
+    # decided application can be deleted. Denying retains the record and
+    # deleting removes it, which are different requests, and no source defines
+    # a state machine that would say which states permit which.
+    - id: "rule:lfx:lfx-v2-formation-service:applications:delete"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - DELETE
+        routes:
+          - path: /project-applications/:uid
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: writer
+              object: "project_application:{{ "{{- .Request.URL.Captures.uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
+
+    # Accepting and denying an application.
+    #
+    # `formation_team` rather than `writer`, and that difference is the whole
+    # of what stops a submitter deciding their own application. The platform
+    # model grants `writer` to the submitter and to the formation team, while
+    # `formation_team` is held by the team alone — so revising, withdrawing
+    # and deleting are reachable by the applicant while the decision is not.
+    #
+    # Checked directly rather than through an alias relation defined to equal
+    # it. An alias would read better in one place and add a name that has to
+    # stay in step with this one in every other.
+    #
+    # This mirrors the tier split the rules above already use on checklist
+    # items, where moving a status needs the formation team and leaving a note
+    # does not.
+    #
+    # Two routes rather than one route carrying the decision in its body: the
+    # gateway authorizes a route, not a field, so a shared route would have to
+    # admit anyone allowed to make either decision and leave the service to
+    # work out which was asked for — moving half the authorization question
+    # into Go code, where by design none of it lives.
+    - id: "rule:lfx:lfx-v2-formation-service:applications:accept"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /project-applications/:uid/accept
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: formation_team
+              object: "project_application:{{ "{{- .Request.URL.Captures.uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
+
+    - id: "rule:lfx:lfx-v2-formation-service:applications:deny"
+      allow_encoded_slashes: 'off'
+      match:
+        methods:
+          - POST
+        routes:
+          - path: /project-applications/:uid/deny
+      execute:
+        - authenticator: oidc
+        - authenticator: anonymous_authenticator
+        {{- if .Values.app.use_oidc_contextualizer }}
+        - contextualizer: oidc_contextualizer
+        {{- end }}
+        {{- if .Values.openfga.enabled }}
+        - authorizer: openfga_check
+          config:
+            values:
+              relation: formation_team
+              object: "project_application:{{ "{{- .Request.URL.Captures.uid -}}" }}"
+        {{- else }}
+        - authorizer: allow_all
+        {{- end }}
+        - finalizer: create_jwt
+          config:
+            values:
+              aud: {{ .Values.app.audience }}
 {{- end }}

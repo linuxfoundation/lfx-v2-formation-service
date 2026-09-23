@@ -22,6 +22,12 @@ type Endpoints struct {
 	SetItemStatus        goa.Endpoint
 	AssignItem           goa.Endpoint
 	UpdateItem           goa.Endpoint
+	CreateApplication    goa.Endpoint
+	ReviseApplication    goa.Endpoint
+	WithdrawApplication  goa.Endpoint
+	AcceptApplication    goa.Endpoint
+	DenyApplication      goa.Endpoint
+	DeleteApplication    goa.Endpoint
 	Livez                goa.Endpoint
 	Readyz               goa.Endpoint
 }
@@ -37,6 +43,12 @@ func NewEndpoints(s Service) *Endpoints {
 		SetItemStatus:        NewSetItemStatusEndpoint(s, a.JWTAuth),
 		AssignItem:           NewAssignItemEndpoint(s, a.JWTAuth),
 		UpdateItem:           NewUpdateItemEndpoint(s, a.JWTAuth),
+		CreateApplication:    NewCreateApplicationEndpoint(s, a.JWTAuth),
+		ReviseApplication:    NewReviseApplicationEndpoint(s, a.JWTAuth),
+		WithdrawApplication:  NewWithdrawApplicationEndpoint(s, a.JWTAuth),
+		AcceptApplication:    NewAcceptApplicationEndpoint(s, a.JWTAuth),
+		DenyApplication:      NewDenyApplicationEndpoint(s, a.JWTAuth),
+		DeleteApplication:    NewDeleteApplicationEndpoint(s, a.JWTAuth),
 		Livez:                NewLivezEndpoint(s),
 		Readyz:               NewReadyzEndpoint(s),
 	}
@@ -50,6 +62,12 @@ func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.SetItemStatus = m(e.SetItemStatus)
 	e.AssignItem = m(e.AssignItem)
 	e.UpdateItem = m(e.UpdateItem)
+	e.CreateApplication = m(e.CreateApplication)
+	e.ReviseApplication = m(e.ReviseApplication)
+	e.WithdrawApplication = m(e.WithdrawApplication)
+	e.AcceptApplication = m(e.AcceptApplication)
+	e.DenyApplication = m(e.DenyApplication)
+	e.DeleteApplication = m(e.DeleteApplication)
 	e.Livez = m(e.Livez)
 	e.Readyz = m(e.Readyz)
 }
@@ -176,6 +194,169 @@ func NewUpdateItemEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoi
 			return nil, err
 		}
 		return s.UpdateItem(ctx, p)
+	}
+}
+
+// NewCreateApplicationEndpoint returns an endpoint function that calls the
+// method "create_application" of service "lfx_v2_formation_service".
+func NewCreateApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*CreateApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.CreateApplication(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedProjectApplication(res, "default")
+		return vres, nil
+	}
+}
+
+// NewReviseApplicationEndpoint returns an endpoint function that calls the
+// method "revise_application" of service "lfx_v2_formation_service".
+func NewReviseApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*ReviseApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.ReviseApplication(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedProjectApplication(res, "default")
+		return vres, nil
+	}
+}
+
+// NewWithdrawApplicationEndpoint returns an endpoint function that calls the
+// method "withdraw_application" of service "lfx_v2_formation_service".
+func NewWithdrawApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*WithdrawApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.WithdrawApplication(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedProjectApplication(res, "default")
+		return vres, nil
+	}
+}
+
+// NewAcceptApplicationEndpoint returns an endpoint function that calls the
+// method "accept_application" of service "lfx_v2_formation_service".
+func NewAcceptApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*AcceptApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.AcceptApplication(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedProjectApplication(res, "default")
+		return vres, nil
+	}
+}
+
+// NewDenyApplicationEndpoint returns an endpoint function that calls the
+// method "deny_application" of service "lfx_v2_formation_service".
+func NewDenyApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*DenyApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.DenyApplication(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedProjectApplication(res, "default")
+		return vres, nil
+	}
+}
+
+// NewDeleteApplicationEndpoint returns an endpoint function that calls the
+// method "delete_application" of service "lfx_v2_formation_service".
+func NewDeleteApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*DeleteApplicationPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return nil, s.DeleteApplication(ctx, p)
 	}
 }
 

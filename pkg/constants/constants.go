@@ -46,6 +46,15 @@ const (
 	// DefaultFormationAdminBaseURL.
 	EnvFormationAdminBaseURL = "FORMATION_ADMIN_BASE_URL"
 
+	// EnvApplicationFormationTeam names the OpenFGA team granted review
+	// standing on every project application this service creates.
+	//
+	// It reaches the tuple store, not just a gateway rule: the grant is
+	// written as `team:<this>#member`, so a value that names no real team
+	// produces a tuple nobody satisfies and a review queue that is empty for
+	// everyone. Defaults to DefaultApplicationFormationTeam.
+	EnvApplicationFormationTeam = "APPLICATION_FORMATION_TEAM"
+
 	// EnvEmailEnabled mirrors the email-service's own flag so callers can
 	// gate dispatches without standing up a real NATS broker in tests.
 	// "true" / "1" / "t" enables; anything else (including unset) disables.
@@ -108,6 +117,16 @@ const (
 	// DefaultFormationInboxEmail is the address that receives formation-team
 	// notifications when FORMATION_INBOX_EMAIL is not set.
 	DefaultFormationInboxEmail = "formation@linuxfoundation.org"
+
+	// DefaultApplicationFormationTeam is the team granted review standing on
+	// applications when APPLICATION_FORMATION_TEAM is not set.
+	//
+	// Deliberately not the same team as the chart's applicationIntakeTeamName,
+	// which guards the create route. That one holds platform-wide create
+	// authority; this one is the formation staff who work the queue. One team
+	// for both would let the reviewing team create
+	// applications naming anyone as the applicant.
+	DefaultApplicationFormationTeam = "formation"
 
 	// DefaultFormationAdminBaseURL is the base URL used to build checklist deep
 	// links in formation emails when FORMATION_ADMIN_BASE_URL is not set.

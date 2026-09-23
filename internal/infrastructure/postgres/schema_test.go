@@ -60,7 +60,8 @@ func testDB(t *testing.T) *bun.DB {
 		t.Fatalf("apply schema: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`TRUNCATE formation_activity, formation_items, formations, formation_templates CASCADE`,
+		`TRUNCATE formation_activity, formation_items, formations, formation_templates,
+		          project_applications CASCADE`,
 	); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
@@ -87,6 +88,7 @@ func TestApplySchemaIsIdempotent(t *testing.T) {
 		"formations",
 		"formation_items",
 		"formation_activity",
+		"project_applications",
 	} {
 		var count int
 		if err := pool.QueryRow(ctx,

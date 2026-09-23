@@ -21,19 +21,31 @@ type Client struct {
 	SetItemStatusEndpoint        goa.Endpoint
 	AssignItemEndpoint           goa.Endpoint
 	UpdateItemEndpoint           goa.Endpoint
+	CreateApplicationEndpoint    goa.Endpoint
+	ReviseApplicationEndpoint    goa.Endpoint
+	WithdrawApplicationEndpoint  goa.Endpoint
+	AcceptApplicationEndpoint    goa.Endpoint
+	DenyApplicationEndpoint      goa.Endpoint
+	DeleteApplicationEndpoint    goa.Endpoint
 	LivezEndpoint                goa.Endpoint
 	ReadyzEndpoint               goa.Endpoint
 }
 
 // NewClient initializes a "lfx_v2_formation_service" service client given the
 // endpoints.
-func NewClient(getFormation, getFormationActivity, setItemStatus, assignItem, updateItem, livez, readyz goa.Endpoint) *Client {
+func NewClient(getFormation, getFormationActivity, setItemStatus, assignItem, updateItem, createApplication, reviseApplication, withdrawApplication, acceptApplication, denyApplication, deleteApplication, livez, readyz goa.Endpoint) *Client {
 	return &Client{
 		GetFormationEndpoint:         getFormation,
 		GetFormationActivityEndpoint: getFormationActivity,
 		SetItemStatusEndpoint:        setItemStatus,
 		AssignItemEndpoint:           assignItem,
 		UpdateItemEndpoint:           updateItem,
+		CreateApplicationEndpoint:    createApplication,
+		ReviseApplicationEndpoint:    reviseApplication,
+		WithdrawApplicationEndpoint:  withdrawApplication,
+		AcceptApplicationEndpoint:    acceptApplication,
+		DenyApplicationEndpoint:      denyApplication,
+		DeleteApplicationEndpoint:    deleteApplication,
 		LivezEndpoint:                livez,
 		ReadyzEndpoint:               readyz,
 	}
@@ -121,6 +133,93 @@ func (c *Client) UpdateItem(ctx context.Context, p *UpdateItemPayload) (res *Upd
 		return
 	}
 	return ires.(*UpdateItemResult), nil
+}
+
+// CreateApplication calls the "create_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// CreateApplication may return the following errors:
+//   - "BadRequest" (type *ApplicationError): The payload itself is invalid
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) CreateApplication(ctx context.Context, p *CreateApplicationPayload) (res *ProjectApplication, err error) {
+	var ires any
+	ires, err = c.CreateApplicationEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ProjectApplication), nil
+}
+
+// ReviseApplication calls the "revise_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// ReviseApplication may return the following errors:
+//   - "BadRequest" (type *ApplicationError): The payload itself is invalid
+//   - "NotFound" (type *ApplicationError): No such application
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) ReviseApplication(ctx context.Context, p *ReviseApplicationPayload) (res *ProjectApplication, err error) {
+	var ires any
+	ires, err = c.ReviseApplicationEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ProjectApplication), nil
+}
+
+// WithdrawApplication calls the "withdraw_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// WithdrawApplication may return the following errors:
+//   - "NotFound" (type *ApplicationError): No such application
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) WithdrawApplication(ctx context.Context, p *WithdrawApplicationPayload) (res *ProjectApplication, err error) {
+	var ires any
+	ires, err = c.WithdrawApplicationEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ProjectApplication), nil
+}
+
+// AcceptApplication calls the "accept_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// AcceptApplication may return the following errors:
+//   - "NotFound" (type *ApplicationError): No such application
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) AcceptApplication(ctx context.Context, p *AcceptApplicationPayload) (res *ProjectApplication, err error) {
+	var ires any
+	ires, err = c.AcceptApplicationEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ProjectApplication), nil
+}
+
+// DenyApplication calls the "deny_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// DenyApplication may return the following errors:
+//   - "NotFound" (type *ApplicationError): No such application
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) DenyApplication(ctx context.Context, p *DenyApplicationPayload) (res *ProjectApplication, err error) {
+	var ires any
+	ires, err = c.DenyApplicationEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ProjectApplication), nil
+}
+
+// DeleteApplication calls the "delete_application" endpoint of the
+// "lfx_v2_formation_service" service.
+// DeleteApplication may return the following errors:
+//   - "NotFound" (type *ApplicationError): No such application
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) DeleteApplication(ctx context.Context, p *DeleteApplicationPayload) (err error) {
+	_, err = c.DeleteApplicationEndpoint(ctx, p)
+	return
 }
 
 // Livez calls the "livez" endpoint of the "lfx_v2_formation_service" service.

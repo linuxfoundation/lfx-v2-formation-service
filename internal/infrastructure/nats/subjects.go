@@ -4,6 +4,7 @@
 package nats
 
 import (
+	fgaConstants "github.com/linuxfoundation/lfx-v2-fga-sync/pkg/constants"
 	indexerConstants "github.com/linuxfoundation/lfx-v2-indexer-service/pkg/constants"
 )
 
@@ -77,6 +78,12 @@ const (
 const (
 	formationObjectType     = "formation"
 	formationItemObjectType = "formation_item"
+
+	// applicationObjectType is a project application: a record that exists
+	// before any project does. Its document is deliberately not a variant of
+	// the formation one — a formation is keyed by project and an application
+	// has no project at all.
+	applicationObjectType = "project_application"
 )
 
 // The subjects this service publishes to, consumed by lfx-v2-indexer-service.
@@ -94,6 +101,40 @@ const (
 	// Publish only, for the same reason IndexFormationSubject is: the
 	// projection is derived from Postgres, which stays the source of truth.
 	IndexItemSubject = indexerConstants.IndexPrefix + formationItemObjectType
+
+	// IndexApplicationSubject carries one project application's search
+	// projection.
+	//
+	// This is the only read path an application has. The service hosts no
+	// application collection endpoint, so both the staff queue and a
+	// submitter's own list are served from this document — a publish that
+	// never lands is an application nobody can find.
+	IndexApplicationSubject = indexerConstants.IndexPrefix + applicationObjectType
+)
+
+// Subjects served by lfx-v2-fga-sync, which owns every write to the tuple
+// store. This service reaches them only for applications: a checklist's
+// grants come from its project, which another service already maintains.
+//
+// Taken from the owning service's own constants rather than spelled out here,
+// the same way the indexer subjects above are built from its prefix. A
+// subject this service invented would publish to nothing and report nothing,
+// because these are fire-and-forget.
+//
+// Both handlers are resource-agnostic by design, so a type with no parent
+// needs no handler of its own on the far side.
+const (
+	// FGAUpdateAccessSubject sets the relations on one object.
+	//
+	// A full sync, not a patch: any relation absent from the message and not
+	// named in exclude_relations is removed. Sending a partial set therefore
+	// revokes rather than leaves alone.
+	FGAUpdateAccessSubject = fgaConstants.GenericUpdateAccessSubject
+
+	// FGADeleteAccessSubject removes the publisher-managed tuples for one
+	// object, leaving externally managed team grants in place. Used when an
+	// application is deleted.
+	FGADeleteAccessSubject = fgaConstants.GenericDeleteAccessSubject
 )
 
 // The subjects this service consumes, published by lfx-v2-indexer-service after
@@ -187,4 +228,17 @@ const (
 	tagFormationUID = "formation_uid:"
 	tagAssignee     = "assignee:"
 	tagLifecycle    = "lifecycle:"
+	tagState        = "state:"
+	tagSubmitter    = "submitter:"
 )
+
+// applicationRefPrefix is how an application UID is named as an FGA object,
+// mirroring projectRefPrefix. Unlike the other two prefixes this appears in
+// an access check rather than only in a reference, so a wrong spelling is a
+// document nobody can read rather than a filter nobody matches.
+const applicationRefPrefix = applicationObjectType + ":"
+
+// teamRefPrefix is how a team is named in an FGA object reference. Used by
+// the access publisher's userset value, which is the only place this service
+// names a team on the wire.
+const teamRefPrefix = "team:"

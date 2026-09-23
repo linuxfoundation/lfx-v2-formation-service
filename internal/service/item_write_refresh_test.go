@@ -253,7 +253,7 @@ func newLiveRefreshService(t *testing.T) (
 	items := mock.NewItemRepository()
 	activity := mock.NewActivityRepository()
 	templates := mock.NewTemplateRepository()
-	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+	uow := mock.NewUnitOfWork(formations, items, activity, templates, mock.NewApplicationRepository())
 	publisher := mock.NewIndexerPublisher()
 
 	projects := mock.NewProjectReader()
