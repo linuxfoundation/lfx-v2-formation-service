@@ -165,6 +165,7 @@ func applicationProjection(a *model.Application) *port.ApplicationProjection {
 // the project website and formation-contact email addresses.
 func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 	p.SubmitterUsername = strings.TrimSpace(p.SubmitterUsername)
+	// Format-only identities look blank but would create grants for nonexistent principals.
 	if strings.IndexFunc(p.SubmitterUsername, func(r rune) bool {
 		return !unicode.IsSpace(r) && !unicode.Is(unicode.Cf, r)
 	}) == -1 {
