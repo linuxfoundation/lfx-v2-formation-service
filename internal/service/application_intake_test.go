@@ -132,6 +132,20 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			reason: "submitter_username_required",
 		},
 		{
+			name: "submitter username is the FGA wildcard",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "*"
+			},
+			reason: "submitter_username_required",
+		},
+		{
+			name: "submitter username names another subject type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "team:formation#member"
+			},
+			reason: "submitter_username_required",
+		},
+		{
 			name: "website is not a URL",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_website"] = "proposed.example.test"

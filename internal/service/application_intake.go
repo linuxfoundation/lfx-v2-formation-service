@@ -33,7 +33,7 @@ const (
 var applicationReasonMessages = map[string]string{
 	reasonNotFound:                  "no such application",
 	reasonVersionMismatch:           "if-match did not match the application's current revision",
-	reasonSubmitterUsernameRequired: "submitter_username is required",
+	reasonSubmitterUsernameRequired: "submitter_username is required and must name one user",
 	reasonProjectWebsiteBad:         "project_website must be an http or https URL",
 	reasonFormationListInvalid:      "formation_list must be a list of email addresses",
 	reasonApplicationTooLarge:       "application submission exceeds the transport-safe size limit",
@@ -203,6 +203,11 @@ func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 	if strings.IndexFunc(p.SubmitterUsername, func(r rune) bool {
 		return !unicode.IsSpace(r) && !unicode.Is(unicode.Cf, r)
 	}) == -1 {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
+	}
+	// fga-sync prefixes this value with `user:` verbatim, so `*` and `:` would
+	// name a wildcard or another subject type rather than one user.
+	if strings.ContainsAny(p.SubmitterUsername, "*:") {
 		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
 	}
 	return validateAnswers(p.Application)
