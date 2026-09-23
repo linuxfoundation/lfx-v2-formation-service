@@ -105,11 +105,13 @@ func (r *ApplicationRepo) Delete(
 	return marker, nil
 }
 
+// ListRepairPage returns identifiers only. The repair sweep re-reads each row
+// before publishing, so selecting the answers here would read them twice.
 func (r *ApplicationRepo) ListRepairPage(
 	ctx context.Context, after uuid.UUID, limit int,
 ) ([]*model.Application, error) {
 	applications := make([]*model.Application, 0, limit)
-	query := r.db.NewSelect().Model(&applications).OrderExpr("uid ASC").Limit(limit)
+	query := r.db.NewSelect().Model(&applications).Column("uid").OrderExpr("uid ASC").Limit(limit)
 	if after != uuid.Nil {
 		query = query.Where("uid > ?", after)
 	}

@@ -31,8 +31,10 @@ func (s *Service) RepairApplications(
 		return nil, errors.New("application repair storage is not available")
 	}
 	report := &ApplicationRepairReport{}
-	deletedErr := s.repairDeletedApplications(ctx, report)
+	// Live rows first: a row deleted mid-sweep is then covered by the
+	// deletion pass in the same sweep rather than the next one.
 	liveErr := s.repairLiveApplications(ctx, report)
+	deletedErr := s.repairDeletedApplications(ctx, report)
 	return report, errors.Join(liveErr, deletedErr)
 }
 
@@ -47,6 +49,8 @@ func (s *Service) repairLiveApplications(
 		}
 		for _, listed := range page {
 			report.LiveAttempted++
+			// Re-read per row: the page is a list of identifiers taken
+			// earlier, and a row deleted since then must not be republished.
 			current, err := s.applications.Get(ctx, listed.UID)
 			if errors.Is(err, domain.ErrNotFound) {
 				continue

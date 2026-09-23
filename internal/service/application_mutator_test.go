@@ -459,7 +459,9 @@ func TestApplicationMutationsRejectAStaleRevision(t *testing.T) {
 	}
 }
 
-func TestStaleMutationRepublishesTheCurrentRevision(t *testing.T) {
+// A refused write publishes nothing, so it cannot land after a concurrent
+// delete's tombstone. The repair sweep refreshes the stale projection.
+func TestStaleMutationPublishesNothing(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)
 	uid := mustUUID(t, created.UID)
@@ -468,8 +470,7 @@ func TestStaleMutationRepublishesTheCurrentRevision(t *testing.T) {
 		map[string]any{"project_name": "Current answers"},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, created.Revision, d.indexer.LatestApplication(created.UID).Revision,
-		"the setup requires a stale indexed projection")
+	published := len(d.indexer.ApplicationPublished())
 
 	_, err = d.service.AcceptApplication(asPrincipal("staff"), &svc.AcceptApplicationPayload{
 		Version: "1", UID: created.UID, IfMatch: created.Revision,
@@ -478,6 +479,10 @@ func TestStaleMutationRepublishesTheCurrentRevision(t *testing.T) {
 	var refusal *svc.ApplicationError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, reasonVersionMismatch, refusal.Reason)
+	assert.Len(t, d.indexer.ApplicationPublished(), published)
+
+	_, err = d.service.RepairApplications(context.Background())
+	require.NoError(t, err)
 	projected := d.indexer.LatestApplication(created.UID)
 	require.NotNil(t, projected)
 	assert.Equal(t, current.Revision, projected.Revision)

@@ -205,6 +205,34 @@ func TestApplicationDelete(t *testing.T) {
 	}
 }
 
+// The repair page carries identifiers and advances past the cursor.
+func TestApplicationListRepairPage(t *testing.T) {
+	db := testDB(t)
+	repo := NewApplicationRepo(db)
+	ctx := context.Background()
+	first := createApplication(t, repo)
+	second := createApplication(t, repo)
+	if first.UID.String() > second.UID.String() {
+		first, second = second, first
+	}
+
+	page, err := repo.ListRepairPage(ctx, uuid.Nil, 1)
+	if err != nil {
+		t.Fatalf("list repair page: %v", err)
+	}
+	if len(page) != 1 || page[0].UID != first.UID {
+		t.Fatalf("first page = %#v, want one row for %s", page, first.UID)
+	}
+
+	next, err := repo.ListRepairPage(ctx, page[0].UID, 10)
+	if err != nil {
+		t.Fatalf("list repair page after cursor: %v", err)
+	}
+	if len(next) != 1 || next[0].UID != second.UID {
+		t.Errorf("second page = %#v, want one row for %s", next, second.UID)
+	}
+}
+
 func TestApplicationWritesRejectAStaleRevision(t *testing.T) {
 	db := testDB(t)
 	repo := NewApplicationRepo(db)

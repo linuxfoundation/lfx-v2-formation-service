@@ -280,5 +280,5 @@ Each reconcile sweep republishes every live application. Delete atomically remov
 row and retains a PII-free deletion marker; the sweep republishes every retained marker. Database
 writes commit before publication. Timed-out or reordered core NATS delivery is repaired by the
 retained source state; strict stale-event rejection requires revision-aware indexer handling. A
-mutation rejected by `If-Match` republishes the current database revision before returning `412`,
-so a caller reading a stale projection can refresh and retry after the index catches up.
+mutation rejected by `If-Match` publishes nothing, so a caller reading a stale projection retries
+after the sweep refreshes it.

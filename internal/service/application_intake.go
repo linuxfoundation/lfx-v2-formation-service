@@ -40,6 +40,9 @@ var applicationReasonMessages = map[string]string{
 	reasonApplicationUIDBad:         "the application identifier is not a uuid",
 }
 
+// Each limit sits below the one outside it: the request body cap in
+// cmd/formation-api/server.go, then these answers, then the index envelope
+// cap in the nats publisher, which adds submitter fields on top.
 const (
 	maxApplicationPayloadBytes = 512 << 10
 	maxProjectNameBytes        = 64 << 10

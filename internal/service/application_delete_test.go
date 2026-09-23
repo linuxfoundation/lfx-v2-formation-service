@@ -122,15 +122,16 @@ func TestDeleteApplicationRefusesAnIdentifierThatIsNotAUUID(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestStaleDeleteRepublishesTheCurrentRevision(t *testing.T) {
+func TestStaleDeletePublishesNothing(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)
 	uid := mustUUID(t, created.UID)
-	current, err := d.applications.UpdatePayload(
+	_, err := d.applications.UpdatePayload(
 		context.Background(), uid, created.Revision,
 		map[string]any{"project_name": "Current answers"},
 	)
 	require.NoError(t, err)
+	published := len(d.indexer.ApplicationPublished())
 
 	err = d.service.DeleteApplication(asPrincipal("asmith"), &svc.DeleteApplicationPayload{
 		Version: "1", UID: created.UID, IfMatch: created.Revision,
@@ -139,9 +140,7 @@ func TestStaleDeleteRepublishesTheCurrentRevision(t *testing.T) {
 	var refusal *svc.ApplicationError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, reasonVersionMismatch, refusal.Reason)
-	projected := d.indexer.LatestApplication(created.UID)
-	require.NotNil(t, projected)
-	assert.Equal(t, current.Revision, projected.Revision)
+	assert.Len(t, d.indexer.ApplicationPublished(), published)
 	assert.Empty(t, d.access.Deleted())
 	assert.Empty(t, d.indexer.ApplicationDeleted())
 }

@@ -97,14 +97,12 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
 	}
 
-	var repair *model.Application
 	if err := s.uow.Do(ctx, func(tx port.Tx) error {
 		current, err := tx.Applications().GetForUpdate(ctx, uid)
 		if err != nil {
 			return err
 		}
 		if current.Revision != p.IfMatch {
-			repair = current
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 		if _, err := tx.Applications().Delete(ctx, uid, p.IfMatch); err != nil {
@@ -112,9 +110,6 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 		}
 		return nil
 	}); err != nil {
-		if repair != nil {
-			_ = s.publishApplication(ctx, repair)
-		}
 		slog.ErrorContext(ctx, "formationService.delete-application", "application_uid", uid, log.ErrKey, err)
 		return mapApplicationError(withApplicationReason(err))
 	}
@@ -147,14 +142,16 @@ func (s *Service) mutateApplication(
 			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
 	}
 
-	var updated, repair *model.Application
+	var updated *model.Application
 	err = s.uow.Do(ctx, func(tx port.Tx) error {
 		current, err := tx.Applications().GetForUpdate(ctx, uid)
 		if err != nil {
 			return err
 		}
 		if current.Revision != ifMatch {
-			repair = current
+			// A refused write publishes nothing. Publishing the current row
+			// here would race a concurrent delete's tombstone; the repair
+			// sweep refreshes a stale projection instead.
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 		updated, err = mutate(ctx, tx, current)
@@ -164,9 +161,6 @@ func (s *Service) mutateApplication(
 		return s.validateApplicationProjection(updated)
 	})
 	if err != nil {
-		if repair != nil {
-			_ = s.publishApplication(ctx, repair)
-		}
 		slog.ErrorContext(ctx, "formationService."+operation, "application_uid", uid, log.ErrKey, err)
 		return nil, mapApplicationError(withApplicationReason(err))
 	}
