@@ -5,6 +5,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +13,7 @@ import (
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
+	natsinfra "github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/nats"
 )
 
 func intakePayload() *svc.CreateApplicationPayload {
@@ -143,6 +145,13 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			},
 			reason: reasonFormationListInvalid,
 		},
+		{
+			name: "project name would overfill the duplicated index metadata",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_name"] = strings.Repeat("x", maxProjectNameBytes+1)
+			},
+			reason: reasonApplicationTooLarge,
+		},
 	}
 
 	for _, tc := range cases {
@@ -161,6 +170,38 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 				"a refused payload must not be stored")
 		})
 	}
+}
+
+func TestCreateApplicationRefusesAnswersAboveThePublishLimit(t *testing.T) {
+	s, applications, _, _ := intakeService(t)
+	p := intakePayload()
+	p.Application["description"] = strings.Repeat("x", maxApplicationPayloadBytes)
+
+	_, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+	var appErr *svc.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, reasonApplicationTooLarge, appErr.Reason)
+	assert.NotContains(t, applications.Calls(), "applications.Create")
+}
+
+func TestCreateApplicationRefusesAnOversizedProjectionBeforeStoring(t *testing.T) {
+	applications := mock.NewApplicationRepository()
+	s := NewService(
+		WithApplications(applications),
+		WithApplicationProjectionValidator(natsinfra.NewApplicationProjectionValidator()),
+	)
+	p := intakePayload()
+	p.SubmitterUsername = strings.Repeat("u", 256<<10)
+	p.Application["description"] = strings.Repeat("d", 400<<10)
+	p.Application["project_name"] = strings.Repeat("p", maxProjectNameBytes)
+
+	_, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+	var appErr *svc.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, reasonApplicationTooLarge, appErr.Reason)
+	assert.NotContains(t, applications.Calls(), "applications.Create")
 }
 
 // People named for the formation work are stored as addresses and nothing

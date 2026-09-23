@@ -397,7 +397,8 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			"The submitter's identity is recorded from the payload rather than from the caller's " +
 			"token: this route is called by the UI authenticating as itself, so the end user never " +
 			"presents a credential here. Anti-automation belongs to that caller; this service adds " +
-			"no second control.")
+			"no second control. The response body carries revision 1; create does not duplicate it " +
+			"in an ETag header.")
 
 		dsl.Security(JWTAuth)
 
@@ -741,6 +742,7 @@ var ApplicationError = dsl.Type("ApplicationError", func() {
 			"submitter_username_required",
 			"project_website_invalid",
 			"formation_list_invalid",
+			"application_payload_too_large",
 		)
 	})
 	dsl.Required("name", "code", "message", "reason")

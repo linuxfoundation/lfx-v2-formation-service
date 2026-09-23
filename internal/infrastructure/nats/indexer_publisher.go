@@ -286,6 +286,24 @@ func (p *IndexerPublisher) DeleteItem(ctx context.Context, itemUID string) error
 	return p.deleteDocument(ctx, IndexItemSubject, itemUID, "item_uid")
 }
 
+const maxApplicationProjectionBytes = 1 << 20
+
+// ApplicationProjectionValidator checks the exact application index envelope
+// without publishing it.
+type ApplicationProjectionValidator struct{}
+
+// NewApplicationProjectionValidator constructs a stateless envelope validator.
+func NewApplicationProjectionValidator() *ApplicationProjectionValidator {
+	return &ApplicationProjectionValidator{}
+}
+
+// ValidateApplication checks that one application can be encoded and carried
+// by the index transport.
+func (v *ApplicationProjectionValidator) ValidateApplication(doc *port.ApplicationProjection) error {
+	_, err := encodeApplicationProjection(doc)
+	return err
+}
+
 // PublishApplication upserts one application's projection.
 //
 // A different document from the two above in every way that matters, and
@@ -300,22 +318,29 @@ func (p *IndexerPublisher) DeleteItem(ctx context.Context, itemUID string) error
 //     of the queue that is supposed to show all of them.
 //   - No project tags. There is no project to tag it with.
 //
-// Nothing republishes this. The reconcile sweep walks forming projects and an
-// application has no project, so unlike a checklist document, a message lost
-// here is not repaired on the next tick.
+// The application repair lane republishes this independently of project
+// reconciliation.
 func (p *IndexerPublisher) PublishApplication(ctx context.Context, doc *port.ApplicationProjection) error {
+	payload, err := encodeApplicationProjection(doc)
+	if err != nil {
+		return err
+	}
+	return p.client.Publish(ctx, IndexApplicationSubject, payload)
+}
+
+func encodeApplicationProjection(doc *port.ApplicationProjection) ([]byte, error) {
 	if doc == nil {
-		return fmt.Errorf("nil application projection")
+		return nil, fmt.Errorf("nil application projection")
 	}
 	if doc.ApplicationUID == "" {
 		// Becomes indexing_config.object_id, which the indexer requires and
 		// refuses the message without — a refusal that arrives here as
 		// silence, because the publish is fire-and-forget.
-		return fmt.Errorf("application projection has no application_uid")
+		return nil, fmt.Errorf("application projection has no application_uid")
 	}
 	if doc.AccessRelation == "" {
 		// Refuse projections that do not explicitly name their read relation.
-		return fmt.Errorf("application projection %s declares no access relation", doc.ApplicationUID)
+		return nil, fmt.Errorf("application projection %s declares no access relation", doc.ApplicationUID)
 	}
 
 	object := applicationRefPrefix + doc.ApplicationUID
@@ -333,9 +358,12 @@ func (p *IndexerPublisher) PublishApplication(ctx context.Context, doc *port.App
 
 	payload, err := json.Marshal(envelope)
 	if err != nil {
-		return fmt.Errorf("encoding the application projection: %w", err)
+		return nil, fmt.Errorf("encoding the application projection: %w", err)
 	}
-	return p.client.Publish(ctx, IndexApplicationSubject, payload)
+	if len(payload) > maxApplicationProjectionBytes {
+		return nil, fmt.Errorf("application projection is %d bytes; maximum is 1 MiB", len(payload))
+	}
+	return payload, nil
 }
 
 // applicationProjectionWire is the searchable body for one application.

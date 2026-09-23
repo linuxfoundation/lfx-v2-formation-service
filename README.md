@@ -158,6 +158,10 @@ make build-cli
 # template stays put and work already done is untouched. With no argument it
 # covers every checklist.
 ./bin/formation-cli upgrade [project-uid]
+
+# Republish every live application and retry index/access cleanup for every
+# retained deletion marker.
+./bin/formation-cli repair-applications
 ```
 
 ### Integration tests

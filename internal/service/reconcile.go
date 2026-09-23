@@ -59,6 +59,10 @@ type Reconciler struct {
 	// email is not configured; all notification paths degrade silently.
 	emailer  port.EmailDispatcher
 	emailCfg EmailConfig
+
+	applicationRepairer interface {
+		RepairApplications(context.Context) (*ApplicationRepairReport, error)
+	}
 }
 
 // partialChains reads the projector's running total of rows scoped to less than
@@ -77,6 +81,14 @@ func (r *Reconciler) SetEmailer(items port.ItemRepository, emailer port.EmailDis
 	r.items = items
 	r.emailer = emailer
 	r.emailCfg = cfg
+}
+
+// SetApplicationRepairer adds application projection and deletion repair to
+// each sweep.
+func (r *Reconciler) SetApplicationRepairer(repairer interface {
+	RepairApplications(context.Context) (*ApplicationRepairReport, error)
+}) {
+	r.applicationRepairer = repairer
 }
 
 // NewReconciler wires a reconciler. A non-positive interval falls back to the
@@ -114,6 +126,10 @@ type ReconcileReport struct {
 	LifecyclesMoved int
 	Skipped         int
 	Failed          int
+
+	ApplicationLiveAttempted   int
+	ApplicationDeleteAttempted int
+	ApplicationRepairFailed    int
 
 	// Blocked counts projects that should have had a checklist created but
 	// could not have one, for a reason that is the same for all of them —
@@ -198,6 +214,9 @@ func (r *Reconciler) Run(ctx context.Context) {
 				"degraded", report.Degraded,
 				"projected", report.Projected,
 				"projection_failed", report.ProjectionFailed,
+				"application_live_attempted", report.ApplicationLiveAttempted,
+				"application_delete_attempted", report.ApplicationDeleteAttempted,
+				"application_repair_failed", report.ApplicationRepairFailed,
 				// Cumulative across sweeps rather than per-sweep like the
 				// fields above, and named so. A row scoped to less than its
 				// parentage is invisible in the index — it just does not
@@ -223,6 +242,19 @@ func (r *Reconciler) Run(ctx context.Context) {
 // test, and so a sweep can be triggered without waiting for a tick.
 func (r *Reconciler) ReconcileOnce(ctx context.Context) (*ReconcileReport, error) {
 	report := &ReconcileReport{}
+
+	if r.applicationRepairer != nil {
+		repaired, err := r.applicationRepairer.RepairApplications(ctx)
+		if err != nil {
+			report.ApplicationRepairFailed++
+			slog.ErrorContext(ctx, "application repair failed", "error", err)
+		}
+		if repaired != nil {
+			report.ApplicationLiveAttempted = repaired.LiveAttempted
+			report.ApplicationDeleteAttempted = repaired.DeletedAttempted
+			report.ApplicationRepairFailed += repaired.Failed
+		}
+	}
 
 	if r.projects == nil {
 		// Nothing can supply the project list yet. Reported rather than

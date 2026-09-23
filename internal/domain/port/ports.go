@@ -153,11 +153,9 @@ type TemplateRepository interface {
 
 // ApplicationRepository persists project applications.
 //
-// No list method, and that is the design rather than an omission. A staff
-// queue and a submitter's own applications are both served from the indexed
-// document through the query service, which resolves the reader's access per
-// document; a list built here would have to re-derive that access in Go,
-// which this service does not do anywhere and the gateway exists to prevent.
+// ListRepairPage and ListDeletionPage are operator repair scans, not read
+// endpoints. Staff and submitter reads remain in query-service, where access
+// is resolved per indexed document.
 type ApplicationRepository interface {
 	// Create inserts an application.
 	Create(ctx context.Context, a *model.Application) (*model.Application, error)
@@ -165,8 +163,9 @@ type ApplicationRepository interface {
 	// Get returns one application, or ErrNotFound.
 	Get(ctx context.Context, uid uuid.UUID) (*model.Application, error)
 
-	// Delete removes the application when revision matches.
-	Delete(ctx context.Context, uid uuid.UUID, revision int64) error
+	// Delete removes the application and retains a PII-free deletion marker
+	// when revision matches.
+	Delete(ctx context.Context, uid uuid.UUID, revision int64) (*model.ApplicationDeletion, error)
 
 	// GetForUpdate is Get holding the row until the surrounding transaction
 	// ends.
@@ -181,6 +180,16 @@ type ApplicationRepository interface {
 	Transition(
 		ctx context.Context, uid uuid.UUID, revision int64, to model.ApplicationState,
 	) (*model.Application, error)
+
+	// ListRepairPage returns live applications after the UID cursor.
+	ListRepairPage(
+		ctx context.Context, after uuid.UUID, limit int,
+	) ([]*model.Application, error)
+
+	// ListDeletionPage returns retained deletion markers after the UID cursor.
+	ListDeletionPage(
+		ctx context.Context, after uuid.UUID, limit int,
+	) ([]*model.ApplicationDeletion, error)
 }
 
 // UnitOfWork runs a function against repositories bound to one transaction, so
@@ -365,16 +374,18 @@ type IndexerPublisher interface {
 
 	// PublishApplication upserts one application's projection.
 	//
-	// Unlike the two above, this is not best-effort repaired by anything. The
-	// reconcile sweep walks forming projects, and an application has no
-	// project, so nothing republishes it. This document is also the only read
-	// path an application has — the service hosts no collection endpoint — so
-	// a publish that never lands is an application nobody can find, including
-	// the person who filed it.
+	// The application repair lane republishes this independently of project
+	// reconciliation.
 	PublishApplication(ctx context.Context, doc *ApplicationProjection) error
 
 	// DeleteApplication removes one application's projection from the index.
 	DeleteApplication(ctx context.Context, applicationUID string) error
+}
+
+// ApplicationProjectionValidator checks the exact private index envelope
+// without publishing it.
+type ApplicationProjectionValidator interface {
+	ValidateApplication(doc *ApplicationProjection) error
 }
 
 // ApplicationProjection is one application as the search index holds it.

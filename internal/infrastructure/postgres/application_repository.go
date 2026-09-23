@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -76,22 +77,60 @@ func (r *ApplicationRepo) get(ctx context.Context, uid uuid.UUID, lock bool) (*m
 	return a, nil
 }
 
-// Delete removes the application.
-//
-// A hard delete. No source expresses a preference between hard and soft, and
-// a soft delete would need a rule for what reads see and how long rows are
-// kept, neither of which is specified — so the simpler behaviour is the one
-// that makes no unstated promise.
-func (r *ApplicationRepo) Delete(ctx context.Context, uid uuid.UUID, revision int64) error {
-	res, err := r.db.NewDelete().
-		Model((*model.Application)(nil)).
-		Where("uid = ?", uid).
-		Where("revision = ?", revision).
-		Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("delete application: %w", err)
+// Delete removes the PII row and leaves a durable cleanup marker atomically.
+func (r *ApplicationRepo) Delete(
+	ctx context.Context, uid uuid.UUID, revision int64,
+) (*model.ApplicationDeletion, error) {
+	marker := &model.ApplicationDeletion{
+		UID:       uid,
+		Revision:  revision + 1,
+		DeletedAt: time.Now().UTC(),
 	}
-	return requireApplicationRevision(ctx, r.db, res, uid, "delete application")
+	res, err := r.db.NewRaw(`
+		WITH deleted AS (
+			DELETE FROM project_applications
+			WHERE uid = ? AND revision = ?
+			RETURNING uid, revision + 1 AS revision
+		)
+		INSERT INTO project_application_deletions (uid, revision, deleted_at)
+		SELECT uid, revision, ? FROM deleted`,
+		uid, revision, marker.DeletedAt,
+	).Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("delete application: %w", err)
+	}
+	if err := requireApplicationRevision(ctx, r.db, res, uid, "delete application"); err != nil {
+		return nil, err
+	}
+	return marker, nil
+}
+
+func (r *ApplicationRepo) ListRepairPage(
+	ctx context.Context, after uuid.UUID, limit int,
+) ([]*model.Application, error) {
+	applications := make([]*model.Application, 0, limit)
+	query := r.db.NewSelect().Model(&applications).OrderExpr("uid ASC").Limit(limit)
+	if after != uuid.Nil {
+		query = query.Where("uid > ?", after)
+	}
+	if err := query.Scan(ctx); err != nil {
+		return nil, fmt.Errorf("list applications for repair: %w", err)
+	}
+	return applications, nil
+}
+
+func (r *ApplicationRepo) ListDeletionPage(
+	ctx context.Context, after uuid.UUID, limit int,
+) ([]*model.ApplicationDeletion, error) {
+	deletions := make([]*model.ApplicationDeletion, 0, limit)
+	query := r.db.NewSelect().Model(&deletions).OrderExpr("uid ASC").Limit(limit)
+	if after != uuid.Nil {
+		query = query.Where("uid > ?", after)
+	}
+	if err := query.Scan(ctx); err != nil {
+		return nil, fmt.Errorf("list application deletions for repair: %w", err)
+	}
+	return deletions, nil
 }
 
 // UpdatePayload replaces the intake answers, leaving the state alone.

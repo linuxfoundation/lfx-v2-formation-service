@@ -63,6 +63,10 @@ type Service struct {
 	// Nil means the record exists and no queue shows it.
 	applicationIndexer port.IndexerPublisher
 
+	// applicationProjectionValidator checks the exact index envelope before
+	// an application write commits.
+	applicationProjectionValidator port.ApplicationProjectionValidator
+
 	// applicationTeam is the OpenFGA team granted review standing on every
 	// application created here.
 	applicationTeam string
@@ -174,6 +178,11 @@ func WithApplicationAccess(access port.AccessPublisher) serviceOption {
 // into the search index. Omitting it keeps applications out of every queue.
 func WithApplicationIndexer(indexer port.IndexerPublisher) serviceOption {
 	return func(s *Service) { s.applicationIndexer = indexer }
+}
+
+// WithApplicationProjectionValidator wires the private index-envelope check.
+func WithApplicationProjectionValidator(validator port.ApplicationProjectionValidator) serviceOption {
+	return func(s *Service) { s.applicationProjectionValidator = validator }
 }
 
 // WithApplicationTeam names the team granted review standing on applications.

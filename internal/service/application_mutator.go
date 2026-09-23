@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -38,6 +39,13 @@ func (s *Service) ReviseApplication(
 	) (*model.Application, error) {
 		answers, err := validateAnswers(p.Application)
 		if err != nil {
+			return nil, err
+		}
+		next := *current
+		next.Payload = answers
+		next.Revision++
+		next.UpdatedAt = time.Now().UTC()
+		if err := s.validateApplicationProjection(&next); err != nil {
 			return nil, err
 		}
 		// The previous answers are overwritten. Payload versioning was not
@@ -75,11 +83,8 @@ func (s *Service) WithdrawApplication(
 // be this service inventing a rule. Deleting and denying are different
 // requests — denying keeps the record, deleting removes it.
 //
-// Remove publisher-managed user access first, then remove the document. Both
-// publishes are fire-and-forget, so a partial failure is possible. Neither
-// failure is returned, for the same reason the create path swallows its own:
-// the row is already gone, and a caller told the delete failed would retry
-// against nothing.
+// Cleanup is attempted after the delete commits. A durable deletion marker
+// lets reconciliation retry either downstream removal after this returns.
 func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicationPayload) error {
 	if s.uow == nil {
 		slog.ErrorContext(ctx, "formationService.delete-application: no unit of work wired")
@@ -92,42 +97,34 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
 	}
 
+	var repair *model.Application
 	if err := s.uow.Do(ctx, func(tx port.Tx) error {
 		current, err := tx.Applications().GetForUpdate(ctx, uid)
 		if err != nil {
 			return err
 		}
 		if current.Revision != p.IfMatch {
-			// Send the repair while the row is locked so a following delete
-			// cannot publish its tombstone before this older document.
-			s.publishApplication(ctx, current)
+			repair = current
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
-		return tx.Applications().Delete(ctx, uid, p.IfMatch)
+		if _, err := tx.Applications().Delete(ctx, uid, p.IfMatch); err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
+		if repair != nil {
+			_ = s.publishApplication(ctx, repair)
+		}
 		slog.ErrorContext(ctx, "formationService.delete-application", "application_uid", uid, log.ErrKey, err)
 		return mapApplicationError(withApplicationReason(err))
 	}
 
-	if s.applicationAccess != nil {
-		if err := s.applicationAccess.DeleteApplicationAccess(ctx, uid.String()); err != nil {
-			slog.ErrorContext(ctx, "formationService.delete-application: revoking access failed",
-				"application_uid", uid, log.ErrKey, err)
-		}
-	}
-	if s.applicationIndexer != nil {
-		if err := s.applicationIndexer.DeleteApplication(ctx, uid.String()); err != nil {
-			slog.ErrorContext(ctx, "formationService.delete-application: removing the document failed",
-				"application_uid", uid, log.ErrKey, err)
-		}
-	}
-
+	_ = s.deleteApplicationProjection(ctx, uid)
 	slog.InfoContext(ctx, "formationService.delete-application", "application_uid", uid)
 	return nil
 }
 
-// mutateApplication runs one write against an application inside a
-// transaction, then republishes it.
+// mutateApplication commits an application write, then republishes it.
 //
 // The locking read serializes database mutations; If-Match binds the write to
 // the revision the caller read from the private projection.
@@ -150,31 +147,31 @@ func (s *Service) mutateApplication(
 			domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationUIDBad))
 	}
 
-	var updated *model.Application
+	var updated, repair *model.Application
 	err = s.uow.Do(ctx, func(tx port.Tx) error {
 		current, err := tx.Applications().GetForUpdate(ctx, uid)
 		if err != nil {
 			return err
 		}
 		if current.Revision != ifMatch {
-			// Keep the repair ordered before the next database mutation.
-			s.publishApplication(ctx, current)
+			repair = current
 			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 		updated, err = mutate(ctx, tx, current)
-		return err
+		if err != nil {
+			return err
+		}
+		return s.validateApplicationProjection(updated)
 	})
 	if err != nil {
+		if repair != nil {
+			_ = s.publishApplication(ctx, repair)
+		}
 		slog.ErrorContext(ctx, "formationService."+operation, "application_uid", uid, log.ErrKey, err)
 		return nil, mapApplicationError(withApplicationReason(err))
 	}
 
-	// Republished rather than patched, for the same reason the create path
-	// publishes: the indexed document is the only thing any reader sees, and
-	// a revise that did not reach it would leave the queue showing answers
-	// that are no longer stored.
-	s.publishApplication(ctx, updated)
-
+	_ = s.publishApplication(ctx, updated)
 	slog.InfoContext(ctx, "formationService."+operation,
 		"application_uid", updated.UID,
 		"state", updated.State,
@@ -182,4 +179,27 @@ func (s *Service) mutateApplication(
 	application := applicationToWire(updated)
 	etag := strconv.FormatInt(updated.Revision, 10)
 	return &svc.ProjectApplicationMutationResult{Application: application, Etag: &etag}, nil
+}
+
+func (s *Service) deleteApplicationProjection(ctx context.Context, uid uuid.UUID) error {
+	var publishErrs []error
+	if s.applicationAccess != nil {
+		if err := s.applicationAccess.DeleteApplicationAccess(ctx, uid.String()); err != nil {
+			publishErrs = append(publishErrs, err)
+			slog.ErrorContext(ctx, "formationService.delete-application: revoking access failed",
+				"application_uid", uid, log.ErrKey, err)
+		}
+	} else {
+		publishErrs = append(publishErrs, errors.New("application access publisher is not configured"))
+	}
+	if s.applicationIndexer != nil {
+		if err := s.applicationIndexer.DeleteApplication(ctx, uid.String()); err != nil {
+			publishErrs = append(publishErrs, err)
+			slog.ErrorContext(ctx, "formationService.delete-application: removing the document failed",
+				"application_uid", uid, log.ErrKey, err)
+		}
+	} else {
+		publishErrs = append(publishErrs, errors.New("application indexer is not configured"))
+	}
+	return errors.Join(publishErrs...)
 }

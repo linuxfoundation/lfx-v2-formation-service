@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,19 @@ func sampleApplicationProjection() *port.ApplicationProjection {
 		CreatedAt:         "2026-09-01T00:00:00Z",
 		UpdatedAt:         "2026-09-01T00:00:00Z",
 		AccessRelation:    "viewer",
+	}
+}
+
+func TestPublishApplicationRefusesAnOversizedEnvelope(t *testing.T) {
+	projection := sampleApplicationProjection()
+	projection.Payload = map[string]any{
+		"description": strings.Repeat("x", maxApplicationProjectionBytes),
+	}
+
+	err := NewIndexerPublisher(nil).PublishApplication(context.Background(), projection)
+
+	if err == nil {
+		t.Fatal("PublishApplication() = nil, want an oversized-envelope error")
 	}
 }
 

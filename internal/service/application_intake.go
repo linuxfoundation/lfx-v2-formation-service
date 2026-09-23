@@ -5,11 +5,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/google/uuid"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -24,6 +27,7 @@ const (
 	reasonSubmitterUsernameRequired = "submitter_username_required"
 	reasonProjectWebsiteBad         = "project_website_invalid"
 	reasonFormationListInvalid      = "formation_list_invalid"
+	reasonApplicationTooLarge       = "application_payload_too_large"
 )
 
 var applicationReasonMessages = map[string]string{
@@ -32,8 +36,14 @@ var applicationReasonMessages = map[string]string{
 	reasonSubmitterUsernameRequired: "submitter_username is required",
 	reasonProjectWebsiteBad:         "project_website must be an http or https URL",
 	reasonFormationListInvalid:      "formation_list must be a list of email addresses",
+	reasonApplicationTooLarge:       "application submission exceeds the transport-safe size limit",
 	reasonApplicationUIDBad:         "the application identifier is not a uuid",
 }
+
+const (
+	maxApplicationPayloadBytes = 512 << 10
+	maxProjectNameBytes        = 64 << 10
+)
 
 // Intake payload keys this service knows about by name. Everything else in
 // the map is carried through untouched.
@@ -70,14 +80,24 @@ func (s *Service) CreateApplication(
 		return nil, mapApplicationError(err)
 	}
 
-	created, err := s.applications.Create(ctx, &model.Application{
+	now := time.Now().UTC()
+	pending := &model.Application{
+		UID:               uuid.New(),
 		State:             model.ApplicationSubmitted,
+		Revision:          1,
 		SubmitterUsername: p.SubmitterUsername,
 		SubmitterName:     p.SubmitterName,
 		SubmitterEmail:    p.SubmitterEmail,
 		TargetParentUID:   p.TargetParentUID,
 		Payload:           application,
-	})
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	if err := s.validateApplicationProjection(pending); err != nil {
+		return nil, mapApplicationError(err)
+	}
+
+	created, err := s.applications.Create(ctx, pending)
 	if err != nil {
 		slog.ErrorContext(ctx, "formationService.create-application", log.ErrKey, err)
 		return nil, err
@@ -88,7 +108,7 @@ func (s *Service) CreateApplication(
 		"has_target_parent", created.TargetParentUID != nil,
 	)
 
-	s.publishApplication(ctx, created)
+	_ = s.publishApplication(ctx, created)
 
 	return applicationToWire(created), nil
 }
@@ -101,14 +121,15 @@ func (s *Service) CreateApplication(
 // before its grants exist is invisible until the next write republishes it.
 // Granting first narrows that window to nothing.
 //
-// Neither failure is returned. The record is already committed, and a caller
-// told "your submission failed" would file it again, producing two
-// applications where the first one was fine. What the caller loses instead is
-// visibility, which the next revise or decision restores by republishing
-// both. That is the same trade the other publishers here make, and it is why
-// these are logged at error rather than swallowed.
-func (s *Service) publishApplication(ctx context.Context, a *model.Application) {
+// Neither failure changes the API response. PostgreSQL is the source of truth,
+// and the reconcile sweep republishes both grants and documents. Returning a
+// publish failure after a database write can make a caller repeat a successful
+// mutation.
+func (s *Service) publishApplication(ctx context.Context, a *model.Application) error {
+	var publishErrs []error
 	if s.applicationAccess == nil || s.applicationTeam == "" {
+		err := errors.New("application access publisher or team is not configured")
+		publishErrs = append(publishErrs, err)
 		slog.ErrorContext(ctx, "formationService.publish-application: no access publisher wired; the application is readable by nobody",
 			"application_uid", a.UID,
 		)
@@ -117,19 +138,23 @@ func (s *Service) publishApplication(ctx context.Context, a *model.Application) 
 		SubmitterUsername: a.SubmitterUsername,
 		FormationTeam:     s.applicationTeam,
 	}); err != nil {
+		publishErrs = append(publishErrs, err)
 		slog.ErrorContext(ctx, "formationService.publish-application: granting access failed",
 			"application_uid", a.UID, log.ErrKey, err,
 		)
 	}
 
 	if s.applicationIndexer == nil {
-		return
+		publishErrs = append(publishErrs, errors.New("application indexer is not configured"))
+		return errors.Join(publishErrs...)
 	}
 	if err := s.applicationIndexer.PublishApplication(ctx, applicationProjection(a)); err != nil {
+		publishErrs = append(publishErrs, err)
 		slog.ErrorContext(ctx, "formationService.publish-application: indexing failed",
 			"application_uid", a.UID, log.ErrKey, err,
 		)
 	}
+	return errors.Join(publishErrs...)
 }
 
 // applicationProjection builds the searchable view of an application.
@@ -152,6 +177,16 @@ func applicationProjection(a *model.Application) *port.ApplicationProjection {
 		UpdatedAt:         a.UpdatedAt.UTC().Format(time.RFC3339),
 		AccessRelation:    constants.RelationApplicationViewer,
 	}
+}
+
+func (s *Service) validateApplicationProjection(a *model.Application) error {
+	if s.applicationProjectionValidator == nil {
+		return nil
+	}
+	if err := s.applicationProjectionValidator.ValidateApplication(applicationProjection(a)); err != nil {
+		return domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	}
+	return nil
 }
 
 // validateIntake checks the envelope and returns the answers to store.
@@ -178,6 +213,15 @@ func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 // accepted on the next edit, which is the same record ending up in a shape
 // the create route would never have allowed.
 func validateAnswers(answers map[string]any) (map[string]any, error) {
+	encoded, err := json.Marshal(answers)
+	if err != nil || len(encoded) > maxApplicationPayloadBytes {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	}
+	if projectName, ok := answers[payloadProjectName].(string); ok &&
+		len(projectName) > maxProjectNameBytes {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	}
+
 	// The website stands in for the logo the mockup asked for, so it is the
 	// one intake answer whose shape is checked here.
 	if raw, present := answers[payloadProjectWebsite]; present {

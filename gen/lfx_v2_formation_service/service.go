@@ -58,7 +58,8 @@ type Service interface {
 	// placement. The submitter's identity is recorded from the payload rather than
 	// from the caller's token: this route is called by the UI authenticating as
 	// itself, so the end user never presents a credential here. Anti-automation
-	// belongs to that caller; this service adds no second control.
+	// belongs to that caller; this service adds no second control. The response
+	// body carries revision 1; create does not duplicate it in an ETag header.
 	CreateApplication(context.Context, *CreateApplicationPayload) (res *ProjectApplication, err error)
 	// Replace an application's answers without changing its state.
 	ReviseApplication(context.Context, *ReviseApplicationPayload) (res *ProjectApplicationMutationResult, err error)

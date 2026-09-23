@@ -33,11 +33,8 @@ func teamMemberRef(team string) string {
 // owns every write to the tuple store.
 //
 // Fire-and-forget over core NATS, like every other publisher here. The
-// consequence is sharper on this path than on the projection one, and worth
-// stating plainly: a lost projection is repaired by the next reconcile sweep,
-// but no sweep covers applications, so a lost grant is permanent. The
-// submitter is then unable to see the application they filed, and nothing
-// notices. That gap is known and is not closed here.
+// application repair lane republishes lost live grants and retries retained
+// deletion markers.
 type AccessPublisher struct {
 	client *Client
 }

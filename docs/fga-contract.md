@@ -66,10 +66,11 @@ subject is a team userset. The application's `formation_team` tuple therefore re
 
 ### Failure Behavior
 
-The database write commits before access publication. Immediate serialization or NATS publish
-failures are logged and do not change the API response. Applications have no reconcile sweep, so
-a lost grant has no automatic repair path; a later revise or decision republishes the complete
-grant set.
+Immediate serialization or NATS publish failures are logged and do not change the API response.
+Each reconcile sweep republishes the complete grant set for every live application and retries
+`delete_access` for every retained deletion marker. Database writes commit before publication.
+Timed-out or reordered core NATS delivery is repaired by the retained source state; strict
+stale-event rejection requires revision-aware handling in fga-sync.
 
 Changing `APPLICATION_FORMATION_TEAM` does not revoke the old team's existing tuples because
 fga-sync preserves team-subject grants. Such a change requires an explicit tuple cleanup.

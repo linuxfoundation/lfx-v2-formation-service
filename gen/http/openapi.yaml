@@ -465,7 +465,7 @@ paths:
             tags:
                 - lfx_v2_formation_service
             summary: create_application lfx_v2_formation_service
-            description: 'Submit an application to start a new foundation. Creates an application record and nothing else — no project, no checklist, no stage, no entity placement. The submitter''s identity is recorded from the payload rather than from the caller''s token: this route is called by the UI authenticating as itself, so the end user never presents a credential here. Anti-automation belongs to that caller; this service adds no second control.'
+            description: 'Submit an application to start a new foundation. Creates an application record and nothing else — no project, no checklist, no stage, no entity placement. The submitter''s identity is recorded from the payload rather than from the caller''s token: this route is called by the UI authenticating as itself, so the end user never presents a credential here. Anti-automation belongs to that caller; this service adds no second control. The response body carries revision 1; create does not duplicate it in an ETag header.'
             operationId: lfx_v2_formation_service#create_application
             parameters:
                 - name: v
@@ -934,7 +934,7 @@ definitions:
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: application_uid_invalid
+                example: version_mismatch
                 enum:
                     - not_found
                     - application_uid_invalid
@@ -942,12 +942,13 @@ definitions:
                     - submitter_username_required
                     - project_website_invalid
                     - formation_list_invalid
+                    - application_payload_too_large
         description: The payload itself is invalid
         example:
             code: "400"
             message: Dolorem provident ea voluptatem qui.
             name: Placeat harum sint aspernatur reprehenderit eos.
-            reason: application_uid_invalid
+            reason: version_mismatch
         required:
             - name
             - code

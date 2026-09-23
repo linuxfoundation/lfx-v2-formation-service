@@ -274,10 +274,11 @@ None. `target_parent_uid` remains document data and never enters `parent_refs`.
 
 Messages use core NATS publish. A nil publish result means the client accepted the message; it is
 not a broker acknowledgement or confirmation that indexing completed. Publish failures are logged
-after the database write and do not change the API response.
+and do not change the API response.
 
-Applications have no reconcile sweep. A lost create publish leaves the application absent from
-query-service results until a later mutation republishes it. A lost final mutation or delete has
-no automatic repair path. A mutation rejected by `If-Match` republishes the current database
-revision before returning `412`, so a caller reading a stale projection can refresh and retry after
-the index catches up.
+Each reconcile sweep republishes every live application. Delete atomically removes the PII-bearing
+row and retains a PII-free deletion marker; the sweep republishes every retained marker. Database
+writes commit before publication. Timed-out or reordered core NATS delivery is repaired by the
+retained source state; strict stale-event rejection requires revision-aware indexer handling. A
+mutation rejected by `If-Match` republishes the current database revision before returning `412`,
+so a caller reading a stale projection can refresh and retry after the index catches up.

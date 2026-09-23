@@ -2296,8 +2296,8 @@ func ValidateCreateApplicationBadRequestResponseBody(body *CreateApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2331,8 +2331,8 @@ func ValidateReviseApplicationBadRequestResponseBody(body *ReviseApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2354,8 +2354,8 @@ func ValidateReviseApplicationNotFoundResponseBody(body *ReviseApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2377,8 +2377,8 @@ func ValidateReviseApplicationVersionMismatchResponseBody(body *ReviseApplicatio
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2412,8 +2412,8 @@ func ValidateWithdrawApplicationNotFoundResponseBody(body *WithdrawApplicationNo
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2435,8 +2435,8 @@ func ValidateWithdrawApplicationVersionMismatchResponseBody(body *WithdrawApplic
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2470,8 +2470,8 @@ func ValidateAcceptApplicationNotFoundResponseBody(body *AcceptApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2493,8 +2493,8 @@ func ValidateAcceptApplicationVersionMismatchResponseBody(body *AcceptApplicatio
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2528,8 +2528,8 @@ func ValidateDenyApplicationNotFoundResponseBody(body *DenyApplicationNotFoundRe
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2551,8 +2551,8 @@ func ValidateDenyApplicationVersionMismatchResponseBody(body *DenyApplicationVer
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2586,8 +2586,8 @@ func ValidateDeleteApplicationNotFoundResponseBody(body *DeleteApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return
@@ -2609,8 +2609,8 @@ func ValidateDeleteApplicationVersionMismatchResponseBody(body *DeleteApplicatio
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid" || *body.Reason == "application_payload_too_large") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid", "application_payload_too_large"}))
 		}
 	}
 	return

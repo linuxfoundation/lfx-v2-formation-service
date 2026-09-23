@@ -145,6 +145,14 @@ CREATE TABLE IF NOT EXISTS project_applications (
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- PII-free markers make a lost application cleanup recoverable without
+-- retaining the deleted intake answers or applicant identity.
+CREATE TABLE IF NOT EXISTS project_application_deletions (
+    uid        UUID        PRIMARY KEY,
+    revision   BIGINT      NOT NULL,
+    deleted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Append-only activity feed. ULID primary keys give a time-ordered feed and
 -- cursor paging from a plain index read. Rows are never updated, so there is
 -- no revision column. Entries are written in the same transaction as the

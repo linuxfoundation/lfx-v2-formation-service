@@ -185,11 +185,23 @@ func TestApplicationDelete(t *testing.T) {
 	ctx := context.Background()
 	created := createApplication(t, repo)
 
-	if err := repo.Delete(ctx, created.UID, created.Revision); err != nil {
+	marker, err := repo.Delete(ctx, created.UID, created.Revision)
+	if err != nil {
 		t.Fatalf("delete = %v, want no error", err)
+	}
+	if marker.UID != created.UID || marker.Revision != created.Revision+1 {
+		t.Errorf("deletion marker = %#v, want uid %s revision %d",
+			marker, created.UID, created.Revision+1)
 	}
 	if _, err := repo.Get(ctx, created.UID); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("get after delete = %v, want ErrNotFound", err)
+	}
+	deletions, err := repo.ListDeletionPage(ctx, uuid.Nil, 10)
+	if err != nil {
+		t.Fatalf("list deletion markers: %v", err)
+	}
+	if len(deletions) != 1 || deletions[0].UID != created.UID {
+		t.Errorf("deletion markers = %#v, want marker for %s", deletions, created.UID)
 	}
 }
 
@@ -220,7 +232,7 @@ func TestApplicationWritesRejectAStaleRevision(t *testing.T) {
 
 	t.Run("delete", func(t *testing.T) {
 		created := createApplication(t, repo)
-		err := repo.Delete(ctx, created.UID, created.Revision+1)
+		_, err := repo.Delete(ctx, created.UID, created.Revision+1)
 		if !errors.Is(err, domain.ErrVersionMismatch) {
 			t.Errorf("delete = %v, want ErrVersionMismatch", err)
 		}
@@ -321,7 +333,7 @@ func TestApplicationAbsentIsNotFound(t *testing.T) {
 	if _, err := repo.Transition(ctx, absent, 1, model.ApplicationAccepted); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("transition = %v, want ErrNotFound", err)
 	}
-	if err := repo.Delete(ctx, absent, 1); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.Delete(ctx, absent, 1); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("delete = %v, want ErrNotFound", err)
 	}
 }

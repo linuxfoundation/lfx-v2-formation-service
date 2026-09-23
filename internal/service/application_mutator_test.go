@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +18,9 @@ import (
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
+	natsinfra "github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/nats"
 )
 
 // applicationDoubles is the full application surface wired over doubles —
@@ -50,6 +54,7 @@ func applicationService(t *testing.T) applicationDoubles {
 			WithUnitOfWork(uow),
 			WithApplicationAccess(access),
 			WithApplicationIndexer(indexer),
+			WithApplicationProjectionValidator(natsinfra.NewApplicationProjectionValidator()),
 			WithApplicationTeam("formation"),
 		),
 		applications: applications,
@@ -63,6 +68,96 @@ func mustUUID(t *testing.T, raw string) uuid.UUID {
 	parsed, err := uuid.Parse(raw)
 	require.NoError(t, err)
 	return parsed
+}
+
+type failAfterWorkUOW struct {
+	port.UnitOfWork
+}
+
+func (u failAfterWorkUOW) Do(ctx context.Context, fn func(port.Tx) error) error {
+	if err := u.UnitOfWork.Do(ctx, fn); err != nil {
+		return err
+	}
+	return errors.New("commit failed")
+}
+
+func TestReviseApplicationRefusesAnswersAboveThePublishLimit(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+
+	_, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+		Version: "1",
+		UID:     created.UID,
+		IfMatch: created.Revision,
+		Application: map[string]any{
+			"description": strings.Repeat("x", maxApplicationPayloadBytes),
+		},
+	})
+
+	var appErr *svc.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, reasonApplicationTooLarge, appErr.Reason)
+}
+
+func TestReviseApplicationRefusesAnOversizedProjectionBeforeStoring(t *testing.T) {
+	d := applicationService(t)
+	now := time.Now().UTC()
+	stored, err := d.applications.Create(context.Background(), &model.Application{
+		UID:               uuid.New(),
+		State:             model.ApplicationSubmitted,
+		Revision:          1,
+		SubmitterUsername: strings.Repeat("u", 256<<10),
+		SubmitterName:     "A Smith",
+		SubmitterEmail:    "asmith@example.test",
+		Payload:           map[string]any{"project_name": "Original"},
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	require.NoError(t, err)
+
+	_, err = d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+		Version: "1", UID: stored.UID.String(), IfMatch: stored.Revision,
+		Application: map[string]any{
+			"description":  strings.Repeat("d", 400<<10),
+			"project_name": strings.Repeat("p", maxProjectNameBytes),
+		},
+	})
+
+	var appErr *svc.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, reasonApplicationTooLarge, appErr.Reason)
+	current, err := d.applications.Get(context.Background(), stored.UID)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"project_name": "Original"}, current.Payload)
+}
+
+func TestApplicationMutationPublishesOnlyAfterCommit(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	d.service.uow = failAfterWorkUOW{UnitOfWork: d.service.uow}
+
+	_, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
+		Application: map[string]any{"project_name": "Never committed"},
+	})
+
+	require.Error(t, err)
+	assert.Len(t, d.access.Published(), 1)
+	assert.Len(t, d.indexer.ApplicationPublished(), 1)
+}
+
+func TestApplicationDeletePublishesOnlyAfterCommit(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	d.service.uow = failAfterWorkUOW{UnitOfWork: d.service.uow}
+
+	err := d.service.DeleteApplication(asPrincipal("asmith"), &svc.DeleteApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
+	})
+
+	require.Error(t, err)
+	assert.Empty(t, d.access.Deleted())
+	assert.Empty(t, d.indexer.ApplicationDeleted())
 }
 
 func submitOne(t *testing.T, s *Service) *svc.ProjectApplication {

@@ -22,6 +22,8 @@ import (
 	goahttp "goa.design/goa/v3/http"
 )
 
+const maxRequestBodyBytes = 768 << 10
+
 // StartServer initializes and starts the HTTP server.
 func StartServer(ctx context.Context, cfg *config.Config) error {
 	svcImpl, deps, closeFn, err := diservice.New(ctx, cfg)
@@ -66,6 +68,7 @@ func handleHTTPServer(
 	svcsvr.Mount(mux, server)
 
 	var handler http.Handler = mux
+	handler = http.MaxBytesHandler(handler, maxRequestBodyBytes)
 	handler = middleware.RequestIDMiddleware()(handler)
 	if cfg.Debug {
 		handler = debug.HTTP()(handler)

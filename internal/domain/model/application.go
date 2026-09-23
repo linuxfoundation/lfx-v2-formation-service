@@ -94,3 +94,13 @@ type Application struct {
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:now()"`
 	UpdatedAt time.Time `bun:"updated_at,nullzero,notnull,default:now()"`
 }
+
+// ApplicationDeletion is the durable, PII-free repair marker left after an
+// application is removed.
+type ApplicationDeletion struct {
+	bun.BaseModel `bun:"table:project_application_deletions,alias:pad"`
+
+	UID       uuid.UUID `bun:"uid,pk"`
+	Revision  int64     `bun:"revision,notnull"`
+	DeletedAt time.Time `bun:"deleted_at,nullzero,notnull,default:now()"`
+}

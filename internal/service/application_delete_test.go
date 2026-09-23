@@ -52,6 +52,27 @@ func TestDeleteApplicationRequestsBothDownstreamRemovals(t *testing.T) {
 	require.Len(t, d.indexer.ApplicationDeleted(), 1)
 }
 
+func TestDeleteApplicationRetainsCleanupAfterPublishFailure(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	d.access.Err = assert.AnError
+	d.indexer.SetError(assert.AnError)
+
+	require.NoError(t, d.service.DeleteApplication(asPrincipal("asmith"),
+		&svc.DeleteApplicationPayload{
+			Version: "1", UID: created.UID, IfMatch: created.Revision,
+		}))
+
+	d.access.Err = nil
+	d.indexer.SetError(nil)
+	report, err := d.service.RepairApplications(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.DeletedAttempted)
+	assert.Zero(t, report.Failed)
+	assert.Equal(t, []string{created.UID}, d.access.Deleted())
+	assert.Equal(t, []string{created.UID}, d.indexer.ApplicationDeleted())
+}
+
 // Deleting is not denying. Denying keeps the record for audit and
 // re-application history; deleting removes it. A test for each, so collapsing
 // one into the other breaks something.
