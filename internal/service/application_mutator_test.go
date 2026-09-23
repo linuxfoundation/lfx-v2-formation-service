@@ -391,6 +391,7 @@ func applicationMutationCases() []applicationMutationCase {
 		return func(t *testing.T, d applicationDoubles, uid string) {
 			stored, err := d.applications.Get(context.Background(), mustUUID(t, uid))
 			require.NoError(t, err)
+			assert.Equal(t, model.ApplicationSubmitted, stored.State)
 			assert.Equal(t, want, stored.Payload["project_name"])
 		}
 	}

@@ -123,6 +123,13 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			reason: "submitter_username_required",
 		},
 		{
+			name: "submitter username contains only format characters",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.SubmitterUsername = "\u200b\ufeff"
+			},
+			reason: "submitter_username_required",
+		},
+		{
 			name: "website is not a URL",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_website"] = "proposed.example.test"

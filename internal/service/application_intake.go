@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
@@ -164,7 +165,9 @@ func applicationProjection(a *model.Application) *port.ApplicationProjection {
 // the project website and formation-contact email addresses.
 func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 	p.SubmitterUsername = strings.TrimSpace(p.SubmitterUsername)
-	if p.SubmitterUsername == "" {
+	if strings.IndexFunc(p.SubmitterUsername, func(r rune) bool {
+		return !unicode.IsSpace(r) && !unicode.Is(unicode.Cf, r)
+	}) == -1 {
 		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonSubmitterUsernameRequired)
 	}
 	return validateAnswers(p.Application)
