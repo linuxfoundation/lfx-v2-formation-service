@@ -987,6 +987,11 @@ func EncodeReviseApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 				req.Header.Set("Authorization", head)
 			}
 		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
 		values := req.URL.Query()
 		values.Add("v", p.Version)
 		req.URL.RawQuery = values.Encode()
@@ -1004,6 +1009,7 @@ func EncodeReviseApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 // DecodeReviseApplicationResponse may return the following errors:
 //   - "BadRequest" (type *lfxv2formationservice.ApplicationError): http.StatusBadRequest
 //   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.ApplicationError): http.StatusPreconditionFailed
 //   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeReviseApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
@@ -1030,13 +1036,20 @@ func DecodeReviseApplicationResponse(decoder func(*http.Response) goahttp.Decode
 			if err != nil {
 				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
 			}
-			p := NewReviseApplicationProjectApplicationOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			p := NewReviseApplicationProjectApplicationMutationResultOK(&body, etag)
 			view := "default"
-			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
-			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+			vres := &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplicationMutationResult(vres); err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
 			}
-			res := lfxv2formationservice.NewProjectApplication(vres)
+			res := lfxv2formationservice.NewProjectApplicationMutationResult(vres)
 			return res, nil
 		case http.StatusBadRequest:
 			var (
@@ -1066,6 +1079,20 @@ func DecodeReviseApplicationResponse(decoder func(*http.Response) goahttp.Decode
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
 			}
 			return nil, NewReviseApplicationNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body ReviseApplicationVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "revise_application", err)
+			}
+			err = ValidateReviseApplicationVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "revise_application", err)
+			}
+			return nil, NewReviseApplicationVersionMismatch(&body)
 		case http.StatusUnauthorized:
 			var (
 				body ReviseApplicationUnauthorizedResponseBody
@@ -1129,6 +1156,11 @@ func EncodeWithdrawApplicationRequest(encoder func(*http.Request) goahttp.Encode
 				req.Header.Set("Authorization", head)
 			}
 		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
 		values := req.URL.Query()
 		values.Add("v", p.Version)
 		req.URL.RawQuery = values.Encode()
@@ -1141,6 +1173,7 @@ func EncodeWithdrawApplicationRequest(encoder func(*http.Request) goahttp.Encode
 // controls whether the response body should be restored after having been read.
 // DecodeWithdrawApplicationResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.ApplicationError): http.StatusPreconditionFailed
 //   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeWithdrawApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
@@ -1167,13 +1200,20 @@ func DecodeWithdrawApplicationResponse(decoder func(*http.Response) goahttp.Deco
 			if err != nil {
 				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "withdraw_application", err)
 			}
-			p := NewWithdrawApplicationProjectApplicationOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			p := NewWithdrawApplicationProjectApplicationMutationResultOK(&body, etag)
 			view := "default"
-			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
-			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+			vres := &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplicationMutationResult(vres); err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
 			}
-			res := lfxv2formationservice.NewProjectApplication(vres)
+			res := lfxv2formationservice.NewProjectApplicationMutationResult(vres)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -1189,6 +1229,20 @@ func DecodeWithdrawApplicationResponse(decoder func(*http.Response) goahttp.Deco
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
 			}
 			return nil, NewWithdrawApplicationNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body WithdrawApplicationVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			err = ValidateWithdrawApplicationVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "withdraw_application", err)
+			}
+			return nil, NewWithdrawApplicationVersionMismatch(&body)
 		case http.StatusUnauthorized:
 			var (
 				body WithdrawApplicationUnauthorizedResponseBody
@@ -1252,6 +1306,11 @@ func EncodeAcceptApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 				req.Header.Set("Authorization", head)
 			}
 		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
 		values := req.URL.Query()
 		values.Add("v", p.Version)
 		req.URL.RawQuery = values.Encode()
@@ -1264,6 +1323,7 @@ func EncodeAcceptApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 // controls whether the response body should be restored after having been read.
 // DecodeAcceptApplicationResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.ApplicationError): http.StatusPreconditionFailed
 //   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeAcceptApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
@@ -1290,13 +1350,20 @@ func DecodeAcceptApplicationResponse(decoder func(*http.Response) goahttp.Decode
 			if err != nil {
 				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_application", err)
 			}
-			p := NewAcceptApplicationProjectApplicationOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			p := NewAcceptApplicationProjectApplicationMutationResultOK(&body, etag)
 			view := "default"
-			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
-			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+			vres := &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplicationMutationResult(vres); err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
 			}
-			res := lfxv2formationservice.NewProjectApplication(vres)
+			res := lfxv2formationservice.NewProjectApplicationMutationResult(vres)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -1312,6 +1379,20 @@ func DecodeAcceptApplicationResponse(decoder func(*http.Response) goahttp.Decode
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
 			}
 			return nil, NewAcceptApplicationNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body AcceptApplicationVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "accept_application", err)
+			}
+			err = ValidateAcceptApplicationVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "accept_application", err)
+			}
+			return nil, NewAcceptApplicationVersionMismatch(&body)
 		case http.StatusUnauthorized:
 			var (
 				body AcceptApplicationUnauthorizedResponseBody
@@ -1375,6 +1456,11 @@ func EncodeDenyApplicationRequest(encoder func(*http.Request) goahttp.Encoder) f
 				req.Header.Set("Authorization", head)
 			}
 		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
 		values := req.URL.Query()
 		values.Add("v", p.Version)
 		req.URL.RawQuery = values.Encode()
@@ -1387,6 +1473,7 @@ func EncodeDenyApplicationRequest(encoder func(*http.Request) goahttp.Encoder) f
 // whether the response body should be restored after having been read.
 // DecodeDenyApplicationResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.ApplicationError): http.StatusPreconditionFailed
 //   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeDenyApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
@@ -1413,13 +1500,20 @@ func DecodeDenyApplicationResponse(decoder func(*http.Response) goahttp.Decoder,
 			if err != nil {
 				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "deny_application", err)
 			}
-			p := NewDenyApplicationProjectApplicationOK(&body)
+			var (
+				etag *string
+			)
+			etagRaw := resp.Header.Get("Etag")
+			if etagRaw != "" {
+				etag = &etagRaw
+			}
+			p := NewDenyApplicationProjectApplicationMutationResultOK(&body, etag)
 			view := "default"
-			vres := &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: view}
-			if err = lfxv2formationserviceviews.ValidateProjectApplication(vres); err != nil {
+			vres := &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateProjectApplicationMutationResult(vres); err != nil {
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
 			}
-			res := lfxv2formationservice.NewProjectApplication(vres)
+			res := lfxv2formationservice.NewProjectApplicationMutationResult(vres)
 			return res, nil
 		case http.StatusNotFound:
 			var (
@@ -1435,6 +1529,20 @@ func DecodeDenyApplicationResponse(decoder func(*http.Response) goahttp.Decoder,
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
 			}
 			return nil, NewDenyApplicationNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body DenyApplicationVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "deny_application", err)
+			}
+			err = ValidateDenyApplicationVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "deny_application", err)
+			}
+			return nil, NewDenyApplicationVersionMismatch(&body)
 		case http.StatusUnauthorized:
 			var (
 				body DenyApplicationUnauthorizedResponseBody
@@ -1498,6 +1606,11 @@ func EncodeDeleteApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 				req.Header.Set("Authorization", head)
 			}
 		}
+		{
+			head := p.IfMatch
+			headStr := strconv.FormatInt(head, 10)
+			req.Header.Set("If-Match", headStr)
+		}
 		values := req.URL.Query()
 		values.Add("v", p.Version)
 		req.URL.RawQuery = values.Encode()
@@ -1510,6 +1623,7 @@ func EncodeDeleteApplicationRequest(encoder func(*http.Request) goahttp.Encoder)
 // controls whether the response body should be restored after having been read.
 // DecodeDeleteApplicationResponse may return the following errors:
 //   - "NotFound" (type *lfxv2formationservice.ApplicationError): http.StatusNotFound
+//   - "VersionMismatch" (type *lfxv2formationservice.ApplicationError): http.StatusPreconditionFailed
 //   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
 //   - error: internal error
 func DecodeDeleteApplicationResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
@@ -1543,6 +1657,20 @@ func DecodeDeleteApplicationResponse(decoder func(*http.Response) goahttp.Decode
 				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "delete_application", err)
 			}
 			return nil, NewDeleteApplicationNotFound(&body)
+		case http.StatusPreconditionFailed:
+			var (
+				body DeleteApplicationVersionMismatchResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "delete_application", err)
+			}
+			err = ValidateDeleteApplicationVersionMismatchResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "delete_application", err)
+			}
+			return nil, NewDeleteApplicationVersionMismatch(&body)
 		case http.StatusUnauthorized:
 			var (
 				body DeleteApplicationUnauthorizedResponseBody

@@ -33,8 +33,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Molestiae porro dolorem sequi aut.
-                  example: Modi vero voluptas tempora animi qui.
+                    example: Et molestiae tempora minima et voluptas.
+                  example: Aliquid itaque impedit fugit.
             responses:
                 "200":
                     description: OK response.
@@ -45,8 +45,8 @@ paths:
                             example:
                                 is_activating: false
                                 items:
-                                    - action_link: Possimus alias molestias corrupti.
-                                      assignee: Non dolore consectetur dolores.
+                                    - action_link: Maxime ullam iure.
+                                      assignee: Molestiae ipsa nesciunt dolor magnam est velit.
                                       available_actions:
                                         - action: mark_done
                                           requires_reason: false
@@ -55,40 +55,40 @@ paths:
                                           requires_reason: false
                                           requires_relation: writer
                                       checklist_type: external
-                                      due_date: "2010-09-12"
+                                      due_date: "2000-10-07"
                                       evidence_link: https://example.org/bylaws.pdf
                                       gate: false
                                       is_required: true
-                                      item_key: Ad molestiae ipsa nesciunt dolor magnam.
-                                      note: Veritatis fugiat quidem natus.
+                                      item_key: Illum velit autem et quis.
+                                      note: Dolor sit non nesciunt.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 2482232647430646554
-                                        resource_type: Sint ut molestiae tenetur omnis.
-                                      position: 5517351621016415913
-                                      requires_writer: false
+                                        min_count: 2788144535844667806
+                                        resource_type: Ad quibusdam.
+                                      position: 7682523033078194186
+                                      requires_writer: true
                                       resolved_ref:
-                                        type: Doloremque non voluptatem.
-                                        uid: Et repellat sequi vel incidunt.
-                                      section_key: Velit commodi a temporibus ipsum.
-                                      skip_reason: Eum omnis modi suscipit unde culpa reprehenderit.
+                                        type: Aut adipisci quod.
+                                        uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                      section_key: Minima repudiandae tempore harum.
+                                      skip_reason: Non minima doloremque.
                                       status: blocked
-                                      status_source: manual
+                                      status_source: platform
                                       sub_items:
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                      title: Voluptatum qui laborum laboriosam.
-                                      uid: Maxime ullam iure.
-                                      version: 5310253745858886903
-                                    - action_link: Possimus alias molestias corrupti.
-                                      assignee: Non dolore consectetur dolores.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                      title: Quibusdam nihil.
+                                      uid: Numquam consequatur et.
+                                      version: 1060903931579255348
+                                    - action_link: Maxime ullam iure.
+                                      assignee: Molestiae ipsa nesciunt dolor magnam est velit.
                                       available_actions:
                                         - action: mark_done
                                           requires_reason: false
@@ -97,61 +97,103 @@ paths:
                                           requires_reason: false
                                           requires_relation: writer
                                       checklist_type: external
-                                      due_date: "2010-09-12"
+                                      due_date: "2000-10-07"
                                       evidence_link: https://example.org/bylaws.pdf
                                       gate: false
                                       is_required: true
-                                      item_key: Ad molestiae ipsa nesciunt dolor magnam.
-                                      note: Veritatis fugiat quidem natus.
+                                      item_key: Illum velit autem et quis.
+                                      note: Dolor sit non nesciunt.
                                       owner_team: formation
                                       platform_check:
-                                        min_count: 2482232647430646554
-                                        resource_type: Sint ut molestiae tenetur omnis.
-                                      position: 5517351621016415913
-                                      requires_writer: false
+                                        min_count: 2788144535844667806
+                                        resource_type: Ad quibusdam.
+                                      position: 7682523033078194186
+                                      requires_writer: true
                                       resolved_ref:
-                                        type: Doloremque non voluptatem.
-                                        uid: Et repellat sequi vel incidunt.
-                                      section_key: Velit commodi a temporibus ipsum.
-                                      skip_reason: Eum omnis modi suscipit unde culpa reprehenderit.
+                                        type: Aut adipisci quod.
+                                        uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                      section_key: Minima repudiandae tempore harum.
+                                      skip_reason: Non minima doloremque.
                                       status: blocked
-                                      status_source: manual
+                                      status_source: platform
                                       sub_items:
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                        - key: Magni commodi.
-                                          status: blocked
-                                          title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                      title: Voluptatum qui laborum laboriosam.
-                                      uid: Maxime ullam iure.
-                                      version: 5310253745858886903
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                      title: Quibusdam nihil.
+                                      uid: Numquam consequatur et.
+                                      version: 1060903931579255348
+                                    - action_link: Maxime ullam iure.
+                                      assignee: Molestiae ipsa nesciunt dolor magnam est velit.
+                                      available_actions:
+                                        - action: mark_done
+                                          requires_reason: false
+                                          requires_relation: writer
+                                        - action: mark_done
+                                          requires_reason: false
+                                          requires_relation: writer
+                                      checklist_type: external
+                                      due_date: "2000-10-07"
+                                      evidence_link: https://example.org/bylaws.pdf
+                                      gate: false
+                                      is_required: true
+                                      item_key: Illum velit autem et quis.
+                                      note: Dolor sit non nesciunt.
+                                      owner_team: formation
+                                      platform_check:
+                                        min_count: 2788144535844667806
+                                        resource_type: Ad quibusdam.
+                                      position: 7682523033078194186
+                                      requires_writer: true
+                                      resolved_ref:
+                                        type: Aut adipisci quod.
+                                        uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                      section_key: Minima repudiandae tempore harum.
+                                      skip_reason: Non minima doloremque.
+                                      status: blocked
+                                      status_source: platform
+                                      sub_items:
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                        - key: Quo odio aut possimus qui maiores vel.
+                                          status: not_started
+                                          title: Vitae officiis voluptas veritatis fugiat.
+                                      title: Quibusdam nihil.
+                                      uid: Numquam consequatur et.
+                                      version: 1060903931579255348
                                 lifecycle: frozen
                                 progress:
-                                    blocked: 2620970675252496610
-                                    done: 9076093737989390317
-                                    in_progress: 8267970889110565181
-                                    not_started: 8725466403682205852
-                                    skipped: 6990193994014189106
-                                project_uid: Soluta consequatur aut eos expedita.
+                                    blocked: 1483740234546806009
+                                    done: 5338458990623669746
+                                    in_progress: 1383264512583975434
+                                    not_started: 4997760199180454050
+                                    skipped: 2022301098950369572
+                                project_uid: Doloribus quaerat quod consectetur rerum.
                                 sections:
-                                    - key: Quo sit.
-                                      position: 2788144535844667806
-                                      title: Laboriosam vel ut ad quibusdam.
-                                    - key: Quo sit.
-                                      position: 2788144535844667806
-                                      title: Laboriosam vel ut ad quibusdam.
-                                    - key: Quo sit.
-                                      position: 2788144535844667806
-                                      title: Laboriosam vel ut ad quibusdam.
-                                    - key: Quo sit.
-                                      position: 2788144535844667806
-                                      title: Laboriosam vel ut ad quibusdam.
-                                template_uid: Consequatur eius odio modi consectetur placeat aut.
-                                template_version: 4724106725026615773
+                                    - key: Et sint aperiam non sint aut.
+                                      position: 1738555939554531905
+                                      title: Dolorem facere.
+                                    - key: Et sint aperiam non sint aut.
+                                      position: 1738555939554531905
+                                      title: Dolorem facere.
+                                    - key: Et sint aperiam non sint aut.
+                                      position: 1738555939554531905
+                                      title: Dolorem facere.
+                                    - key: Et sint aperiam non sint aut.
+                                      position: 1738555939554531905
+                                      title: Dolorem facere.
+                                template_uid: Sed dignissimos.
+                                template_version: 5310253745858886903
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -160,7 +202,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Explicabo quaerat ea voluptatem.
+                                message: Soluta consequatur aut eos expedita.
                 "404":
                     description: 'NotFound: The requested resource does not exist'
                     content:
@@ -169,7 +211,7 @@ paths:
                                 $ref: '#/components/schemas/NotFoundError'
                             example:
                                 code: "404"
-                                message: Et in.
+                                message: Et quo ratione est consequuntur.
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/activity:
@@ -199,8 +241,8 @@ paths:
                   schema:
                     type: string
                     description: Opaque ULID cursor from a previous page's next_cursor. Omit for the first page.
-                    example: Tempore deleniti nobis.
-                  example: Ut enim eius excepturi ratione tempora qui.
+                    example: Ex non.
+                  example: Molestias occaecati.
                 - name: item_uid
                   in: query
                   description: Narrow the feed to one checklist item's history. This is the item's UID (as carried on each entry's item_uid), not the stable item_key the mutation routes take. Omit for the whole checklist's feed.
@@ -208,9 +250,9 @@ paths:
                   schema:
                     type: string
                     description: Narrow the feed to one checklist item's history. This is the item's UID (as carried on each entry's item_uid), not the stable item_key the mutation routes take. Omit for the whole checklist's feed.
-                    example: f7b62a0a-0c1b-4a2e-9ae6-e7bf138599c7
+                    example: 1e4a1b9c-a082-4b09-b18c-eae945ce1d3e
                     format: uuid
-                  example: bde8cb71-71e8-4634-a8d4-88231ce22b5e
+                  example: 540dadc6-3e00-488c-a07b-623089c474b6
                 - name: limit
                   in: query
                   description: Page size. Defaults to 20, capped at 100.
@@ -219,11 +261,11 @@ paths:
                     type: integer
                     description: Page size. Defaults to 20, capped at 100.
                     default: 20
-                    example: 94
+                    example: 1
                     format: int64
                     minimum: 1
                     maximum: 100
-                  example: 54
+                  example: 74
                 - name: project_uid
                   in: path
                   description: The project's UID.
@@ -231,8 +273,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Quidem nesciunt.
-                  example: Consectetur et debitis ea natus pariatur aut.
+                    example: In temporibus quas reiciendis assumenda.
+                  example: Explicabo quae ut nobis.
             responses:
                 "200":
                     description: OK response.
@@ -242,39 +284,31 @@ paths:
                                 $ref: '#/components/schemas/FormationActivityPage'
                             example:
                                 entries:
-                                    - action: Officiis ut vero itaque dolorum.
-                                      actor: Modi sunt unde eos non et.
-                                      after: Quaerat labore qui nisi quia officiis perspiciatis.
-                                      at: "1971-11-12T09:16:18Z"
-                                      before: Pariatur dolor repellat.
-                                      item_uid: Voluptatum autem earum necessitatibus ut non.
+                                    - action: Quasi possimus.
+                                      actor: Et adipisci voluptas rerum.
+                                      after: Qui est quod.
+                                      at: "1980-07-21T22:24:56Z"
+                                      before: Fugiat odit repellendus et.
+                                      item_uid: Provident sed est quia sunt tenetur.
                                       set_by: system
-                                      ulid: Repellendus et veniam qui est quod atque.
-                                    - action: Officiis ut vero itaque dolorum.
-                                      actor: Modi sunt unde eos non et.
-                                      after: Quaerat labore qui nisi quia officiis perspiciatis.
-                                      at: "1971-11-12T09:16:18Z"
-                                      before: Pariatur dolor repellat.
-                                      item_uid: Voluptatum autem earum necessitatibus ut non.
+                                      ulid: Debitis deleniti enim nam.
+                                    - action: Quasi possimus.
+                                      actor: Et adipisci voluptas rerum.
+                                      after: Qui est quod.
+                                      at: "1980-07-21T22:24:56Z"
+                                      before: Fugiat odit repellendus et.
+                                      item_uid: Provident sed est quia sunt tenetur.
                                       set_by: system
-                                      ulid: Repellendus et veniam qui est quod atque.
-                                    - action: Officiis ut vero itaque dolorum.
-                                      actor: Modi sunt unde eos non et.
-                                      after: Quaerat labore qui nisi quia officiis perspiciatis.
-                                      at: "1971-11-12T09:16:18Z"
-                                      before: Pariatur dolor repellat.
-                                      item_uid: Voluptatum autem earum necessitatibus ut non.
+                                      ulid: Debitis deleniti enim nam.
+                                    - action: Quasi possimus.
+                                      actor: Et adipisci voluptas rerum.
+                                      after: Qui est quod.
+                                      at: "1980-07-21T22:24:56Z"
+                                      before: Fugiat odit repellendus et.
+                                      item_uid: Provident sed est quia sunt tenetur.
                                       set_by: system
-                                      ulid: Repellendus et veniam qui est quod atque.
-                                    - action: Officiis ut vero itaque dolorum.
-                                      actor: Modi sunt unde eos non et.
-                                      after: Quaerat labore qui nisi quia officiis perspiciatis.
-                                      at: "1971-11-12T09:16:18Z"
-                                      before: Pariatur dolor repellat.
-                                      item_uid: Voluptatum autem earum necessitatibus ut non.
-                                      set_by: system
-                                      ulid: Repellendus et veniam qui est quod atque.
-                                next_cursor: Dicta culpa distinctio aspernatur et est amet.
+                                      ulid: Debitis deleniti enim nam.
+                                next_cursor: Nam aliquid.
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -283,7 +317,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Culpa minus iure velit enim omnis.
+                                message: Consectetur aperiam dolores debitis labore ut.
                 "404":
                     description: 'NotFound: The requested resource does not exist'
                     content:
@@ -292,7 +326,7 @@ paths:
                                 $ref: '#/components/schemas/NotFoundError'
                             example:
                                 code: "404"
-                                message: Suscipit animi sed qui tempore tempora.
+                                message: Et qui labore sed.
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/items/{item_key}:
@@ -322,8 +356,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Ex ea sint omnis quibusdam aut eius.
-                  example: Id asperiores voluptatem voluptatem voluptatum.
+                    example: Perferendis consequatur.
+                  example: Hic non dolores ipsam quae suscipit quam.
                 - name: item_key
                   in: path
                   description: The item's stable key.
@@ -331,8 +365,8 @@ paths:
                   schema:
                     type: string
                     description: The item's stable key.
-                    example: Quibusdam sed ducimus.
-                  example: Officia vel deleniti et.
+                    example: Unde sed magni enim.
+                  example: Perferendis rem omnis temporibus.
                 - name: If-Match
                   in: header
                   description: Must equal the item's current version.
@@ -341,9 +375,9 @@ paths:
                   schema:
                     type: integer
                     description: Must equal the item's current version.
-                    example: 94526350968921558
+                    example: 52629245199427407
                     format: int64
-                  example: 5324425551801462220
+                  example: 4383527782965643048
             requestBody:
                 required: true
                 content:
@@ -352,7 +386,7 @@ paths:
                             $ref: '#/components/schemas/UpdateItemRequestBody'
                         example:
                             evidence_link: https://example.org/bylaws.pdf
-                            note: Quae quasi.
+                            note: Accusamus dolorum ad voluptas vero sit.
             responses:
                 "200":
                     description: OK response.
@@ -369,8 +403,8 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/FormationItem'
                             example:
-                                action_link: Possimus alias molestias corrupti.
-                                assignee: Non dolore consectetur dolores.
+                                action_link: Maxime ullam iure.
+                                assignee: Molestiae ipsa nesciunt dolor magnam est velit.
                                 available_actions:
                                     - action: mark_done
                                       requires_reason: false
@@ -379,38 +413,38 @@ paths:
                                       requires_reason: false
                                       requires_relation: writer
                                 checklist_type: external
-                                due_date: "2010-09-12"
+                                due_date: "2000-10-07"
                                 evidence_link: https://example.org/bylaws.pdf
                                 gate: false
                                 is_required: true
-                                item_key: Ad molestiae ipsa nesciunt dolor magnam.
-                                note: Veritatis fugiat quidem natus.
+                                item_key: Illum velit autem et quis.
+                                note: Dolor sit non nesciunt.
                                 owner_team: formation
                                 platform_check:
-                                    min_count: 2482232647430646554
-                                    resource_type: Sint ut molestiae tenetur omnis.
-                                position: 5517351621016415913
-                                requires_writer: false
+                                    min_count: 2788144535844667806
+                                    resource_type: Ad quibusdam.
+                                position: 7682523033078194186
+                                requires_writer: true
                                 resolved_ref:
-                                    type: Doloremque non voluptatem.
-                                    uid: Et repellat sequi vel incidunt.
-                                section_key: Velit commodi a temporibus ipsum.
-                                skip_reason: Eum omnis modi suscipit unde culpa reprehenderit.
+                                    type: Aut adipisci quod.
+                                    uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                section_key: Minima repudiandae tempore harum.
+                                skip_reason: Non minima doloremque.
                                 status: blocked
-                                status_source: manual
+                                status_source: platform
                                 sub_items:
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                title: Voluptatum qui laborum laboriosam.
-                                uid: Maxime ullam iure.
-                                version: 5310253745858886903
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                title: Quibusdam nihil.
+                                uid: Numquam consequatur et.
+                                version: 1060903931579255348
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
                     content:
@@ -419,9 +453,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Vitae nesciunt sint incidunt ut eum quaerat.
-                                name: Commodi maiores ad est sunt.
-                                reason: sub_item_null
+                                message: Omnis error.
+                                name: Ut distinctio laborum qui pariatur in suscipit.
+                                reason: skip_reason_required
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -430,7 +464,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Voluptatibus enim.
+                                message: Et nihil sed natus exercitationem.
                 "404":
                     description: 'NotFound: No formation, or no item with that key, exists'
                     content:
@@ -439,9 +473,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Officiis consequatur impedit ut.
-                                name: Vel officia.
-                                reason: checklist_read_only
+                                message: Eum sequi suscipit deleniti libero.
+                                name: Et ut aperiam tenetur aut eligendi explicabo.
+                                reason: invalid_transition
                 "409":
                     description: 'Conflict: The checklist, or this item''s current state, refuses the change'
                     content:
@@ -450,9 +484,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Quia velit perferendis assumenda quibusdam.
-                                name: Asperiores expedita rerum aut et eum.
-                                reason: due_date_invalid
+                                message: Voluptas id vel officia explicabo officiis.
+                                name: Consequatur aut nulla.
+                                reason: no_fields_to_update
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -461,9 +495,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Eius et nihil sed.
-                                name: Qui pariatur in suscipit quia omnis error.
-                                reason: due_date_invalid
+                                message: Aut provident sit dicta culpa.
+                                name: Quae quasi.
+                                reason: checklist_read_only
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/items/{item_key}/assignment:
@@ -493,8 +527,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Repellat dignissimos voluptas.
-                  example: Libero aspernatur et ipsa voluptatem inventore consequatur.
+                    example: Tempora quos consequatur excepturi et provident.
+                  example: Soluta alias.
                 - name: item_key
                   in: path
                   description: The item's stable key.
@@ -502,8 +536,8 @@ paths:
                   schema:
                     type: string
                     description: The item's stable key.
-                    example: Aperiam et cumque.
-                  example: Voluptatem dolorem possimus et.
+                    example: Autem est quo.
+                  example: Libero labore tenetur veniam provident.
                 - name: If-Match
                   in: header
                   description: Must equal the item's current version.
@@ -512,9 +546,9 @@ paths:
                   schema:
                     type: integer
                     description: Must equal the item's current version.
-                    example: 1620878136911970340
+                    example: 3302189689245559093
                     format: int64
-                  example: 5794842459045226229
+                  example: 2471007951836077377
             requestBody:
                 required: true
                 content:
@@ -522,7 +556,7 @@ paths:
                         schema:
                             $ref: '#/components/schemas/AssignItemRequestBody'
                         example:
-                            assignee: Ea vitae aut modi officia nihil.
+                            assignee: Cum impedit nihil quo reprehenderit perspiciatis tempora.
                             due_date: "2026-03-31"
             responses:
                 "200":
@@ -540,8 +574,8 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/FormationItem'
                             example:
-                                action_link: Possimus alias molestias corrupti.
-                                assignee: Non dolore consectetur dolores.
+                                action_link: Maxime ullam iure.
+                                assignee: Molestiae ipsa nesciunt dolor magnam est velit.
                                 available_actions:
                                     - action: mark_done
                                       requires_reason: false
@@ -550,38 +584,38 @@ paths:
                                       requires_reason: false
                                       requires_relation: writer
                                 checklist_type: external
-                                due_date: "2010-09-12"
+                                due_date: "2000-10-07"
                                 evidence_link: https://example.org/bylaws.pdf
                                 gate: false
                                 is_required: true
-                                item_key: Ad molestiae ipsa nesciunt dolor magnam.
-                                note: Veritatis fugiat quidem natus.
+                                item_key: Illum velit autem et quis.
+                                note: Dolor sit non nesciunt.
                                 owner_team: formation
                                 platform_check:
-                                    min_count: 2482232647430646554
-                                    resource_type: Sint ut molestiae tenetur omnis.
-                                position: 5517351621016415913
-                                requires_writer: false
+                                    min_count: 2788144535844667806
+                                    resource_type: Ad quibusdam.
+                                position: 7682523033078194186
+                                requires_writer: true
                                 resolved_ref:
-                                    type: Doloremque non voluptatem.
-                                    uid: Et repellat sequi vel incidunt.
-                                section_key: Velit commodi a temporibus ipsum.
-                                skip_reason: Eum omnis modi suscipit unde culpa reprehenderit.
+                                    type: Aut adipisci quod.
+                                    uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                section_key: Minima repudiandae tempore harum.
+                                skip_reason: Non minima doloremque.
                                 status: blocked
-                                status_source: manual
+                                status_source: platform
                                 sub_items:
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                title: Voluptatum qui laborum laboriosam.
-                                uid: Maxime ullam iure.
-                                version: 5310253745858886903
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                title: Quibusdam nihil.
+                                uid: Numquam consequatur et.
+                                version: 1060903931579255348
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
                     content:
@@ -590,9 +624,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Perferendis ut fugiat natus modi itaque sit.
-                                name: Sit qui ipsa natus impedit.
-                                reason: unknown_sub_item_key
+                                message: Sed placeat consequatur ad est velit distinctio.
+                                name: Neque aut.
+                                reason: assignee_not_on_project
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -601,7 +635,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Quos et.
+                                message: Quae assumenda quis quia.
                 "404":
                     description: 'NotFound: No formation, or no item with that key, exists'
                     content:
@@ -610,9 +644,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Occaecati neque aut error.
-                                name: Recusandae neque.
-                                reason: invalid_transition
+                                message: Eligendi occaecati.
+                                name: Dolores harum quidem qui.
+                                reason: blocked_reason_required
                 "409":
                     description: 'Conflict: The checklist, or this item''s current state, refuses the change'
                     content:
@@ -621,9 +655,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Nesciunt unde accusamus dolorum ad.
-                                name: Nemo nulla.
-                                reason: no_fields_to_update
+                                message: Deserunt voluptates voluptatem animi rem recusandae neque.
+                                name: Quos ratione ipsam dolores est.
+                                reason: unknown_sub_item_key
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -632,9 +666,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Magni quae assumenda quis quia dolore.
-                                name: Consequatur ad est velit distinctio.
-                                reason: version_mismatch
+                                message: Aut modi officia nihil.
+                                name: Porro ea.
+                                reason: blocked_reason_required
             security:
                 - jwt_header_Authorization: []
     /formations/{project_uid}/items/{item_key}/status:
@@ -664,8 +698,8 @@ paths:
                   schema:
                     type: string
                     description: The project's UID.
-                    example: Error iste.
-                  example: Eos voluptatum.
+                    example: Provident aspernatur.
+                  example: Temporibus temporibus.
                 - name: item_key
                   in: path
                   description: The item's stable key.
@@ -673,8 +707,8 @@ paths:
                   schema:
                     type: string
                     description: The item's stable key.
-                    example: Ex perferendis hic.
-                  example: Ut provident.
+                    example: Officiis enim vel incidunt et molestiae sit.
+                  example: Et aut.
                 - name: If-Match
                   in: header
                   description: Must equal the item's current version.
@@ -683,9 +717,9 @@ paths:
                   schema:
                     type: integer
                     description: Must equal the item's current version.
-                    example: 1308311679160364630
+                    example: 5592596875984227461
                     format: int64
-                  example: 9127050097028370518
+                  example: 8165457665007117076
             requestBody:
                 required: true
                 content:
@@ -693,15 +727,13 @@ paths:
                         schema:
                             $ref: '#/components/schemas/SetItemStatusRequestBody'
                         example:
-                            reason: Eum laboriosam quidem suscipit harum in.
-                            status: skipped
+                            reason: Exercitationem ipsam eveniet possimus impedit sed.
+                            status: blocked
                             sub_items:
-                                - key: Ea explicabo ullam pariatur.
-                                  status: not_started
-                                - key: Ea explicabo ullam pariatur.
-                                  status: not_started
-                                - key: Ea explicabo ullam pariatur.
-                                  status: not_started
+                                - key: Distinctio aspernatur et est amet.
+                                  status: blocked
+                                - key: Distinctio aspernatur et est amet.
+                                  status: blocked
             responses:
                 "200":
                     description: OK response.
@@ -718,8 +750,8 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/FormationItem'
                             example:
-                                action_link: Possimus alias molestias corrupti.
-                                assignee: Non dolore consectetur dolores.
+                                action_link: Maxime ullam iure.
+                                assignee: Molestiae ipsa nesciunt dolor magnam est velit.
                                 available_actions:
                                     - action: mark_done
                                       requires_reason: false
@@ -728,60 +760,40 @@ paths:
                                       requires_reason: false
                                       requires_relation: writer
                                 checklist_type: external
-                                due_date: "2010-09-12"
+                                due_date: "2000-10-07"
                                 evidence_link: https://example.org/bylaws.pdf
                                 gate: false
                                 is_required: true
-                                item_key: Ad molestiae ipsa nesciunt dolor magnam.
-                                note: Veritatis fugiat quidem natus.
+                                item_key: Illum velit autem et quis.
+                                note: Dolor sit non nesciunt.
                                 owner_team: formation
                                 platform_check:
-                                    min_count: 2482232647430646554
-                                    resource_type: Sint ut molestiae tenetur omnis.
-                                position: 5517351621016415913
-                                requires_writer: false
+                                    min_count: 2788144535844667806
+                                    resource_type: Ad quibusdam.
+                                position: 7682523033078194186
+                                requires_writer: true
                                 resolved_ref:
-                                    type: Doloremque non voluptatem.
-                                    uid: Et repellat sequi vel incidunt.
-                                section_key: Velit commodi a temporibus ipsum.
-                                skip_reason: Eum omnis modi suscipit unde culpa reprehenderit.
+                                    type: Aut adipisci quod.
+                                    uid: Ipsam minus consequatur in sapiente suscipit sapiente.
+                                section_key: Minima repudiandae tempore harum.
+                                skip_reason: Non minima doloremque.
                                 status: blocked
-                                status_source: manual
+                                status_source: platform
                                 sub_items:
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                    - key: Magni commodi.
-                                      status: blocked
-                                      title: Hic laboriosam doloribus quaerat quod consectetur rerum.
-                                title: Voluptatum qui laborum laboriosam.
-                                uid: Maxime ullam iure.
-                                version: 5310253745858886903
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                    - key: Quo odio aut possimus qui maiores vel.
+                                      status: not_started
+                                      title: Vitae officiis voluptas veritatis fugiat.
+                                title: Quibusdam nihil.
+                                uid: Numquam consequatur et.
+                                version: 1060903931579255348
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/FormationError'
-                            example:
-                                code: "409"
-                                message: Et perspiciatis consequuntur et.
-                                name: Quo reprehenderit perspiciatis tempora quod sed.
-                                reason: due_date_invalid
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Impedit labore voluptatum cupiditate.
-                "404":
-                    description: 'NotFound: No formation, or no item with that key, exists'
                     content:
                         application/json:
                             schema:
@@ -791,6 +803,26 @@ paths:
                                 message: Sed dignissimos deleniti ullam.
                                 name: Dolorem optio aut architecto iure veritatis.
                                 reason: unknown_sub_item_key
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Atque aspernatur voluptatem ipsum repudiandae sed.
+                "404":
+                    description: 'NotFound: No formation, or no item with that key, exists'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FormationError'
+                            example:
+                                code: "409"
+                                message: Quam ea explicabo ullam pariatur voluptatum aut.
+                                name: Eum laboriosam quidem suscipit harum in.
+                                reason: skip_reason_required
                 "409":
                     description: 'Conflict: The checklist, or this item''s current state, refuses the change'
                     content:
@@ -799,9 +831,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Eum cum.
-                                name: Suscipit est voluptates rerum iure.
-                                reason: due_date_invalid
+                                message: Dolorem non numquam.
+                                name: Earum modi in fugiat.
+                                reason: no_fields_to_update
                 "412":
                     description: 'VersionMismatch: If-Match did not match the item''s current version'
                     content:
@@ -810,9 +842,9 @@ paths:
                                 $ref: '#/components/schemas/FormationError'
                             example:
                                 code: "409"
-                                message: Veniam et minima non.
-                                name: Atque aspernatur voluptatem ipsum repudiandae sed.
-                                reason: unknown_sub_item_key
+                                message: Fugiat nihil sint blanditiis sit.
+                                name: Quas atque laborum culpa modi.
+                                reason: no_fields_to_update
             security:
                 - jwt_header_Authorization: []
     /project-applications:
@@ -843,11 +875,11 @@ paths:
                             $ref: '#/components/schemas/CreateApplicationRequestBody'
                         example:
                             application:
-                                Perferendis culpa amet eos.: Laborum sequi itaque sed.
-                            submitter_email: jo.herman@kiehn.info
-                            submitter_name: Labore eius ut.
-                            submitter_username: Nostrum quam optio nihil et inventore odio.
-                            target_parent_uid: Et reprehenderit qui qui omnis ea.
+                                Temporibus est repellendus et aspernatur sapiente.: Asperiores iure eveniet.
+                            submitter_email: ethyl_wuckert@shanahan.com
+                            submitter_name: Velit perferendis assumenda quibusdam.
+                            submitter_username: Expedita rerum aut et eum iure.
+                            target_parent_uid: Dolorem sunt occaecati est ab aliquid inventore.
             responses:
                 "201":
                     description: Created response.
@@ -857,16 +889,17 @@ paths:
                                 $ref: '#/components/schemas/ProjectApplication'
                             example:
                                 application:
-                                    Est nesciunt ab.: Quasi consequatur praesentium ut.
-                                    Sint error nisi quis et eligendi.: Sunt non ratione est dolores fugit veritatis.
-                                created_at: "1981-07-07T09:18:23Z"
+                                    Autem minima facere aperiam non.: Deleniti quia neque qui sint error.
+                                    Quam et officia earum nobis dignissimos.: Et vel voluptas impedit harum natus sed.
+                                created_at: "1997-04-03T05:11:39Z"
+                                revision: 8697138813243635227
                                 state: submitted
-                                submitter_email: Harum natus sed omnis autem minima facere.
-                                submitter_name: Earum nobis dignissimos in et vel voluptas.
-                                submitter_username: Consequatur quam et.
-                                target_parent_uid: Non porro deleniti quia.
-                                uid: Excepturi excepturi.
-                                updated_at: "1999-01-02T18:36:50Z"
+                                submitter_email: Soluta quibusdam autem laudantium quibusdam placeat.
+                                submitter_name: At consequatur.
+                                submitter_username: Id dolor est id adipisci.
+                                target_parent_uid: Excepturi excepturi.
+                                uid: Sapiente omnis cupiditate.
+                                updated_at: "1978-03-13T20:26:40Z"
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
                     content:
@@ -875,8 +908,8 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Voluptatem accusantium quia hic velit illum.
-                                name: Voluptatem laudantium ipsum rerum dignissimos quaerat voluptas.
+                                message: Magni dolores dolores quasi.
+                                name: Consequatur nobis quaerat dolorem.
                                 reason: application_uid_invalid
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
@@ -886,7 +919,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Magnam itaque libero excepturi ullam.
+                                message: Nulla facere modi similique magni.
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}:
@@ -916,9 +949,20 @@ paths:
                   schema:
                     type: string
                     description: The application's unique identifier.
-                    example: 650aa43a-74e4-44cb-ae4b-1e0e15388373
+                    example: 9388130d-a4fe-4586-bf69-5479ac2a3da2
                     format: uuid
-                  example: 705bac3d-5447-4a95-92e7-522dfe229f89
+                  example: d3cfeb5a-12d7-4835-92d8-99f24d5cf6af
+                - name: If-Match
+                  in: header
+                  description: Must equal the application's current revision.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: integer
+                    description: Must equal the application's current revision.
+                    example: 1808215911428414244
+                    format: int64
+                  example: 5135039884628199991
             responses:
                 "204":
                     description: No Content response.
@@ -930,7 +974,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Nobis quo ut inventore deleniti quas sapiente.
+                                message: Recusandae est quas delectus ab saepe iste.
                 "404":
                     description: 'NotFound: No such application'
                     content:
@@ -939,8 +983,19 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Consequatur soluta iure accusantium magni ea.
-                                name: Qui eos et.
+                                message: Delectus eos vitae occaecati.
+                                name: Sapiente repellendus perspiciatis excepturi in eum.
+                                reason: project_website_invalid
+                "412":
+                    description: 'VersionMismatch: If-Match did not match the application''s current revision'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApplicationError'
+                            example:
+                                code: "400"
+                                message: Dicta facilis eius molestias porro eum assumenda.
+                                name: Asperiores minima at et rem alias.
                                 reason: project_website_invalid
             security:
                 - jwt_header_Authorization: []
@@ -970,9 +1025,20 @@ paths:
                   schema:
                     type: string
                     description: The application's unique identifier.
-                    example: eaa300e3-eb1b-49f2-88b3-b17fdf76a5cc
+                    example: c39d7663-4878-4777-8998-50ecdbb5ab07
                     format: uuid
-                  example: 2dca5eac-356d-427c-adbf-7490487bae5a
+                  example: fccdd063-6ea1-4dcb-b39b-47c0b1c729b7
+                - name: If-Match
+                  in: header
+                  description: Must equal the application's current revision.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: integer
+                    description: Must equal the application's current revision.
+                    example: 3905194217662170294
+                    format: int64
+                  example: 1976010226998140074
             requestBody:
                 required: true
                 content:
@@ -981,27 +1047,38 @@ paths:
                             $ref: '#/components/schemas/ReviseApplicationRequestBody'
                         example:
                             application:
-                                Maxime qui in minus.: Saepe illo est tempore sit nulla in.
-                                Soluta amet.: Est et amet quos.
+                                Minus fugiat doloribus.: Nulla modi.
+                                Qui voluptatem debitis.: Soluta amet.
+                                Quisquam perferendis sit impedit explicabo et omnis.: Delectus accusantium a eos ab in natus.
             responses:
                 "200":
                     description: OK response.
+                    headers:
+                        ETag:
+                            description: The application's new revision. Send as If-Match on the next write.
+                            schema:
+                                type: string
+                                description: The application's new revision. Send as If-Match on the next write.
+                                example: "2"
+                            example: "2"
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ProjectApplication'
                             example:
                                 application:
-                                    Nisi non reprehenderit sunt.: Voluptates perspiciatis ipsa ullam qui.
-                                    Omnis architecto laboriosam ut quis.: Rerum rem quidem dolorum nihil omnis.
-                                created_at: "1990-04-01T05:00:25Z"
+                                    Aliquam dolorem rerum incidunt.: Molestiae laborum est.
+                                    Aliquam porro esse quam voluptatem omnis repudiandae.: Quis deserunt qui eos.
+                                    Explicabo aut dolor provident.: Consequatur iusto vel debitis.
+                                created_at: "1985-08-04T14:01:37Z"
+                                revision: 1343659546458438500
                                 state: submitted
-                                submitter_email: Veniam tempore assumenda consequatur accusantium aut tempore.
-                                submitter_name: Facilis non ullam doloremque quia qui.
-                                submitter_username: Suscipit dolor ut perferendis.
-                                target_parent_uid: Aut non voluptas.
-                                uid: Eaque odit et eum.
-                                updated_at: "1990-03-07T12:24:07Z"
+                                submitter_email: Voluptates facere.
+                                submitter_name: Quidem excepturi enim labore est aliquam.
+                                submitter_username: Quo magni modi explicabo in.
+                                target_parent_uid: Minima ut recusandae dolorem et facere.
+                                uid: Placeat vitae iusto in tempora qui.
+                                updated_at: "1988-02-23T21:47:34Z"
                 "400":
                     description: 'BadRequest: The payload itself is invalid'
                     content:
@@ -1010,8 +1087,8 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Aut fugit et sit.
-                                name: Optio expedita.
+                                message: Est rem ut.
+                                name: Voluptates distinctio voluptas.
                                 reason: project_website_invalid
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
@@ -1021,7 +1098,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: A et nulla nam.
+                                message: Tempore assumenda consequatur.
                 "404":
                     description: 'NotFound: No such application'
                     content:
@@ -1030,9 +1107,20 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Ducimus incidunt aut quidem.
-                                name: Aut amet ad.
-                                reason: project_website_invalid
+                                message: Laudantium necessitatibus eaque odit et.
+                                name: Aliquam qui amet quis rerum.
+                                reason: version_mismatch
+                "412":
+                    description: 'VersionMismatch: If-Match did not match the application''s current revision'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApplicationError'
+                            example:
+                                code: "400"
+                                message: Facilis non ullam doloremque quia qui.
+                                name: Suscipit dolor ut perferendis.
+                                reason: submitter_username_required
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/accept:
@@ -1062,28 +1150,49 @@ paths:
                   schema:
                     type: string
                     description: The application's unique identifier.
-                    example: 44f583fd-67d6-4eae-915b-b6858a8f2e06
+                    example: 825743af-0868-4319-99b4-774b5d20beed
                     format: uuid
-                  example: 618bd6b1-5228-4fef-af97-60718e602d5c
+                  example: 30b48bee-1d61-476e-a5d8-8b4429b7823c
+                - name: If-Match
+                  in: header
+                  description: Must equal the application's current revision.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: integer
+                    description: Must equal the application's current revision.
+                    example: 3670789290136632161
+                    format: int64
+                  example: 4599192882597654158
             responses:
                 "200":
                     description: OK response.
+                    headers:
+                        ETag:
+                            description: The application's new revision. Send as If-Match on the next write.
+                            schema:
+                                type: string
+                                description: The application's new revision. Send as If-Match on the next write.
+                                example: "2"
+                            example: "2"
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ProjectApplication'
                             example:
                                 application:
-                                    Omnis quisquam quia.: Adipisci alias voluptatem quas dolor.
-                                    Praesentium officia omnis quia.: Qui velit veniam aut.
-                                created_at: "1981-07-02T21:32:26Z"
+                                    Aliquam dolorem rerum incidunt.: Molestiae laborum est.
+                                    Aliquam porro esse quam voluptatem omnis repudiandae.: Quis deserunt qui eos.
+                                    Explicabo aut dolor provident.: Consequatur iusto vel debitis.
+                                created_at: "1985-08-04T14:01:37Z"
+                                revision: 1343659546458438500
                                 state: submitted
-                                submitter_email: Iste quaerat rerum sit et.
-                                submitter_name: Totam suscipit recusandae est quas delectus ab.
-                                submitter_username: Porro eum.
-                                target_parent_uid: Dolorem est.
-                                uid: Alias quas dicta facilis eius.
-                                updated_at: "2003-05-08T18:54:04Z"
+                                submitter_email: Voluptates facere.
+                                submitter_name: Quidem excepturi enim labore est aliquam.
+                                submitter_username: Quo magni modi explicabo in.
+                                target_parent_uid: Minima ut recusandae dolorem et facere.
+                                uid: Placeat vitae iusto in tempora qui.
+                                updated_at: "1988-02-23T21:47:34Z"
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1092,7 +1201,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Sunt et impedit totam odit.
+                                message: Laudantium et est tenetur pariatur.
                 "404":
                     description: 'NotFound: No such application'
                     content:
@@ -1101,9 +1210,20 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Quam eos doloremque nihil.
-                                name: Et esse.
-                                reason: not_found
+                                message: Reprehenderit dolorum aliquam.
+                                name: Quasi est voluptas repellat.
+                                reason: version_mismatch
+                "412":
+                    description: 'VersionMismatch: If-Match did not match the application''s current revision'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApplicationError'
+                            example:
+                                code: "400"
+                                message: Voluptatum voluptas et rerum omnis et est.
+                                name: Eum ullam sed praesentium occaecati vel.
+                                reason: application_uid_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/deny:
@@ -1133,27 +1253,49 @@ paths:
                   schema:
                     type: string
                     description: The application's unique identifier.
-                    example: faf105a9-a6ba-4743-bac2-0f9b3585921b
+                    example: c9ee6449-f9e3-431f-8c86-452439837126
                     format: uuid
-                  example: 17645ce9-9f5e-49b1-9e65-a62f8f0b16b4
+                  example: 507bad31-351c-4c09-9c52-6e5c114ca777
+                - name: If-Match
+                  in: header
+                  description: Must equal the application's current revision.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: integer
+                    description: Must equal the application's current revision.
+                    example: 5761015389284545364
+                    format: int64
+                  example: 7458008742365203092
             responses:
                 "200":
                     description: OK response.
+                    headers:
+                        ETag:
+                            description: The application's new revision. Send as If-Match on the next write.
+                            schema:
+                                type: string
+                                description: The application's new revision. Send as If-Match on the next write.
+                                example: "2"
+                            example: "2"
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ProjectApplication'
                             example:
                                 application:
-                                    Sint quod ex.: Omnis eius.
-                                created_at: "1976-04-15T03:27:10Z"
+                                    Aliquam dolorem rerum incidunt.: Molestiae laborum est.
+                                    Aliquam porro esse quam voluptatem omnis repudiandae.: Quis deserunt qui eos.
+                                    Explicabo aut dolor provident.: Consequatur iusto vel debitis.
+                                created_at: "1985-08-04T14:01:37Z"
+                                revision: 1343659546458438500
                                 state: submitted
-                                submitter_email: Quos sunt fugiat qui veniam consequatur.
-                                submitter_name: Saepe aut eligendi eius consequuntur praesentium saepe.
-                                submitter_username: Architecto recusandae praesentium amet sunt ea autem.
-                                target_parent_uid: Esse dolorum.
-                                uid: Sit id beatae fuga non.
-                                updated_at: "2000-11-18T05:57:38Z"
+                                submitter_email: Voluptates facere.
+                                submitter_name: Quidem excepturi enim labore est aliquam.
+                                submitter_username: Quo magni modi explicabo in.
+                                target_parent_uid: Minima ut recusandae dolorem et facere.
+                                uid: Placeat vitae iusto in tempora qui.
+                                updated_at: "1988-02-23T21:47:34Z"
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1162,7 +1304,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Sed et voluptatem est.
+                                message: Aut nemo nulla.
                 "404":
                     description: 'NotFound: No such application'
                     content:
@@ -1171,9 +1313,20 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Ipsa et nulla.
-                                name: Atque molestiae dolorem aliquid itaque.
-                                reason: project_website_invalid
+                                message: Animi quod adipisci reiciendis omnis a veritatis.
+                                name: Et aperiam architecto repudiandae occaecati.
+                                reason: not_found
+                "412":
+                    description: 'VersionMismatch: If-Match did not match the application''s current revision'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApplicationError'
+                            example:
+                                code: "400"
+                                message: Est iusto et et eligendi nemo.
+                                name: Quibusdam repellendus et numquam in quo.
+                                reason: application_uid_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/withdraw:
@@ -1203,28 +1356,49 @@ paths:
                   schema:
                     type: string
                     description: The application's unique identifier.
-                    example: e41efdf3-2455-4dc5-9afb-24e9b46d7fc2
+                    example: f4123557-b2a9-466c-89e9-811e0a7c57ef
                     format: uuid
-                  example: 5160f16d-7abd-4e47-9da3-31d846b89923
+                  example: 18e5e99c-a5c9-4ce5-90b2-48dcdd67d5a0
+                - name: If-Match
+                  in: header
+                  description: Must equal the application's current revision.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: integer
+                    description: Must equal the application's current revision.
+                    example: 705742022301199489
+                    format: int64
+                  example: 3968480876507841690
             responses:
                 "200":
                     description: OK response.
+                    headers:
+                        ETag:
+                            description: The application's new revision. Send as If-Match on the next write.
+                            schema:
+                                type: string
+                                description: The application's new revision. Send as If-Match on the next write.
+                                example: "2"
+                            example: "2"
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ProjectApplication'
                             example:
                                 application:
-                                    Cumque quia unde omnis placeat est.: Quia recusandae non.
-                                    Laboriosam aut.: Magnam illum minima dolores quaerat.
-                                created_at: "2000-01-28T09:54:54Z"
+                                    Aliquam dolorem rerum incidunt.: Molestiae laborum est.
+                                    Aliquam porro esse quam voluptatem omnis repudiandae.: Quis deserunt qui eos.
+                                    Explicabo aut dolor provident.: Consequatur iusto vel debitis.
+                                created_at: "1985-08-04T14:01:37Z"
+                                revision: 1343659546458438500
                                 state: submitted
-                                submitter_email: Et accusantium consequuntur et.
-                                submitter_name: Quidem voluptas esse vel fugiat ipsa.
-                                submitter_username: Et est tenetur.
-                                target_parent_uid: Nihil consequatur iusto temporibus ullam enim.
-                                uid: Expedita ipsum.
-                                updated_at: "1994-12-13T11:52:46Z"
+                                submitter_email: Voluptates facere.
+                                submitter_name: Quidem excepturi enim labore est aliquam.
+                                submitter_username: Quo magni modi explicabo in.
+                                target_parent_uid: Minima ut recusandae dolorem et facere.
+                                uid: Placeat vitae iusto in tempora qui.
+                                updated_at: "1988-02-23T21:47:34Z"
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1233,7 +1407,7 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                             example:
                                 code: "401"
-                                message: Aut laborum quod hic corporis.
+                                message: Eius quo.
                 "404":
                     description: 'NotFound: No such application'
                     content:
@@ -1242,9 +1416,20 @@ paths:
                                 $ref: '#/components/schemas/ApplicationError'
                             example:
                                 code: "400"
-                                message: Explicabo ratione.
-                                name: Incidunt nobis.
-                                reason: application_uid_invalid
+                                message: Porro et voluptas voluptatem animi.
+                                name: In enim tempora praesentium.
+                                reason: version_mismatch
+                "412":
+                    description: 'VersionMismatch: If-Match did not match the application''s current revision'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApplicationError'
+                            example:
+                                code: "400"
+                                message: Quod molestias error amet modi.
+                                name: Et rerum vel qui eius omnis tempora.
+                                reason: formation_list_invalid
             security:
                 - jwt_header_Authorization: []
 components:
@@ -1259,25 +1444,26 @@ components:
                 message:
                     type: string
                     description: Human-readable message
-                    example: Possimus culpa autem dolores sequi rerum eos.
+                    example: Architecto voluptates magni.
                 name:
                     type: string
                     description: Which declared error this is — matches the Error() name. Transport dispatch only; switch on reason, not this.
-                    example: A sit at eius.
+                    example: Vero asperiores laboriosam.
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: submitter_username_required
+                    example: formation_list_invalid
                     enum:
                         - not_found
                         - application_uid_invalid
+                        - version_mismatch
                         - submitter_username_required
                         - project_website_invalid
                         - formation_list_invalid
             example:
                 code: "400"
-                message: Esse laudantium ut molestiae.
-                name: Sit sit qui.
+                message: Nemo dicta neque aut pariatur.
+                name: Ut fuga quisquam maiores modi.
                 reason: submitter_username_required
             required:
                 - name
@@ -1290,13 +1476,13 @@ components:
                 assignee:
                     type: string
                     description: Username, or an empty string to clear.
-                    example: Non labore.
+                    example: Temporibus laudantium.
                 due_date:
                     type: string
                     description: YYYY-MM-DD, or an empty string to clear.
                     example: "2026-03-31"
             example:
-                assignee: Doloremque distinctio in ea ipsum et praesentium.
+                assignee: Sed molestiae quibusdam nihil distinctio explicabo.
                 due_date: "2026-03-31"
         CreateApplicationRequestBody:
             type: object
@@ -1305,32 +1491,33 @@ components:
                     type: object
                     description: The intake answers. Carries the proposed project's website as a URL. People named for the formation work are email addresses only — they are not resolved to platform identities, granted anything, or notified.
                     example:
-                        Esse et quia sunt dolores aut quisquam.: Nobis est velit quia officia.
+                        Iusto sit eos aut.: Adipisci eius.
+                        Optio ab dignissimos.: Sit ut tempora nemo quasi id.
                     additionalProperties: true
                 submitter_email:
                     type: string
                     description: The applicant's email address.
-                    example: cara.hermann@kozey.com
+                    example: quentin@mitchell.net
                     format: email
                 submitter_name:
                     type: string
                     description: The applicant's display name.
-                    example: Eos veritatis voluptatem et consequatur voluptatem nobis.
+                    example: Et iure.
                 submitter_username:
                     type: string
                     description: The applicant's username, as the calling UI knows it.
-                    example: Animi nesciunt ducimus voluptatem voluptatem asperiores.
+                    example: Voluptatum sint magnam odio sint quam veniam.
                 target_parent_uid:
                     type: string
                     description: Optional. Where the applicant started from, carried as a hint to prefill the approver's form. It does not decide the parent or the incorporated entity, and it grants nobody anything. Normally absent.
-                    example: Voluptate laudantium.
+                    example: Similique et delectus labore nobis modi.
             example:
                 application:
-                    Id et ratione maiores aliquam.: Repellat consequatur voluptas rerum itaque perspiciatis.
-                submitter_email: cristian_veum@daughertyrohan.com
-                submitter_name: Reprehenderit exercitationem tenetur voluptates.
-                submitter_username: Facilis reiciendis in inventore illo nobis.
-                target_parent_uid: Ipsum quia non et sint sit quae.
+                    Cupiditate perferendis repudiandae ipsam.: In id nisi illo ullam qui quia.
+                submitter_email: laila@wilderman.name
+                submitter_name: Quam architecto et accusantium neque dolore.
+                submitter_username: A at voluptatem atque.
+                target_parent_uid: Doloribus qui exercitationem.
             required:
                 - submitter_username
                 - submitter_name
@@ -1341,23 +1528,23 @@ components:
             properties:
                 action:
                     type: string
-                    example: Iure sapiente incidunt ab error.
+                    example: Iure cupiditate iusto cum vel nihil.
                 actor:
                     type: string
-                    example: Sint magnam odio sint quam veniam.
+                    example: Rerum dolores corrupti qui saepe nisi.
                 after:
-                    example: Culpa nemo sunt.
+                    example: Incidunt cupiditate praesentium aut voluptatem veniam.
                 at:
                     type: string
-                    example: "1980-12-01T22:52:27Z"
+                    example: "1985-07-14T16:26:31Z"
                     format: date-time
                 before:
                     description: Redacted summary.
-                    example: Maiores amet.
+                    example: Illo qui corporis quam veritatis.
                 item_uid:
                     type: string
                     description: Nullable. Absent means either a formation-level entry — template expansion or upgrade, which concern no single item — or an entry whose item has since been removed, since the reference is cleared rather than the row deleted. The two are indistinguishable here. Neither is ever returned by a read filtered on item_uid.
-                    example: Quia consequatur ea eum.
+                    example: Maxime et aut quos autem magnam.
                 set_by:
                     type: string
                     example: user
@@ -1367,16 +1554,16 @@ components:
                 ulid:
                     type: string
                     description: Time-ordered; doubles as the paging cursor.
-                    example: Explicabo nisi ipsam ut nihil deleniti temporibus.
+                    example: Aut earum autem unde.
             example:
-                action: Architecto et accusantium neque dolore deleniti perferendis.
-                actor: A at voluptatem atque.
-                after: Eius iure sed et cum ducimus.
-                at: "1990-05-26T18:55:54Z"
-                before: Qui labore maiores quod qui.
-                item_uid: Sit ut tempora nemo quasi id.
-                set_by: user
-                ulid: Perferendis adipisci eius ut optio ab dignissimos.
+                action: Sit voluptate totam voluptas dignissimos.
+                actor: Et magni aperiam nisi.
+                after: Ex eum aliquam libero quas sunt cupiditate.
+                at: "1995-10-17T22:39:25Z"
+                before: Quis quia a.
+                item_uid: Non veniam.
+                set_by: system
+                ulid: Sit dolor voluptatem ullam doloremque sunt nobis.
             required:
                 - ulid
                 - actor
@@ -1410,7 +1597,7 @@ components:
                 next_cursor:
                     type: string
                     description: Pass as cursor to fetch the next page. Empty on the last page.
-                    example: Delectus nam sed rerum.
+                    example: Est perferendis.
             example:
                 entries:
                     - action: Alias accusantium est quo nihil rerum saepe.
@@ -1437,7 +1624,15 @@ components:
                       item_uid: Assumenda aut autem explicabo ipsam.
                       set_by: system
                       ulid: Et aut harum eius autem.
-                next_cursor: Earum impedit quos fugiat nostrum rem vitae.
+                    - action: Alias accusantium est quo nihil rerum saepe.
+                      actor: Animi optio et molestiae omnis.
+                      after: Perferendis et voluptas porro laborum totam.
+                      at: "2012-06-03T11:55:48Z"
+                      before: Nobis consequatur minima in.
+                      item_uid: Assumenda aut autem explicabo ipsam.
+                      set_by: system
+                      ulid: Et aut harum eius autem.
+                next_cursor: Aut est deleniti pariatur dolorem.
             required:
                 - entries
         FormationAvailableAction:
@@ -1457,7 +1652,7 @@ components:
                     example: writer
             example:
                 action: mark_done
-                requires_reason: true
+                requires_reason: false
                 requires_relation: writer
             required:
                 - action
@@ -1469,7 +1664,7 @@ components:
                 is_activating:
                     type: boolean
                     description: Every gating item done, at least one gating item exists, and the project has an announcement date.
-                    example: true
+                    example: false
                 items:
                     type: array
                     items:
@@ -1571,105 +1766,9 @@ components:
                           title: Commodi commodi itaque iste architecto tempora qui.
                           uid: Quis eos voluptas harum non.
                           version: 7421536534452400282
-                        - action_link: Atque quae doloremque nobis id facere itaque.
-                          assignee: Suscipit non ipsam tenetur.
-                          available_actions:
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                          checklist_type: external
-                          due_date: "1989-06-14"
-                          evidence_link: https://example.org/bylaws.pdf
-                          gate: true
-                          is_required: true
-                          item_key: Quia quidem quisquam similique labore nisi consectetur.
-                          note: Accusantium velit ratione blanditiis.
-                          owner_team: formation
-                          platform_check:
-                            min_count: 5756546912852851002
-                            resource_type: Esse id eum.
-                          position: 3079137190898711609
-                          requires_writer: true
-                          resolved_ref:
-                            type: Quisquam incidunt dolor.
-                            uid: Incidunt aut dignissimos qui officiis iure aperiam.
-                          section_key: Rem corrupti expedita tempore sint rerum.
-                          skip_reason: Et voluptatem est reiciendis perspiciatis aut.
-                          status: skipped
-                          status_source: platform
-                          sub_items:
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                          title: Commodi commodi itaque iste architecto tempora qui.
-                          uid: Quis eos voluptas harum non.
-                          version: 7421536534452400282
-                        - action_link: Atque quae doloremque nobis id facere itaque.
-                          assignee: Suscipit non ipsam tenetur.
-                          available_actions:
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                            - action: mark_done
-                              requires_reason: true
-                              requires_relation: writer
-                          checklist_type: external
-                          due_date: "1989-06-14"
-                          evidence_link: https://example.org/bylaws.pdf
-                          gate: true
-                          is_required: true
-                          item_key: Quia quidem quisquam similique labore nisi consectetur.
-                          note: Accusantium velit ratione blanditiis.
-                          owner_team: formation
-                          platform_check:
-                            min_count: 5756546912852851002
-                            resource_type: Esse id eum.
-                          position: 3079137190898711609
-                          requires_writer: true
-                          resolved_ref:
-                            type: Quisquam incidunt dolor.
-                            uid: Incidunt aut dignissimos qui officiis iure aperiam.
-                          section_key: Rem corrupti expedita tempore sint rerum.
-                          skip_reason: Et voluptatem est reiciendis perspiciatis aut.
-                          status: skipped
-                          status_source: platform
-                          sub_items:
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                            - key: Labore odit sint ut corrupti nihil assumenda.
-                              status: done
-                              title: Non voluptas.
-                          title: Commodi commodi itaque iste architecto tempora qui.
-                          uid: Quis eos voluptas harum non.
-                          version: 7421536534452400282
                 lifecycle:
                     type: string
-                    example: completed
+                    example: frozen
                     enum:
                         - live
                         - completed
@@ -1678,7 +1777,7 @@ components:
                     $ref: '#/components/schemas/FormationProgress'
                 project_uid:
                     type: string
-                    example: Vel rerum quod.
+                    example: Consequatur vero sed possimus repudiandae optio.
                 sections:
                     type: array
                     items:
@@ -1692,10 +1791,10 @@ components:
                           title: Eum voluptas non.
                 template_uid:
                     type: string
-                    example: Et perferendis debitis.
+                    example: Ut optio aut.
                 template_version:
                     type: integer
-                    example: 6237997727200769399
+                    example: 1843221838139956045
                     format: int64
             example:
                 is_activating: false
@@ -1803,7 +1902,7 @@ components:
                     in_progress: 3665236362737603287
                     not_started: 1909815443087727919
                     skipped: 3646260387799824817
-                project_uid: Reiciendis a autem similique ut.
+                project_uid: Id quas repellat eum tempora numquam et.
                 sections:
                     - key: Voluptatem non dolor voluptates.
                       position: 7312166348902862462
@@ -1811,8 +1910,8 @@ components:
                     - key: Voluptatem non dolor voluptates.
                       position: 7312166348902862462
                       title: Eum voluptas non.
-                template_uid: Iste explicabo enim voluptas esse totam.
-                template_version: 6368102458576165040
+                template_uid: Delectus et.
+                template_version: 2994806005826514208
             required:
                 - project_uid
                 - template_uid
@@ -1832,15 +1931,15 @@ components:
                 message:
                     type: string
                     description: Human-readable message
-                    example: Dicta perspiciatis quia cupiditate.
+                    example: Doloremque quo aliquam voluptatem ex consequuntur ad.
                 name:
                     type: string
                     description: Which declared error this is — matches the Error() name (e.g. "Conflict"). Transport dispatch only; switch on reason, not this.
-                    example: Est ipsam.
+                    example: Corrupti aut non autem delectus.
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: version_mismatch
+                    example: checklist_read_only
                     enum:
                         - not_found
                         - version_mismatch
@@ -1858,9 +1957,9 @@ components:
                         - no_fields_to_update
             example:
                 code: "409"
-                message: Doloremque maxime quasi labore quas.
-                name: Ab consequatur.
-                reason: checklist_read_only
+                message: Et vero quia.
+                name: Animi numquam.
+                reason: return_reason_required
             required:
                 - name
                 - code
@@ -1872,17 +1971,23 @@ components:
                 action_link:
                     type: string
                     description: Placeholders substituted once at expansion.
-                    example: Enim sed dolores nulla aliquid atque facere.
+                    example: Aut sapiente minus.
                 assignee:
                     type: string
                     description: Username. Nothing is granted.
-                    example: Voluptatem natus accusantium repellendus nostrum.
+                    example: Et totam natus ad nobis.
                 available_actions:
                     type: array
                     items:
                         $ref: '#/components/schemas/FormationAvailableAction'
                     description: 'What this item''s current state permits, and what each action requires. Describes the item, not the caller: two people reading the same item receive the same list, and a browser intersects it with the standing it already holds. Empty, never absent, when the item permits nothing.'
                     example:
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
+                        - action: mark_done
+                          requires_reason: true
+                          requires_relation: writer
                         - action: mark_done
                           requires_reason: true
                           requires_relation: writer
@@ -1899,7 +2004,7 @@ components:
                         - both
                 due_date:
                     type: string
-                    example: "1983-06-30"
+                    example: "1980-09-30"
                     format: date
                 evidence_link:
                     type: string
@@ -1916,10 +2021,10 @@ components:
                 item_key:
                     type: string
                     description: Stable identifier, e.g. charter_agreed. Never changes.
-                    example: Id eaque aspernatur et blanditiis.
+                    example: Est dolore non omnis voluptatem eligendi.
                 note:
                     type: string
-                    example: Velit autem harum.
+                    example: Eveniet numquam pariatur expedita iste.
                 owner_team:
                     type: string
                     example: formation
@@ -1927,20 +2032,20 @@ components:
                     $ref: '#/components/schemas/FormationPlatformCheck'
                 position:
                     type: integer
-                    example: 3865136530240924144
+                    example: 7248861647193452656
                     format: int64
                 requires_writer:
                     type: boolean
-                    example: false
+                    example: true
                 resolved_ref:
                     $ref: '#/components/schemas/FormationResolvedRef'
                 section_key:
                     type: string
-                    example: Nesciunt molestiae.
+                    example: Et cum et voluptas quia rerum suscipit.
                 skip_reason:
                     type: string
                     description: Required when status is skipped.
-                    example: Voluptatem qui laudantium omnis eaque laborum.
+                    example: Eos quos odit nisi.
                 status:
                     type: string
                     description: Five values.
@@ -1953,7 +2058,7 @@ components:
                         - skipped
                 status_source:
                     type: string
-                    example: platform
+                    example: manual
                     enum:
                         - manual
                         - platform
@@ -1970,18 +2075,18 @@ components:
                           title: Non voluptas.
                 title:
                     type: string
-                    example: Omnis quibusdam est itaque impedit itaque vel.
+                    example: Qui officia harum repellat.
                 uid:
                     type: string
-                    example: Aut sunt possimus vel.
+                    example: Eligendi odit adipisci.
                 version:
                     type: integer
                     description: Echo as If-Match on every mutation. Per item, not per formation.
-                    example: 6591081100005346621
+                    example: 8242749350571126517
                     format: int64
             example:
-                action_link: Eum deserunt asperiores sunt.
-                assignee: Aspernatur temporibus quibusdam vero corporis doloremque.
+                action_link: Quos sit excepturi explicabo dolore.
+                assignee: Accusantium minus aut omnis.
                 available_actions:
                     - action: mark_done
                       requires_reason: true
@@ -1989,27 +2094,24 @@ components:
                     - action: mark_done
                       requires_reason: true
                       requires_relation: writer
-                    - action: mark_done
-                      requires_reason: true
-                      requires_relation: writer
-                checklist_type: internal
-                due_date: "1994-01-31"
+                checklist_type: external
+                due_date: "1978-06-04"
                 evidence_link: https://example.org/bylaws.pdf
-                gate: true
+                gate: false
                 is_required: false
-                item_key: Corrupti laudantium distinctio dolorem.
-                note: Id quas repellat eum tempora numquam et.
+                item_key: Delectus sed labore autem vero doloribus et.
+                note: Dicta modi rerum et velit quibusdam exercitationem.
                 owner_team: formation
                 platform_check:
                     min_count: 5756546912852851002
                     resource_type: Esse id eum.
-                position: 7332618044298300544
-                requires_writer: false
+                position: 7142622370724326230
+                requires_writer: true
                 resolved_ref:
                     type: Quisquam incidunt dolor.
                     uid: Incidunt aut dignissimos qui officiis iure aperiam.
-                section_key: Eligendi non sit.
-                skip_reason: Delectus et.
+                section_key: Eligendi delectus voluptates.
+                skip_reason: Et qui.
                 status: not_started
                 status_source: platform
                 sub_items:
@@ -2019,12 +2121,9 @@ components:
                     - key: Labore odit sint ut corrupti nihil assumenda.
                       status: done
                       title: Non voluptas.
-                    - key: Labore odit sint ut corrupti nihil assumenda.
-                      status: done
-                      title: Non voluptas.
-                title: Illo et ratione.
-                uid: Dolorum temporibus voluptatum aliquam voluptate error dignissimos.
-                version: 4527032652226392225
+                title: Et accusantium aliquam eveniet eum.
+                uid: Deserunt pariatur repellat ab.
+                version: 2591168353781670070
             required:
                 - uid
                 - item_key
@@ -2044,43 +2143,43 @@ components:
             properties:
                 min_count:
                     type: integer
-                    example: 7130765677589918063
+                    example: 1754326284227779225
                     format: int64
                 resource_type:
                     type: string
-                    example: Reiciendis sit iusto quia.
+                    example: Fugiat inventore.
             example:
-                min_count: 6051192287937626932
-                resource_type: Et id voluptatibus culpa doloremque sed mollitia.
+                min_count: 1169623457812244451
+                resource_type: Assumenda at illo suscipit culpa.
         FormationProgress:
             type: object
             properties:
                 blocked:
                     type: integer
-                    example: 3909596538977319789
+                    example: 2581156735705695661
                     format: int64
                 done:
                     type: integer
-                    example: 2437675549470231877
+                    example: 4215081853818627351
                     format: int64
                 in_progress:
                     type: integer
-                    example: 4033044198250313451
+                    example: 8635873683399452127
                     format: int64
                 not_started:
                     type: integer
-                    example: 6888695917380449601
+                    example: 2043945861897365256
                     format: int64
                 skipped:
                     type: integer
-                    example: 3178154859235214351
+                    example: 6789233236090168600
                     format: int64
             example:
-                blocked: 4835163799049389764
-                done: 5826533411690448831
-                in_progress: 770183760237918670
-                not_started: 2539861286664263565
-                skipped: 886355100520699158
+                blocked: 1035157913914584195
+                done: 3843840282405898672
+                in_progress: 6542394643404192180
+                not_started: 7275399955137820350
+                skipped: 4683693281938345645
             required:
                 - not_started
                 - in_progress
@@ -2092,30 +2191,30 @@ components:
             properties:
                 type:
                     type: string
-                    example: Magnam natus possimus.
+                    example: Est iusto.
                 uid:
                     type: string
-                    example: Aut numquam vero voluptatem blanditiis vel in.
+                    example: Non necessitatibus sapiente facilis quos.
             example:
-                type: Qui possimus.
-                uid: Architecto enim ex consectetur.
+                type: Tenetur inventore veniam voluptas.
+                uid: Vel eius debitis ratione aut rerum assumenda.
         FormationSection:
             type: object
             properties:
                 key:
                     type: string
-                    example: Dolorum consequatur similique est.
+                    example: Explicabo dignissimos consequuntur non velit cumque quia.
                 position:
                     type: integer
-                    example: 5975761942476083883
+                    example: 5276878729611457264
                     format: int64
                 title:
                     type: string
-                    example: Et ipsum aut est deleniti.
+                    example: Hic quia.
             example:
-                key: Ipsam dolor quasi.
-                position: 3333574358154336198
-                title: Quasi cum rem consequatur sed quo sapiente.
+                key: Suscipit sit autem id ducimus dolores.
+                position: 1078208405319059776
+                title: Qui provident sint iusto quia.
             required:
                 - key
                 - title
@@ -2125,10 +2224,10 @@ components:
             properties:
                 key:
                     type: string
-                    example: Non sequi modi aliquam.
+                    example: Omnis corrupti ut.
                 status:
                     type: string
-                    example: skipped
+                    example: done
                     enum:
                         - not_started
                         - in_progress
@@ -2137,11 +2236,11 @@ components:
                         - skipped
                 title:
                     type: string
-                    example: Et amet doloremque qui doloremque quam.
+                    example: Iure doloremque.
             example:
-                key: Sit nihil molestiae at ratione.
-                status: skipped
-                title: Atque vel autem molestias eius.
+                key: Rem sunt sed quam.
+                status: not_started
+                title: Nesciunt assumenda tempore occaecati molestiae magni.
             required:
                 - key
                 - title
@@ -2151,10 +2250,10 @@ components:
             properties:
                 key:
                     type: string
-                    example: Nesciunt ratione.
+                    example: Deleniti eaque ratione omnis.
                 status:
                     type: string
-                    example: skipped
+                    example: blocked
                     enum:
                         - not_started
                         - in_progress
@@ -2162,8 +2261,8 @@ components:
                         - done
                         - skipped
             example:
-                key: Dolorem et fugit maxime.
-                status: blocked
+                key: Molestias impedit nulla ullam.
+                status: in_progress
             required:
                 - key
                 - status
@@ -2177,10 +2276,10 @@ components:
                 message:
                     type: string
                     description: Error message
-                    example: Quos illo adipisci dicta praesentium ipsam.
+                    example: Fuga et libero labore.
             example:
                 code: "404"
-                message: Ea atque eos beatae laudantium fuga.
+                message: Necessitatibus illo cupiditate dignissimos ullam et dolorum.
             required:
                 - code
                 - message
@@ -2191,60 +2290,92 @@ components:
                     type: object
                     description: The intake answers, as submitted.
                     example:
-                        Aut nihil rem in.: Provident qui voluptate amet.
-                        Delectus doloribus.: Et molestiae tempora minima et voluptas.
+                        Doloremque maxime quasi labore quas.: Itaque a sit at eius.
                     additionalProperties: true
                 created_at:
                     type: string
-                    example: "1976-01-29T08:41:43Z"
+                    example: "1993-12-10T10:37:38Z"
                     format: date-time
+                revision:
+                    type: integer
+                    description: Echo as If-Match on every mutation.
+                    example: 2513629096823268865
+                    format: int64
                 state:
                     type: string
                     description: Where the application stands. accepted and denied are the two decided outcomes.
                     example: submitted
                 submitter_email:
                     type: string
-                    example: Dolor laboriosam.
+                    example: Quia cupiditate.
                 submitter_name:
                     type: string
-                    example: At quod sed qui excepturi ducimus quos.
+                    example: Quibusdam adipisci est ipsam quisquam dicta.
                 submitter_username:
                     type: string
-                    example: In rem culpa sequi id animi tempore.
+                    example: Quod adipisci ea est animi est.
                 target_parent_uid:
                     type: string
                     description: Absent unless the applicant started from somewhere. A hint, never a placement.
-                    example: Ducimus repellat.
+                    example: Incidunt ab.
                 uid:
                     type: string
                     description: The application's UID. The FGA object id and the indexed document id are both this value.
-                    example: Qui quia nihil quis omnis explicabo perferendis.
+                    example: Ea atque eos beatae laudantium fuga.
                 updated_at:
                     type: string
-                    example: "1989-03-22T03:29:43Z"
+                    example: "2013-03-05T16:29:15Z"
                     format: date-time
             example:
                 application:
-                    Est provident aspernatur accusantium.: Temporibus molestiae officiis.
-                    Sint a tempora quos consequatur excepturi.: Provident eius.
-                    Vel incidunt et molestiae.: Molestias et aut.
-                created_at: "1997-07-12T10:49:59Z"
+                    Neque temporibus quam qui sint a nobis.: Dignissimos saepe sed id dolore alias.
+                    Placeat et voluptatem illum.: Perferendis id dolor eos aliquam nihil.
+                created_at: "1990-04-24T14:32:31Z"
+                revision: 4906623465213791929
                 state: submitted
-                submitter_email: Earum molestias adipisci.
-                submitter_name: Aspernatur vero laborum omnis repudiandae adipisci.
-                submitter_username: Voluptate quibusdam.
-                target_parent_uid: Temporibus quas reiciendis assumenda odit explicabo quae.
-                uid: Minus assumenda.
-                updated_at: "2001-04-27T21:08:54Z"
+                submitter_email: Repellendus nostrum fuga praesentium et.
+                submitter_name: Facere labore doloribus voluptatem natus.
+                submitter_username: Nulla aliquid.
+                target_parent_uid: Hic et assumenda dolor doloribus maiores doloribus.
+                uid: Aut eius totam enim.
+                updated_at: "1986-02-24T23:26:55Z"
             required:
                 - uid
                 - state
+                - revision
                 - submitter_username
                 - submitter_name
                 - submitter_email
                 - application
                 - created_at
                 - updated_at
+        ProjectApplicationMutationResult:
+            type: object
+            properties:
+                application:
+                    $ref: '#/components/schemas/ProjectApplication'
+                etag:
+                    type: string
+                    description: The application's new revision. Send as If-Match on the next write.
+                    example: "2"
+            example:
+                application:
+                    application:
+                        Aliquam dolorem rerum incidunt.: Molestiae laborum est.
+                        Aliquam porro esse quam voluptatem omnis repudiandae.: Quis deserunt qui eos.
+                        Explicabo aut dolor provident.: Consequatur iusto vel debitis.
+                    created_at: "1985-08-04T14:01:37Z"
+                    revision: 1343659546458438500
+                    state: submitted
+                    submitter_email: Voluptates facere.
+                    submitter_name: Quidem excepturi enim labore est aliquam.
+                    submitter_username: Quo magni modi explicabo in.
+                    target_parent_uid: Minima ut recusandae dolorem et facere.
+                    uid: Placeat vitae iusto in tempora qui.
+                    updated_at: "1988-02-23T21:47:34Z"
+                etag: "2"
+            required:
+                - application
         ReviseApplicationRequestBody:
             type: object
             properties:
@@ -2252,12 +2383,13 @@ components:
                     type: object
                     description: The complete set of intake answers, replacing what is stored. Validated the same way the original submission was.
                     example:
-                        Fuga vel error aliquid sunt atque est.: Ea voluptatem tempore.
+                        Omnis explicabo perferendis distinctio.: Rem culpa sequi id.
+                        Tempore quas at quod sed qui excepturi.: Quos alias.
                     additionalProperties: true
             example:
                 application:
-                    Commodi et neque.: Qui hic dolorum possimus magni.
-                    Dolorem sit nihil.: Saepe atque consequatur.
+                    Nam ducimus repellat eveniet tempore.: Nihil rem in sint.
+                    Qui voluptate.: Reiciendis delectus doloribus.
             required:
                 - application
         ServiceUnavailableError:
@@ -2283,11 +2415,11 @@ components:
                 reason:
                     type: string
                     description: 'Why. Required when blocking, skipping, or sending an item back to not started: each leaves somebody with work to redo, and a bare status change tells them nothing.'
-                    example: Eum ea temporibus quia quo.
+                    example: Quasi itaque quasi cum.
                 status:
                     type: string
                     description: One of the five. Omit to change sub-items alone.
-                    example: blocked
+                    example: not_started
                     enum:
                         - not_started
                         - in_progress
@@ -2299,20 +2431,20 @@ components:
                     items:
                         $ref: '#/components/schemas/FormationSubItemUpdate'
                     example:
-                        - key: Ea explicabo ullam pariatur.
-                          status: not_started
-                        - key: Ea explicabo ullam pariatur.
-                          status: not_started
-                        - key: Ea explicabo ullam pariatur.
-                          status: not_started
+                        - key: Distinctio aspernatur et est amet.
+                          status: blocked
+                        - key: Distinctio aspernatur et est amet.
+                          status: blocked
+                        - key: Distinctio aspernatur et est amet.
+                          status: blocked
             example:
-                reason: Mollitia eos et debitis dolores nulla recusandae.
-                status: blocked
+                reason: Quo sapiente praesentium rem.
+                status: done
                 sub_items:
-                    - key: Ea explicabo ullam pariatur.
-                      status: not_started
-                    - key: Ea explicabo ullam pariatur.
-                      status: not_started
+                    - key: Distinctio aspernatur et est amet.
+                      status: blocked
+                    - key: Distinctio aspernatur et est amet.
+                      status: blocked
         UnauthorizedError:
             type: object
             properties:
@@ -2323,10 +2455,10 @@ components:
                 message:
                     type: string
                     description: Error message
-                    example: Odio quod adipisci ea est animi.
+                    example: Reiciendis ipsum cum voluptatem.
             example:
                 code: "401"
-                message: Cupiditate quibusdam.
+                message: Praesentium voluptatibus sint.
             required:
                 - code
                 - message
@@ -2339,10 +2471,10 @@ components:
                     example: https://example.org/bylaws.pdf
                 note:
                     type: string
-                    example: Et enim ducimus atque consectetur delectus.
+                    example: Ipsam ut nihil deleniti temporibus sint.
             example:
                 evidence_link: https://example.org/bylaws.pdf
-                note: Quo hic.
+                note: Consequatur ea.
     securitySchemes:
         jwt_header_Authorization:
             type: http

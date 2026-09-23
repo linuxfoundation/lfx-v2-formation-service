@@ -58,8 +58,9 @@ const (
 type Application struct {
 	bun.BaseModel `bun:"table:project_applications,alias:pa"`
 
-	UID   uuid.UUID        `bun:"uid,pk,default:gen_random_uuid()"`
-	State ApplicationState `bun:"state,notnull"`
+	UID      uuid.UUID        `bun:"uid,pk,default:gen_random_uuid()"`
+	State    ApplicationState `bun:"state,notnull"`
+	Revision int64            `bun:"revision,notnull,default:1"`
 
 	// The submitter as recorded data, not as an authenticated identity.
 	//

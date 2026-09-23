@@ -26,7 +26,7 @@ func TestDeleteApplicationRemovesRowDocumentAndSubmitterGrant(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	err := d.service.DeleteApplication(asPrincipal("asmith"), &svc.DeleteApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 	require.NoError(t, err)
 
@@ -46,7 +46,7 @@ func TestDeleteApplicationRequestsBothDownstreamRemovals(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	require.NoError(t, d.service.DeleteApplication(asPrincipal("asmith"),
-		&svc.DeleteApplicationPayload{Version: "1", UID: created.UID}))
+		&svc.DeleteApplicationPayload{Version: "1", UID: created.UID, IfMatch: created.Revision}))
 
 	require.Len(t, d.access.Deleted(), 1)
 	require.Len(t, d.indexer.ApplicationDeleted(), 1)
@@ -61,11 +61,11 @@ func TestDenyKeepsWhatDeleteRemoves(t *testing.T) {
 	deleted := submitOne(t, d.service)
 
 	_, err := d.service.DenyApplication(asPrincipal("staff"), &svc.DenyApplicationPayload{
-		Version: "1", UID: denied.UID,
+		Version: "1", UID: denied.UID, IfMatch: denied.Revision,
 	})
 	require.NoError(t, err)
 	require.NoError(t, d.service.DeleteApplication(asPrincipal("staff"),
-		&svc.DeleteApplicationPayload{Version: "1", UID: deleted.UID}))
+		&svc.DeleteApplicationPayload{Version: "1", UID: deleted.UID, IfMatch: deleted.Revision}))
 
 	_, err = d.applications.Get(context.Background(), mustUUID(t, denied.UID))
 	assert.NoError(t, err, "a denied application is kept")
@@ -81,20 +81,46 @@ func TestDeleteApplicationAcceptsADecidedApplication(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)
 
-	_, err := d.service.AcceptApplication(asPrincipal("staff"), &svc.AcceptApplicationPayload{
-		Version: "1", UID: created.UID,
+	accepted, err := d.service.AcceptApplication(asPrincipal("staff"), &svc.AcceptApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 	require.NoError(t, err)
 
 	assert.NoError(t, d.service.DeleteApplication(asPrincipal("staff"),
-		&svc.DeleteApplicationPayload{Version: "1", UID: created.UID}))
+		&svc.DeleteApplicationPayload{
+			Version: "1", UID: created.UID, IfMatch: accepted.Application.Revision,
+		}))
 }
 
 func TestDeleteApplicationRefusesAnIdentifierThatIsNotAUUID(t *testing.T) {
 	d := applicationService(t)
 
 	err := d.service.DeleteApplication(asPrincipal("asmith"), &svc.DeleteApplicationPayload{
-		Version: "1", UID: "not-a-uuid",
+		Version: "1", UID: "not-a-uuid", IfMatch: 1,
 	})
 	require.Error(t, err)
+}
+
+func TestStaleDeleteRepublishesTheCurrentRevision(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	uid := mustUUID(t, created.UID)
+	current, err := d.applications.UpdatePayload(
+		context.Background(), uid, created.Revision,
+		map[string]any{"project_name": "Current answers"},
+	)
+	require.NoError(t, err)
+
+	err = d.service.DeleteApplication(asPrincipal("asmith"), &svc.DeleteApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
+	})
+
+	var refusal *svc.ApplicationError
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, reasonVersionMismatch, refusal.Reason)
+	projected := d.indexer.LatestApplication(created.UID)
+	require.NotNil(t, projected)
+	assert.Equal(t, current.Revision, projected.Revision)
+	assert.Empty(t, d.access.Deleted())
+	assert.Empty(t, d.indexer.ApplicationDeleted())
 }

@@ -61,13 +61,13 @@ type Service interface {
 	// belongs to that caller; this service adds no second control.
 	CreateApplication(context.Context, *CreateApplicationPayload) (res *ProjectApplication, err error)
 	// Replace an application's answers without changing its state.
-	ReviseApplication(context.Context, *ReviseApplicationPayload) (res *ProjectApplication, err error)
+	ReviseApplication(context.Context, *ReviseApplicationPayload) (res *ProjectApplicationMutationResult, err error)
 	// Withdraw an application and retain its record.
-	WithdrawApplication(context.Context, *WithdrawApplicationPayload) (res *ProjectApplication, err error)
+	WithdrawApplication(context.Context, *WithdrawApplicationPayload) (res *ProjectApplicationMutationResult, err error)
 	// Accept an application without creating a project.
-	AcceptApplication(context.Context, *AcceptApplicationPayload) (res *ProjectApplication, err error)
+	AcceptApplication(context.Context, *AcceptApplicationPayload) (res *ProjectApplicationMutationResult, err error)
 	// Deny an application and retain its record.
-	DenyApplication(context.Context, *DenyApplicationPayload) (res *ProjectApplication, err error)
+	DenyApplication(context.Context, *DenyApplicationPayload) (res *ProjectApplicationMutationResult, err error)
 	// Delete an application from storage and search, and remove its submitter
 	// grant. The formation-team tuple is retained.
 	DeleteApplication(context.Context, *DeleteApplicationPayload) (err error)
@@ -108,6 +108,8 @@ type AcceptApplicationPayload struct {
 	Version string
 	// The application's unique identifier.
 	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 }
 
 type ApplicationError struct {
@@ -181,6 +183,8 @@ type DeleteApplicationPayload struct {
 	Version string
 	// The application's unique identifier.
 	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 }
 
 // DenyApplicationPayload is the payload type of the lfx_v2_formation_service
@@ -192,6 +196,8 @@ type DenyApplicationPayload struct {
 	Version string
 	// The application's unique identifier.
 	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 }
 
 type FormationActivityEntry struct {
@@ -382,7 +388,9 @@ type ProjectApplication struct {
 	UID string
 	// Where the application stands. accepted and denied are the two decided
 	// outcomes.
-	State             string
+	State string
+	// Echo as If-Match on every mutation.
+	Revision          int64
 	SubmitterUsername string
 	SubmitterName     string
 	SubmitterEmail    string
@@ -395,6 +403,14 @@ type ProjectApplication struct {
 	UpdatedAt   string
 }
 
+// ProjectApplicationMutationResult is the result type of the
+// lfx_v2_formation_service service revise_application method.
+type ProjectApplicationMutationResult struct {
+	Application *ProjectApplication
+	// The application's new revision. Send as If-Match on the next write.
+	Etag *string
+}
+
 // ReviseApplicationPayload is the payload type of the lfx_v2_formation_service
 // service revise_application method.
 type ReviseApplicationPayload struct {
@@ -404,6 +420,8 @@ type ReviseApplicationPayload struct {
 	Version string
 	// The application's unique identifier.
 	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 	// The complete set of intake answers, replacing what is stored. Validated the
 	// same way the original submission was.
 	Application map[string]any
@@ -488,6 +506,8 @@ type WithdrawApplicationPayload struct {
 	Version string
 	// The application's unique identifier.
 	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 }
 
 // Error returns an error description.
@@ -613,6 +633,21 @@ func NewProjectApplication(vres *lfxv2formationserviceviews.ProjectApplication) 
 func NewViewedProjectApplication(res *ProjectApplication, view string) *lfxv2formationserviceviews.ProjectApplication {
 	p := newProjectApplicationView(res)
 	return &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: "default"}
+}
+
+// NewProjectApplicationMutationResult initializes result type
+// ProjectApplicationMutationResult from viewed result type
+// ProjectApplicationMutationResult.
+func NewProjectApplicationMutationResult(vres *lfxv2formationserviceviews.ProjectApplicationMutationResult) *ProjectApplicationMutationResult {
+	return newProjectApplicationMutationResult(vres.Projected)
+}
+
+// NewViewedProjectApplicationMutationResult initializes viewed result type
+// ProjectApplicationMutationResult from result type
+// ProjectApplicationMutationResult using the given view.
+func NewViewedProjectApplicationMutationResult(res *ProjectApplicationMutationResult, view string) *lfxv2formationserviceviews.ProjectApplicationMutationResult {
+	p := newProjectApplicationMutationResultView(res)
+	return &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: "default"}
 }
 
 // newFormationChecklist converts projected type FormationChecklist to service
@@ -752,6 +787,9 @@ func newProjectApplication(vres *lfxv2formationserviceviews.ProjectApplicationVi
 	if vres.State != nil {
 		res.State = *vres.State
 	}
+	if vres.Revision != nil {
+		res.Revision = *vres.Revision
+	}
 	if vres.SubmitterUsername != nil {
 		res.SubmitterUsername = *vres.SubmitterUsername
 	}
@@ -784,6 +822,7 @@ func newProjectApplicationView(res *ProjectApplication) *lfxv2formationservicevi
 	vres := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               &res.UID,
 		State:             &res.State,
+		Revision:          &res.Revision,
 		SubmitterUsername: &res.SubmitterUsername,
 		SubmitterName:     &res.SubmitterName,
 		SubmitterEmail:    &res.SubmitterEmail,
@@ -798,6 +837,32 @@ func newProjectApplicationView(res *ProjectApplication) *lfxv2formationservicevi
 			tv := val
 			vres.Application[tk] = tv
 		}
+	}
+	return vres
+}
+
+// newProjectApplicationMutationResult converts projected type
+// ProjectApplicationMutationResult to service type
+// ProjectApplicationMutationResult.
+func newProjectApplicationMutationResult(vres *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *ProjectApplicationMutationResult {
+	res := &ProjectApplicationMutationResult{
+		Etag: vres.Etag,
+	}
+	if vres.Application != nil {
+		res.Application = newProjectApplication(vres.Application)
+	}
+	return res
+}
+
+// newProjectApplicationMutationResultView projects result type
+// ProjectApplicationMutationResult to projected type
+// ProjectApplicationMutationResultView using the "default" view.
+func newProjectApplicationMutationResultView(res *ProjectApplicationMutationResult) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
+	vres := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Etag: res.Etag,
+	}
+	if res.Application != nil {
+		vres.Application = newProjectApplicationView(res.Application)
 	}
 	return vres
 }

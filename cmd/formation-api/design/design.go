@@ -51,6 +51,12 @@ func ETagAttribute() {
 	})
 }
 
+func ApplicationETagAttribute() {
+	dsl.Attribute("etag", dsl.String, "The application's new revision. Send as If-Match on the next write.", func() {
+		dsl.Example("2")
+	})
+}
+
 var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Description("LFX V2 Formation Service")
 
@@ -454,6 +460,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
 
 			// A replacement rather than a merge. The questionnaire is an open
 			// map, so a merge would have no way to express "remove this
@@ -463,19 +470,25 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 				"The complete set of intake answers, replacing what is stored. Validated the same "+
 					"way the original submission was.")
 
-			dsl.Required("version", "uid", "application")
+			dsl.Required("version", "uid", "if_match", "application")
 		})
-		dsl.Result(ProjectApplication)
+		dsl.Result(ProjectApplicationMutationResult)
 		dsl.Error("BadRequest", ApplicationError, "The payload itself is invalid")
 		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.PUT("/project-applications/{uid}")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
-			dsl.Response(dsl.StatusOK)
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("BadRequest", dsl.StatusBadRequest)
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
@@ -491,18 +504,25 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
 
-			dsl.Required("version", "uid")
+			dsl.Required("version", "uid", "if_match")
 		})
-		dsl.Result(ProjectApplication)
+		dsl.Result(ProjectApplicationMutationResult)
 		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.POST("/project-applications/{uid}/withdraw")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
-			dsl.Response(dsl.StatusOK)
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
@@ -531,17 +551,24 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
-			dsl.Required("version", "uid")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
 		})
-		dsl.Result(ProjectApplication)
+		dsl.Result(ProjectApplicationMutationResult)
 		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.POST("/project-applications/{uid}/accept")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
-			dsl.Response(dsl.StatusOK)
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
@@ -557,17 +584,24 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
-			dsl.Required("version", "uid")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
 		})
-		dsl.Result(ProjectApplication)
+		dsl.Result(ProjectApplicationMutationResult)
 		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.POST("/project-applications/{uid}/deny")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
-			dsl.Response(dsl.StatusOK)
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
@@ -584,16 +618,20 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
-			dsl.Required("version", "uid")
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
 		})
 		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.DELETE("/project-applications/{uid}")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
 			dsl.Response(dsl.StatusNoContent)
 			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
 			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
 		})
 	})
@@ -697,6 +735,7 @@ var ApplicationError = dsl.Type("ApplicationError", func() {
 		dsl.Enum(
 			"not_found",
 			"application_uid_invalid",
+			"version_mismatch",
 			"submitter_username_required",
 			"project_website_invalid",
 			"formation_list_invalid",
@@ -726,6 +765,7 @@ var ProjectApplication = dsl.ResultType("application/vnd.project.application+jso
 	dsl.Attribute("state", dsl.String, "Where the application stands. accepted and denied are the two decided outcomes.", func() {
 		dsl.Example("submitted")
 	})
+	dsl.Attribute("revision", dsl.Int64, "Echo as If-Match on every mutation.")
 	dsl.Attribute("submitter_username", dsl.String)
 	dsl.Attribute("submitter_name", dsl.String)
 	dsl.Attribute("submitter_email", dsl.String)
@@ -733,8 +773,18 @@ var ProjectApplication = dsl.ResultType("application/vnd.project.application+jso
 	dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any), "The intake answers, as submitted.")
 	dsl.Attribute("created_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
 	dsl.Attribute("updated_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
-	dsl.Required("uid", "state", "submitter_username", "submitter_name", "submitter_email", "application", "created_at", "updated_at")
+	dsl.Required("uid", "state", "revision", "submitter_username", "submitter_name", "submitter_email", "application", "created_at", "updated_at")
 })
+
+var ProjectApplicationMutationResult = dsl.ResultType(
+	"application/vnd.project.application.mutation+json",
+	"ProjectApplicationMutationResult",
+	func() {
+		dsl.Attribute("application", ProjectApplication)
+		ApplicationETagAttribute()
+		dsl.Required("application")
+	},
+)
 
 // FormationSubItem is informational detail on a checklist item. The parent's
 // status is never derived from these.

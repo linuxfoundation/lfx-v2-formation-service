@@ -74,6 +74,22 @@ func TestApplicationCreateStoresSubmitterAndPayload(t *testing.T) {
 	}
 }
 
+func TestApplicationCreateStartsAtRevisionOne(t *testing.T) {
+	db := testDB(t)
+	created := createApplication(t, NewApplicationRepo(db))
+
+	var revision int64
+	err := db.NewRaw(
+		"SELECT revision FROM project_applications WHERE uid = ?", created.UID,
+	).Scan(context.Background(), &revision)
+	if err != nil {
+		t.Fatalf("read application revision: %v", err)
+	}
+	if revision != 1 {
+		t.Errorf("revision = %d, want 1", revision)
+	}
+}
+
 func TestApplicationTransitionMovesTheState(t *testing.T) {
 	db := testDB(t)
 	repo := NewApplicationRepo(db)
@@ -81,12 +97,22 @@ func TestApplicationTransitionMovesTheState(t *testing.T) {
 
 	created := createApplication(t, repo)
 
-	decided, err := repo.Transition(ctx, created.UID, model.ApplicationAccepted)
+	decided, err := repo.Transition(
+		ctx, created.UID, created.Revision, model.ApplicationAccepted,
+	)
 	if err != nil {
 		t.Fatalf("transition: %v", err)
 	}
 	if decided.State != model.ApplicationAccepted {
 		t.Errorf("state = %q, want accepted", decided.State)
+	}
+	if decided.Revision != created.Revision+1 {
+		t.Errorf("revision = %d, want %d", decided.Revision, created.Revision+1)
+	}
+	if _, err := repo.Transition(
+		ctx, created.UID, created.Revision, model.ApplicationDenied,
+	); !errors.Is(err, domain.ErrVersionMismatch) {
+		t.Errorf("transition with old revision = %v, want ErrVersionMismatch", err)
 	}
 
 	got, err := repo.Get(ctx, created.UID)
@@ -109,7 +135,7 @@ func TestApplicationTransitionRollsBackWithTheTransaction(t *testing.T) {
 	wantErr := errors.New("caller aborted after the transition")
 	err := NewUnitOfWork(db).Do(ctx, func(tx port.Tx) error {
 		if _, err := tx.Applications().Transition(
-			ctx, created.UID, model.ApplicationDenied,
+			ctx, created.UID, created.Revision, model.ApplicationDenied,
 		); err != nil {
 			return err
 		}
@@ -135,7 +161,9 @@ func TestApplicationUpdatePayloadLeavesStateAlone(t *testing.T) {
 
 	created := createApplication(t, repo)
 
-	revised, err := repo.UpdatePayload(ctx, created.UID, map[string]any{"project_name": "Renamed"})
+	revised, err := repo.UpdatePayload(
+		ctx, created.UID, created.Revision, map[string]any{"project_name": "Renamed"},
+	)
 	if err != nil {
 		t.Fatalf("update payload: %v", err)
 	}
@@ -144,6 +172,9 @@ func TestApplicationUpdatePayloadLeavesStateAlone(t *testing.T) {
 	}
 	if revised.State != created.State {
 		t.Errorf("state = %q, want it unchanged at %q", revised.State, created.State)
+	}
+	if revised.Revision != created.Revision+1 {
+		t.Errorf("revision = %d, want %d", revised.Revision, created.Revision+1)
 	}
 }
 
@@ -154,12 +185,46 @@ func TestApplicationDelete(t *testing.T) {
 	ctx := context.Background()
 	created := createApplication(t, repo)
 
-	if err := repo.Delete(ctx, created.UID); err != nil {
+	if err := repo.Delete(ctx, created.UID, created.Revision); err != nil {
 		t.Fatalf("delete = %v, want no error", err)
 	}
 	if _, err := repo.Get(ctx, created.UID); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("get after delete = %v, want ErrNotFound", err)
 	}
+}
+
+func TestApplicationWritesRejectAStaleRevision(t *testing.T) {
+	db := testDB(t)
+	repo := NewApplicationRepo(db)
+	ctx := context.Background()
+
+	t.Run("payload", func(t *testing.T) {
+		created := createApplication(t, repo)
+		_, err := repo.UpdatePayload(
+			ctx, created.UID, created.Revision+1, map[string]any{"project_name": "Stale"},
+		)
+		if !errors.Is(err, domain.ErrVersionMismatch) {
+			t.Errorf("update payload = %v, want ErrVersionMismatch", err)
+		}
+	})
+
+	t.Run("transition", func(t *testing.T) {
+		created := createApplication(t, repo)
+		_, err := repo.Transition(
+			ctx, created.UID, created.Revision+1, model.ApplicationAccepted,
+		)
+		if !errors.Is(err, domain.ErrVersionMismatch) {
+			t.Errorf("transition = %v, want ErrVersionMismatch", err)
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		created := createApplication(t, repo)
+		err := repo.Delete(ctx, created.UID, created.Revision+1)
+		if !errors.Is(err, domain.ErrVersionMismatch) {
+			t.Errorf("delete = %v, want ErrVersionMismatch", err)
+		}
+	})
 }
 
 func TestApplicationGetForUpdateHoldsTheRowUntilCommit(t *testing.T) {
@@ -250,13 +315,13 @@ func TestApplicationAbsentIsNotFound(t *testing.T) {
 	if _, err := repo.Get(ctx, absent); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("get = %v, want ErrNotFound", err)
 	}
-	if _, err := repo.UpdatePayload(ctx, absent, map[string]any{}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.UpdatePayload(ctx, absent, 1, map[string]any{}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("update payload = %v, want ErrNotFound", err)
 	}
-	if _, err := repo.Transition(ctx, absent, model.ApplicationAccepted); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.Transition(ctx, absent, 1, model.ApplicationAccepted); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("transition = %v, want ErrNotFound", err)
 	}
-	if err := repo.Delete(ctx, absent); !errors.Is(err, domain.ErrNotFound) {
+	if err := repo.Delete(ctx, absent, 1); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("delete = %v, want ErrNotFound", err)
 	}
 }

@@ -18,6 +18,7 @@ func sampleApplicationProjection() *port.ApplicationProjection {
 	return &port.ApplicationProjection{
 		ApplicationUID:    "8b1f6f2e-0000-4000-8000-000000000001",
 		State:             "submitted",
+		Revision:          1,
 		SubmitterUsername: "jdoe",
 		SubmitterName:     "J Doe",
 		SubmitterEmail:    "jdoe@example.org",
@@ -95,6 +96,7 @@ func TestPublishApplicationCarriesPrivateReviewDetails(t *testing.T) {
 		Data struct {
 			Application     map[string]any `json:"application"`
 			TargetParentUID *string        `json:"target_parent_uid"`
+			Revision        int64          `json:"revision"`
 		} `json:"data"`
 	}
 	raw := await()
@@ -106,6 +108,9 @@ func TestPublishApplicationCarriesPrivateReviewDetails(t *testing.T) {
 	}
 	if envelope.Data.TargetParentUID == nil || *envelope.Data.TargetParentUID != wantTarget {
 		t.Errorf("target_parent_uid = %v, want %q", envelope.Data.TargetParentUID, wantTarget)
+	}
+	if envelope.Data.Revision != doc.Revision {
+		t.Errorf("revision = %d, want %d", envelope.Data.Revision, doc.Revision)
 	}
 }
 

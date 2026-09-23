@@ -225,6 +225,7 @@ already has, inherited unchanged rather than newly introduced by this document.
 | --- | --- | --- |
 | `object_id` | string (UUID) | Application UID and index document ID |
 | `state` | string | Current application state |
+| `revision` | integer | Current database revision; clients echo it as `If-Match` on mutations |
 | `submitter_username` | string | LFX username recorded by the UI |
 | `submitter_name` | string | Submitter display name |
 | `submitter_email` | string | Submitter email; private personal data |
@@ -277,4 +278,6 @@ after the database write and do not change the API response.
 
 Applications have no reconcile sweep. A lost create publish leaves the application absent from
 query-service results until a later mutation republishes it. A lost final mutation or delete has
-no automatic repair path.
+no automatic repair path. A mutation rejected by `If-Match` republishes the current database
+revision before returning `412`, so a caller reading a stale projection can refresh and retry after
+the index catches up.

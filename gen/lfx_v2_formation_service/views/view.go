@@ -39,6 +39,15 @@ type ProjectApplication struct {
 	View string
 }
 
+// ProjectApplicationMutationResult is the viewed result type that is projected
+// based on a view.
+type ProjectApplicationMutationResult struct {
+	// Type to project
+	Projected *ProjectApplicationMutationResultView
+	// View to render
+	View string
+}
+
 // FormationChecklistView is a type that runs validations on a projected type.
 type FormationChecklistView struct {
 	ProjectUID      *string
@@ -181,7 +190,9 @@ type ProjectApplicationView struct {
 	UID *string
 	// Where the application stands. accepted and denied are the two decided
 	// outcomes.
-	State             *string
+	State *string
+	// Echo as If-Match on every mutation.
+	Revision          *int64
 	SubmitterUsername *string
 	SubmitterName     *string
 	SubmitterEmail    *string
@@ -192,6 +203,14 @@ type ProjectApplicationView struct {
 	Application map[string]any
 	CreatedAt   *string
 	UpdatedAt   *string
+}
+
+// ProjectApplicationMutationResultView is a type that runs validations on a
+// projected type.
+type ProjectApplicationMutationResultView struct {
+	Application *ProjectApplicationView
+	// The application's new revision. Send as If-Match on the next write.
+	Etag *string
 }
 
 var (
@@ -223,6 +242,7 @@ var (
 		"default": {
 			"uid",
 			"state",
+			"revision",
 			"submitter_username",
 			"submitter_name",
 			"submitter_email",
@@ -230,6 +250,14 @@ var (
 			"application",
 			"created_at",
 			"updated_at",
+		},
+	}
+	// ProjectApplicationMutationResultMap is a map indexing the attribute names of
+	// ProjectApplicationMutationResult by view name.
+	ProjectApplicationMutationResultMap = map[string][]string{
+		"default": {
+			"application",
+			"etag",
 		},
 	}
 )
@@ -264,6 +292,18 @@ func ValidateProjectApplication(result *ProjectApplication) (err error) {
 	switch result.View {
 	case "default", "":
 		err = ValidateProjectApplicationView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateProjectApplicationMutationResult runs the validations defined on the
+// viewed result type ProjectApplicationMutationResult.
+func ValidateProjectApplicationMutationResult(result *ProjectApplicationMutationResult) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateProjectApplicationMutationResultView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -539,6 +579,9 @@ func ValidateProjectApplicationView(result *ProjectApplicationView) (err error) 
 	if result.State == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("state", "result"))
 	}
+	if result.Revision == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("revision", "result"))
+	}
 	if result.SubmitterUsername == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_username", "result"))
 	}
@@ -562,6 +605,20 @@ func ValidateProjectApplicationView(result *ProjectApplicationView) (err error) 
 	}
 	if result.UpdatedAt != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("result.updated_at", *result.UpdatedAt, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateProjectApplicationMutationResultView runs the validations defined on
+// ProjectApplicationMutationResultView using the "default" view.
+func ValidateProjectApplicationMutationResultView(result *ProjectApplicationMutationResultView) (err error) {
+	if result.Application == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("application", "result"))
+	}
+	if result.Application != nil {
+		if err2 := ValidateProjectApplicationView(result.Application); err2 != nil {
+			err = goa.MergeErrors(err, err2)
+		}
 	}
 	return
 }

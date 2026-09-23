@@ -248,7 +248,7 @@ func NewReviseApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa
 		if err != nil {
 			return nil, err
 		}
-		vres := NewViewedProjectApplication(res, "default")
+		vres := NewViewedProjectApplicationMutationResult(res, "default")
 		return vres, nil
 	}
 }
@@ -276,7 +276,7 @@ func NewWithdrawApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) g
 		if err != nil {
 			return nil, err
 		}
-		vres := NewViewedProjectApplication(res, "default")
+		vres := NewViewedProjectApplicationMutationResult(res, "default")
 		return vres, nil
 	}
 }
@@ -304,7 +304,7 @@ func NewAcceptApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa
 		if err != nil {
 			return nil, err
 		}
-		vres := NewViewedProjectApplication(res, "default")
+		vres := NewViewedProjectApplicationMutationResult(res, "default")
 		return vres, nil
 	}
 }
@@ -332,7 +332,7 @@ func NewDenyApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.E
 		if err != nil {
 			return nil, err
 		}
-		vres := NewViewedProjectApplication(res, "default")
+		vres := NewViewedProjectApplicationMutationResult(res, "default")
 		return vres, nil
 	}
 }

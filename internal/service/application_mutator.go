@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -31,8 +32,8 @@ const reasonApplicationUIDBad = "application_uid_invalid"
 // same rule in a second place, where the two copies drift.
 func (s *Service) ReviseApplication(
 	ctx context.Context, p *svc.ReviseApplicationPayload,
-) (*svc.ProjectApplication, error) {
-	return s.mutateApplication(ctx, "revise-application", p.UID, func(
+) (*svc.ProjectApplicationMutationResult, error) {
+	return s.mutateApplication(ctx, "revise-application", p.UID, p.IfMatch, func(
 		ctx context.Context, tx port.Tx, current *model.Application,
 	) (*model.Application, error) {
 		answers, err := validateAnswers(p.Application)
@@ -41,7 +42,7 @@ func (s *Service) ReviseApplication(
 		}
 		// The previous answers are overwritten. Payload versioning was not
 		// requested, and applications have no history table.
-		return tx.Applications().UpdatePayload(ctx, current.UID, answers)
+		return tx.Applications().UpdatePayload(ctx, current.UID, p.IfMatch, answers)
 	})
 }
 
@@ -51,11 +52,13 @@ func (s *Service) ReviseApplication(
 // different operations with different endpoints.
 func (s *Service) WithdrawApplication(
 	ctx context.Context, p *svc.WithdrawApplicationPayload,
-) (*svc.ProjectApplication, error) {
-	return s.mutateApplication(ctx, "withdraw-application", p.UID, func(
+) (*svc.ProjectApplicationMutationResult, error) {
+	return s.mutateApplication(ctx, "withdraw-application", p.UID, p.IfMatch, func(
 		ctx context.Context, tx port.Tx, current *model.Application,
 	) (*model.Application, error) {
-		return tx.Applications().Transition(ctx, current.UID, model.ApplicationWithdrawn)
+		return tx.Applications().Transition(
+			ctx, current.UID, p.IfMatch, model.ApplicationWithdrawn,
+		)
 	})
 }
 
@@ -90,7 +93,17 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 	}
 
 	if err := s.uow.Do(ctx, func(tx port.Tx) error {
-		return tx.Applications().Delete(ctx, uid)
+		current, err := tx.Applications().GetForUpdate(ctx, uid)
+		if err != nil {
+			return err
+		}
+		if current.Revision != p.IfMatch {
+			// Send the repair while the row is locked so a following delete
+			// cannot publish its tombstone before this older document.
+			s.publishApplication(ctx, current)
+			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
+		}
+		return tx.Applications().Delete(ctx, uid, p.IfMatch)
 	}); err != nil {
 		slog.ErrorContext(ctx, "formationService.delete-application", "application_uid", uid, log.ErrKey, err)
 		return mapApplicationError(withApplicationReason(err))
@@ -116,14 +129,15 @@ func (s *Service) DeleteApplication(ctx context.Context, p *svc.DeleteApplicatio
 // mutateApplication runs one write against an application inside a
 // transaction, then republishes it.
 //
-// The locking read serializes concurrent database mutations for this
-// application. It does not assert that a reviewer saw the latest indexed copy.
+// The locking read serializes database mutations; If-Match binds the write to
+// the revision the caller read from the private projection.
 func (s *Service) mutateApplication(
 	ctx context.Context,
 	operation string,
 	rawUID string,
+	ifMatch int64,
 	mutate func(context.Context, port.Tx, *model.Application) (*model.Application, error),
-) (*svc.ProjectApplication, error) {
+) (*svc.ProjectApplicationMutationResult, error) {
 	if s.uow == nil {
 		// A deployment fault, not a refusal the caller can act on.
 		slog.ErrorContext(ctx, "formationService."+operation+": no unit of work wired")
@@ -141,6 +155,11 @@ func (s *Service) mutateApplication(
 		current, err := tx.Applications().GetForUpdate(ctx, uid)
 		if err != nil {
 			return err
+		}
+		if current.Revision != ifMatch {
+			// Keep the repair ordered before the next database mutation.
+			s.publishApplication(ctx, current)
+			return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
 		}
 		updated, err = mutate(ctx, tx, current)
 		return err
@@ -160,5 +179,7 @@ func (s *Service) mutateApplication(
 		"application_uid", updated.UID,
 		"state", updated.State,
 	)
-	return applicationToWire(updated), nil
+	application := applicationToWire(updated)
+	etag := strconv.FormatInt(updated.Revision, 10)
+	return &svc.ProjectApplicationMutationResult{Application: application, Etag: &etag}, nil
 }

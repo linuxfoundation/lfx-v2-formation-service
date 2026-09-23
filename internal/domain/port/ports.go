@@ -165,28 +165,21 @@ type ApplicationRepository interface {
 	// Get returns one application, or ErrNotFound.
 	Get(ctx context.Context, uid uuid.UUID) (*model.Application, error)
 
-	// Delete removes the application. The design gives delete its own
-	// endpoint alongside revise and withdraw, reachable by submitter or
-	// formation team alike.
-	Delete(ctx context.Context, uid uuid.UUID) error
+	// Delete removes the application when revision matches.
+	Delete(ctx context.Context, uid uuid.UUID, revision int64) error
 
 	// GetForUpdate is Get holding the row until the surrounding transaction
 	// ends.
-	//
-	// Every write path uses it because an application carries no revision
-	// counter, so there is no optimistic lock to detect that the row moved.
-	// The row lock is the whole of the concurrency control: without it, a
-	// revise and a decision arriving together both read the same state and
-	// both write, and the later write wins silently — a reviewer's decision
-	// recorded against a payload they never saw.
 	GetForUpdate(ctx context.Context, uid uuid.UUID) (*model.Application, error)
 
-	// UpdatePayload replaces the intake answers, leaving the state alone.
-	UpdatePayload(ctx context.Context, uid uuid.UUID, payload map[string]any) (*model.Application, error)
+	// UpdatePayload replaces the intake answers when revision matches.
+	UpdatePayload(
+		ctx context.Context, uid uuid.UUID, revision int64, payload map[string]any,
+	) (*model.Application, error)
 
-	// Transition moves the state.
+	// Transition moves the state when revision matches.
 	Transition(
-		ctx context.Context, uid uuid.UUID, to model.ApplicationState,
+		ctx context.Context, uid uuid.UUID, revision int64, to model.ApplicationState,
 	) (*model.Application, error)
 }
 
@@ -399,7 +392,8 @@ type ApplicationProjection struct {
 	// has to be correlated to delete or re-read it.
 	ApplicationUID string
 
-	State string
+	State    string
+	Revision int64
 
 	// The submitter, carried so the queue can render a row without a second
 	// lookup. Email is PII, which is why the relation guarding this document

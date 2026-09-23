@@ -82,22 +82,16 @@ func (r *ApplicationRepo) get(ctx context.Context, uid uuid.UUID, lock bool) (*m
 // a soft delete would need a rule for what reads see and how long rows are
 // kept, neither of which is specified — so the simpler behaviour is the one
 // that makes no unstated promise.
-func (r *ApplicationRepo) Delete(ctx context.Context, uid uuid.UUID) error {
+func (r *ApplicationRepo) Delete(ctx context.Context, uid uuid.UUID, revision int64) error {
 	res, err := r.db.NewDelete().
 		Model((*model.Application)(nil)).
 		Where("uid = ?", uid).
+		Where("revision = ?", revision).
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("delete application: %w", err)
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("delete application rows affected: %w", err)
-	}
-	if n == 0 {
-		return domain.ErrNotFound
-	}
-	return nil
+	return requireApplicationRevision(ctx, r.db, res, uid, "delete application")
 }
 
 // UpdatePayload replaces the intake answers, leaving the state alone.
@@ -105,7 +99,7 @@ func (r *ApplicationRepo) Delete(ctx context.Context, uid uuid.UUID) error {
 // What the answers were before is not recoverable from here. No source asks
 // for payload versioning, and applications have no history table.
 func (r *ApplicationRepo) UpdatePayload(
-	ctx context.Context, uid uuid.UUID, payload map[string]any,
+	ctx context.Context, uid uuid.UUID, revision int64, payload map[string]any,
 ) (*model.Application, error) {
 	if payload == nil {
 		payload = map[string]any{}
@@ -115,14 +109,18 @@ func (r *ApplicationRepo) UpdatePayload(
 	res, err := r.db.NewUpdate().
 		Model(a).
 		Set("payload = ?", payload).
+		Set("revision = revision + 1").
 		Set("updated_at = now()").
 		Where("uid = ?", uid).
+		Where("revision = ?", revision).
 		Returning("*").
 		Exec(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("update application payload: %w", err)
 	}
-	if err := requireOneRow(res, "update application payload"); err != nil {
+	if err := requireApplicationRevision(
+		ctx, r.db, res, uid, "update application payload",
+	); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -137,35 +135,49 @@ func (r *ApplicationRepo) UpdatePayload(
 // ordering rules do get agreed belong in the use case, where the refusal can
 // name itself.
 func (r *ApplicationRepo) Transition(
-	ctx context.Context, uid uuid.UUID, to model.ApplicationState,
+	ctx context.Context, uid uuid.UUID, revision int64, to model.ApplicationState,
 ) (*model.Application, error) {
 	a := &model.Application{}
 	res, err := r.db.NewUpdate().
 		Model(a).
 		Set("state = ?", to).
+		Set("revision = revision + 1").
 		Set("updated_at = now()").
 		Where("uid = ?", uid).
+		Where("revision = ?", revision).
 		Returning("*").
 		Exec(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("update application state: %w", err)
 	}
-	if err := requireOneRow(res, "update application state"); err != nil {
+	if err := requireApplicationRevision(
+		ctx, r.db, res, uid, "update application state",
+	); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-// requireOneRow maps an update or delete that matched nothing onto
-// ErrNotFound. Applications have no optimistic lock, so unlike the formation
-// writes there is no second explanation for zero rows to disambiguate.
-func requireOneRow(res sql.Result, op string) error {
+func requireApplicationRevision(
+	ctx context.Context, db bun.IDB, res sql.Result, uid uuid.UUID, op string,
+) error {
 	affected, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("%s: rows affected: %w", op, err)
 	}
-	if affected == 0 {
+	if affected != 0 {
+		return nil
+	}
+
+	exists, err := db.NewSelect().
+		Model((*model.Application)(nil)).
+		Where("uid = ?", uid).
+		Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("%s: check application existence: %w", op, err)
+	}
+	if !exists {
 		return domain.ErrNotFound
 	}
-	return nil
+	return domain.ErrVersionMismatch
 }

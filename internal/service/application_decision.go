@@ -16,8 +16,10 @@ import (
 // It changes the application state and does not create a project.
 func (s *Service) AcceptApplication(
 	ctx context.Context, p *svc.AcceptApplicationPayload,
-) (*svc.ProjectApplication, error) {
-	return s.decideApplication(ctx, "accept-application", p.UID, model.ApplicationAccepted)
+) (*svc.ProjectApplicationMutationResult, error) {
+	return s.decideApplication(
+		ctx, "accept-application", p.UID, p.IfMatch, model.ApplicationAccepted,
+	)
 }
 
 // DenyApplication records that an application was denied.
@@ -25,8 +27,10 @@ func (s *Service) AcceptApplication(
 // It changes the application state and retains the record.
 func (s *Service) DenyApplication(
 	ctx context.Context, p *svc.DenyApplicationPayload,
-) (*svc.ProjectApplication, error) {
-	return s.decideApplication(ctx, "deny-application", p.UID, model.ApplicationDenied)
+) (*svc.ProjectApplicationMutationResult, error) {
+	return s.decideApplication(
+		ctx, "deny-application", p.UID, p.IfMatch, model.ApplicationDenied,
+	)
 }
 
 // decideApplication records one decision against an application.
@@ -35,11 +39,12 @@ func (s *Service) DenyApplication(
 // share the row lock, state transition and republish path. There is no state
 // gate and no application decision actor.
 func (s *Service) decideApplication(
-	ctx context.Context, operation string, rawUID string, decision model.ApplicationState,
-) (*svc.ProjectApplication, error) {
-	return s.mutateApplication(ctx, operation, rawUID, func(
+	ctx context.Context, operation string, rawUID string, ifMatch int64,
+	decision model.ApplicationState,
+) (*svc.ProjectApplicationMutationResult, error) {
+	return s.mutateApplication(ctx, operation, rawUID, ifMatch, func(
 		ctx context.Context, tx port.Tx, current *model.Application,
 	) (*model.Application, error) {
-		return tx.Applications().Transition(ctx, current.UID, decision)
+		return tx.Applications().Transition(ctx, current.UID, ifMatch, decision)
 	})
 }

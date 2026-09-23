@@ -114,7 +114,9 @@ type CreateApplicationResponseBody struct {
 	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
 	// Where the application stands. accepted and denied are the two decided
 	// outcomes.
-	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Echo as If-Match on every mutation.
+	Revision          *int64  `form:"revision,omitempty" json:"revision,omitempty" xml:"revision,omitempty"`
 	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
 	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
 	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
@@ -129,88 +131,20 @@ type CreateApplicationResponseBody struct {
 
 // ReviseApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "revise_application" endpoint HTTP response body.
-type ReviseApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
-	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
-	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
-	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
-	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
-	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
-}
+type ReviseApplicationResponseBody ProjectApplicationResponseBody
 
 // WithdrawApplicationResponseBody is the type of the
 // "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
 // response body.
-type WithdrawApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
-	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
-	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
-	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
-	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
-	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
-}
+type WithdrawApplicationResponseBody ProjectApplicationResponseBody
 
 // AcceptApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "accept_application" endpoint HTTP response body.
-type AcceptApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
-	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
-	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
-	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
-	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
-	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
-}
+type AcceptApplicationResponseBody ProjectApplicationResponseBody
 
 // DenyApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "deny_application" endpoint HTTP response body.
-type DenyApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
-	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
-	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
-	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
-	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
-	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
-}
+type DenyApplicationResponseBody ProjectApplicationResponseBody
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -513,6 +447,21 @@ type ReviseApplicationNotFoundResponseBody struct {
 	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
 }
 
+// ReviseApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "revise_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type ReviseApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
 // ReviseApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "revise_application" endpoint HTTP
 // response body for the "Unauthorized" error.
@@ -527,6 +476,21 @@ type ReviseApplicationUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
 // response body for the "NotFound" error.
 type WithdrawApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// WithdrawApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type WithdrawApplicationVersionMismatchResponseBody struct {
 	// Which declared error this is — matches the Error() name. Transport dispatch
 	// only; switch on reason, not this.
 	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
@@ -563,6 +527,21 @@ type AcceptApplicationNotFoundResponseBody struct {
 	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
 }
 
+// AcceptApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type AcceptApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
 // AcceptApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "accept_application" endpoint HTTP
 // response body for the "Unauthorized" error.
@@ -588,6 +567,21 @@ type DenyApplicationNotFoundResponseBody struct {
 	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
 }
 
+// DenyApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
+// body for the "VersionMismatch" error.
+type DenyApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
 // DenyApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
 // body for the "Unauthorized" error.
@@ -602,6 +596,21 @@ type DenyApplicationUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "delete_application" endpoint HTTP
 // response body for the "NotFound" error.
 type DeleteApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// DeleteApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "delete_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type DeleteApplicationVersionMismatchResponseBody struct {
 	// Which declared error this is — matches the Error() name. Transport dispatch
 	// only; switch on reason, not this.
 	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
@@ -753,6 +762,29 @@ type FormationActivityEntryResponseBody struct {
 type FormationSubItemUpdateRequestBody struct {
 	Key    string `form:"key" json:"key" xml:"key"`
 	Status string `form:"status" json:"status" xml:"status"`
+}
+
+// ProjectApplicationResponseBody is used to define fields on response body
+// types.
+type ProjectApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Echo as If-Match on every mutation.
+	Revision          *int64  `form:"revision,omitempty" json:"revision,omitempty" xml:"revision,omitempty"`
+	SubmitterUsername *string `form:"submitter_username,omitempty" json:"submitter_username,omitempty" xml:"submitter_username,omitempty"`
+	SubmitterName     *string `form:"submitter_name,omitempty" json:"submitter_name,omitempty" xml:"submitter_name,omitempty"`
+	SubmitterEmail    *string `form:"submitter_email,omitempty" json:"submitter_email,omitempty" xml:"submitter_email,omitempty"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application,omitempty" json:"application,omitempty" xml:"application,omitempty"`
+	CreatedAt   *string        `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
 }
 
 // NewSetItemStatusRequestBody builds the HTTP request body from the payload of
@@ -1290,6 +1322,7 @@ func NewCreateApplicationProjectApplicationCreated(body *CreateApplicationRespon
 	v := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               body.UID,
 		State:             body.State,
+		Revision:          body.Revision,
 		SubmitterUsername: body.SubmitterUsername,
 		SubmitterName:     body.SubmitterName,
 		SubmitterEmail:    body.SubmitterEmail,
@@ -1331,12 +1364,14 @@ func NewCreateApplicationUnauthorized(body *CreateApplicationUnauthorizedRespons
 	return v
 }
 
-// NewReviseApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
-// service "revise_application" endpoint result from a HTTP "OK" response.
-func NewReviseApplicationProjectApplicationOK(body *ReviseApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+// NewReviseApplicationProjectApplicationMutationResultOK builds a
+// "lfx_v2_formation_service" service "revise_application" endpoint result from
+// a HTTP "OK" response.
+func NewReviseApplicationProjectApplicationMutationResultOK(body *ReviseApplicationResponseBody, etag *string) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
 	v := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               body.UID,
 		State:             body.State,
+		Revision:          body.Revision,
 		SubmitterUsername: body.SubmitterUsername,
 		SubmitterName:     body.SubmitterName,
 		SubmitterEmail:    body.SubmitterEmail,
@@ -1350,8 +1385,12 @@ func NewReviseApplicationProjectApplicationOK(body *ReviseApplicationResponseBod
 		tv := val
 		v.Application[tk] = tv
 	}
+	res := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Application: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewReviseApplicationBadRequest builds a lfx_v2_formation_service service
@@ -1380,6 +1419,19 @@ func NewReviseApplicationNotFound(body *ReviseApplicationNotFoundResponseBody) *
 	return v
 }
 
+// NewReviseApplicationVersionMismatch builds a lfx_v2_formation_service
+// service revise_application endpoint VersionMismatch error.
+func NewReviseApplicationVersionMismatch(body *ReviseApplicationVersionMismatchResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
 // NewReviseApplicationUnauthorized builds a lfx_v2_formation_service service
 // revise_application endpoint Unauthorized error.
 func NewReviseApplicationUnauthorized(body *ReviseApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
@@ -1391,13 +1443,14 @@ func NewReviseApplicationUnauthorized(body *ReviseApplicationUnauthorizedRespons
 	return v
 }
 
-// NewWithdrawApplicationProjectApplicationOK builds a
+// NewWithdrawApplicationProjectApplicationMutationResultOK builds a
 // "lfx_v2_formation_service" service "withdraw_application" endpoint result
 // from a HTTP "OK" response.
-func NewWithdrawApplicationProjectApplicationOK(body *WithdrawApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+func NewWithdrawApplicationProjectApplicationMutationResultOK(body *WithdrawApplicationResponseBody, etag *string) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
 	v := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               body.UID,
 		State:             body.State,
+		Revision:          body.Revision,
 		SubmitterUsername: body.SubmitterUsername,
 		SubmitterName:     body.SubmitterName,
 		SubmitterEmail:    body.SubmitterEmail,
@@ -1411,13 +1464,30 @@ func NewWithdrawApplicationProjectApplicationOK(body *WithdrawApplicationRespons
 		tv := val
 		v.Application[tk] = tv
 	}
+	res := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Application: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewWithdrawApplicationNotFound builds a lfx_v2_formation_service service
 // withdraw_application endpoint NotFound error.
 func NewWithdrawApplicationNotFound(body *WithdrawApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewWithdrawApplicationVersionMismatch builds a lfx_v2_formation_service
+// service withdraw_application endpoint VersionMismatch error.
+func NewWithdrawApplicationVersionMismatch(body *WithdrawApplicationVersionMismatchResponseBody) *lfxv2formationservice.ApplicationError {
 	v := &lfxv2formationservice.ApplicationError{
 		Name:    *body.Name,
 		Code:    *body.Code,
@@ -1439,12 +1509,14 @@ func NewWithdrawApplicationUnauthorized(body *WithdrawApplicationUnauthorizedRes
 	return v
 }
 
-// NewAcceptApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
-// service "accept_application" endpoint result from a HTTP "OK" response.
-func NewAcceptApplicationProjectApplicationOK(body *AcceptApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+// NewAcceptApplicationProjectApplicationMutationResultOK builds a
+// "lfx_v2_formation_service" service "accept_application" endpoint result from
+// a HTTP "OK" response.
+func NewAcceptApplicationProjectApplicationMutationResultOK(body *AcceptApplicationResponseBody, etag *string) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
 	v := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               body.UID,
 		State:             body.State,
+		Revision:          body.Revision,
 		SubmitterUsername: body.SubmitterUsername,
 		SubmitterName:     body.SubmitterName,
 		SubmitterEmail:    body.SubmitterEmail,
@@ -1458,13 +1530,30 @@ func NewAcceptApplicationProjectApplicationOK(body *AcceptApplicationResponseBod
 		tv := val
 		v.Application[tk] = tv
 	}
+	res := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Application: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewAcceptApplicationNotFound builds a lfx_v2_formation_service service
 // accept_application endpoint NotFound error.
 func NewAcceptApplicationNotFound(body *AcceptApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewAcceptApplicationVersionMismatch builds a lfx_v2_formation_service
+// service accept_application endpoint VersionMismatch error.
+func NewAcceptApplicationVersionMismatch(body *AcceptApplicationVersionMismatchResponseBody) *lfxv2formationservice.ApplicationError {
 	v := &lfxv2formationservice.ApplicationError{
 		Name:    *body.Name,
 		Code:    *body.Code,
@@ -1486,12 +1575,14 @@ func NewAcceptApplicationUnauthorized(body *AcceptApplicationUnauthorizedRespons
 	return v
 }
 
-// NewDenyApplicationProjectApplicationOK builds a "lfx_v2_formation_service"
-// service "deny_application" endpoint result from a HTTP "OK" response.
-func NewDenyApplicationProjectApplicationOK(body *DenyApplicationResponseBody) *lfxv2formationserviceviews.ProjectApplicationView {
+// NewDenyApplicationProjectApplicationMutationResultOK builds a
+// "lfx_v2_formation_service" service "deny_application" endpoint result from a
+// HTTP "OK" response.
+func NewDenyApplicationProjectApplicationMutationResultOK(body *DenyApplicationResponseBody, etag *string) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
 	v := &lfxv2formationserviceviews.ProjectApplicationView{
 		UID:               body.UID,
 		State:             body.State,
+		Revision:          body.Revision,
 		SubmitterUsername: body.SubmitterUsername,
 		SubmitterName:     body.SubmitterName,
 		SubmitterEmail:    body.SubmitterEmail,
@@ -1505,13 +1596,30 @@ func NewDenyApplicationProjectApplicationOK(body *DenyApplicationResponseBody) *
 		tv := val
 		v.Application[tk] = tv
 	}
+	res := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Application: v,
+	}
+	res.Etag = etag
 
-	return v
+	return res
 }
 
 // NewDenyApplicationNotFound builds a lfx_v2_formation_service service
 // deny_application endpoint NotFound error.
 func NewDenyApplicationNotFound(body *DenyApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewDenyApplicationVersionMismatch builds a lfx_v2_formation_service service
+// deny_application endpoint VersionMismatch error.
+func NewDenyApplicationVersionMismatch(body *DenyApplicationVersionMismatchResponseBody) *lfxv2formationservice.ApplicationError {
 	v := &lfxv2formationservice.ApplicationError{
 		Name:    *body.Name,
 		Code:    *body.Code,
@@ -1536,6 +1644,19 @@ func NewDenyApplicationUnauthorized(body *DenyApplicationUnauthorizedResponseBod
 // NewDeleteApplicationNotFound builds a lfx_v2_formation_service service
 // delete_application endpoint NotFound error.
 func NewDeleteApplicationNotFound(body *DeleteApplicationNotFoundResponseBody) *lfxv2formationservice.ApplicationError {
+	v := &lfxv2formationservice.ApplicationError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewDeleteApplicationVersionMismatch builds a lfx_v2_formation_service
+// service delete_application endpoint VersionMismatch error.
+func NewDeleteApplicationVersionMismatch(body *DeleteApplicationVersionMismatchResponseBody) *lfxv2formationservice.ApplicationError {
 	v := &lfxv2formationservice.ApplicationError{
 		Name:    *body.Name,
 		Code:    *body.Code,
@@ -2175,8 +2296,8 @@ func ValidateCreateApplicationBadRequestResponseBody(body *CreateApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2210,8 +2331,8 @@ func ValidateReviseApplicationBadRequestResponseBody(body *ReviseApplicationBadR
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2233,8 +2354,31 @@ func ValidateReviseApplicationNotFoundResponseBody(body *ReviseApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateReviseApplicationVersionMismatchResponseBody runs the validations
+// defined on revise_application_VersionMismatch_response_body
+func ValidateReviseApplicationVersionMismatchResponseBody(body *ReviseApplicationVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2268,8 +2412,31 @@ func ValidateWithdrawApplicationNotFoundResponseBody(body *WithdrawApplicationNo
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateWithdrawApplicationVersionMismatchResponseBody runs the validations
+// defined on withdraw_application_VersionMismatch_response_body
+func ValidateWithdrawApplicationVersionMismatchResponseBody(body *WithdrawApplicationVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2303,8 +2470,31 @@ func ValidateAcceptApplicationNotFoundResponseBody(body *AcceptApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateAcceptApplicationVersionMismatchResponseBody runs the validations
+// defined on accept_application_VersionMismatch_response_body
+func ValidateAcceptApplicationVersionMismatchResponseBody(body *AcceptApplicationVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2338,8 +2528,31 @@ func ValidateDenyApplicationNotFoundResponseBody(body *DenyApplicationNotFoundRe
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateDenyApplicationVersionMismatchResponseBody runs the validations
+// defined on deny_application_VersionMismatch_response_body
+func ValidateDenyApplicationVersionMismatchResponseBody(body *DenyApplicationVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2373,8 +2586,31 @@ func ValidateDeleteApplicationNotFoundResponseBody(body *DeleteApplicationNotFou
 		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
 	}
 	if body.Reason != nil {
-		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
+		}
+	}
+	return
+}
+
+// ValidateDeleteApplicationVersionMismatchResponseBody runs the validations
+// defined on delete_application_VersionMismatch_response_body
+func ValidateDeleteApplicationVersionMismatchResponseBody(body *DeleteApplicationVersionMismatchResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "application_uid_invalid" || *body.Reason == "version_mismatch" || *body.Reason == "submitter_username_required" || *body.Reason == "project_website_invalid" || *body.Reason == "formation_list_invalid") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "application_uid_invalid", "version_mismatch", "submitter_username_required", "project_website_invalid", "formation_list_invalid"}))
 		}
 	}
 	return
@@ -2586,6 +2822,45 @@ func ValidateFormationActivityEntryResponseBody(body *FormationActivityEntryResp
 func ValidateFormationSubItemUpdateRequestBody(body *FormationSubItemUpdateRequestBody) (err error) {
 	if !(body.Status == "not_started" || body.Status == "in_progress" || body.Status == "blocked" || body.Status == "done" || body.Status == "skipped") {
 		err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", body.Status, []any{"not_started", "in_progress", "blocked", "done", "skipped"}))
+	}
+	return
+}
+
+// ValidateProjectApplicationResponseBody runs the validations defined on
+// ProjectApplicationResponseBody
+func ValidateProjectApplicationResponseBody(body *ProjectApplicationResponseBody) (err error) {
+	if body.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
+	}
+	if body.State == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("state", "body"))
+	}
+	if body.Revision == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("revision", "body"))
+	}
+	if body.SubmitterUsername == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_username", "body"))
+	}
+	if body.SubmitterName == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_name", "body"))
+	}
+	if body.SubmitterEmail == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_email", "body"))
+	}
+	if body.Application == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
+	}
+	if body.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "body"))
+	}
+	if body.UpdatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("updated_at", "body"))
+	}
+	if body.CreatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.created_at", *body.CreatedAt, goa.FormatDateTime))
+	}
+	if body.UpdatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.updated_at", *body.UpdatedAt, goa.FormatDateTime))
 	}
 	return
 }

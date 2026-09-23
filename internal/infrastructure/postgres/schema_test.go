@@ -104,6 +104,44 @@ func TestApplySchemaIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestApplySchemaAddsApplicationRevisionOverAnOlderTable(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `TRUNCATE project_applications`); err != nil {
+		t.Fatalf("truncate applications: %v", err)
+	}
+	var uid string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO project_applications (
+			state, submitter_username, submitter_name, submitter_email
+		) VALUES ('submitted', 'asmith', 'A Smith', 'asmith@example.test')
+		RETURNING uid`,
+	).Scan(&uid); err != nil {
+		t.Fatalf("seed application: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE project_applications DROP COLUMN revision`); err != nil {
+		t.Fatalf("reproduce older application table: %v", err)
+	}
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("apply over older application table: %v", err)
+	}
+
+	var revision int64
+	if err := pool.QueryRow(ctx,
+		`SELECT revision FROM project_applications WHERE uid = $1`, uid,
+	).Scan(&revision); err != nil {
+		t.Fatalf("read migrated revision: %v", err)
+	}
+	if revision != 1 {
+		t.Errorf("revision = %d, want 1", revision)
+	}
+}
+
 // The skip-needs-reason constraint is the one piece of business logic the
 // schema itself enforces, so a re-apply must leave it in place rather than
 // silently dropping it.

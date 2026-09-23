@@ -25,11 +25,11 @@ func TestDenyApplicationRetainsTheRecord(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	denied, err := d.service.DenyApplication(asPrincipal("reviewer-one"), &svc.DenyApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationDenied), denied.State)
+	assert.Equal(t, string(model.ApplicationDenied), denied.Application.State)
 
 	// Readable afterwards, and carrying the answers it was decided on. A deny
 	// that emptied or removed the record would leave nothing to audit.
@@ -54,16 +54,16 @@ func TestAcceptApplicationCreatesNoProject(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	accepted, err := d.service.AcceptApplication(asPrincipal("reviewer-one"), &svc.AcceptApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationAccepted), accepted.State)
+	assert.Equal(t, string(model.ApplicationAccepted), accepted.Application.State)
 
 	// No back-reference is written, because there is no field for one: an
 	// accepted application is a decision, not a half-built project, and this
 	// service does not track whatever is created from it.
-	assert.NotContains(t, accepted.Application, "project_uid")
+	assert.NotContains(t, accepted.Application.Application, "project_uid")
 
 	stored, err := d.applications.Get(context.Background(), mustUUID(t, created.UID))
 	require.NoError(t, err)
@@ -79,12 +79,12 @@ func TestEachDecisionRecordsItsState(t *testing.T) {
 	}{
 		{"accept", func(s *Service, uid string) error {
 			_, err := s.AcceptApplication(asPrincipal("reviewer-one"),
-				&svc.AcceptApplicationPayload{Version: "1", UID: uid})
+				&svc.AcceptApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 			return err
 		}, model.ApplicationAccepted},
 		{"deny", func(s *Service, uid string) error {
 			_, err := s.DenyApplication(asPrincipal("reviewer-one"),
-				&svc.DenyApplicationPayload{Version: "1", UID: uid})
+				&svc.DenyApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 			return err
 		}, model.ApplicationDenied},
 	} {
@@ -106,15 +106,15 @@ func TestDecisionCanReplaceAnEarlierDecision(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	_, err := d.service.DenyApplication(asPrincipal("reviewer-one"), &svc.DenyApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 	require.NoError(t, err)
 
 	accepted, err := d.service.AcceptApplication(asPrincipal("reviewer-two"), &svc.AcceptApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision + 1,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationAccepted), accepted.State)
+	assert.Equal(t, string(model.ApplicationAccepted), accepted.Application.State)
 }
 
 // A decision republishes the document, because the state a reviewer filters
@@ -124,7 +124,7 @@ func TestADecisionRepublishesTheDocument(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	_, err := d.service.DenyApplication(asPrincipal("reviewer-one"), &svc.DenyApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 	require.NoError(t, err)
 
@@ -136,4 +136,18 @@ func TestADecisionRepublishesTheDocument(t *testing.T) {
 	stored, err := d.applications.Get(context.Background(), mustUUID(t, created.UID))
 	require.NoError(t, err)
 	assert.Equal(t, model.ApplicationDenied, stored.State)
+}
+
+func TestAcceptApplicationRejectsAStaleRevision(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+
+	_, err := d.service.AcceptApplication(asPrincipal("reviewer-one"), &svc.AcceptApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision + 1,
+	})
+
+	var refusal *svc.ApplicationError
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, "412", refusal.Code)
+	assert.Equal(t, "version_mismatch", refusal.Reason)
 }

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -103,6 +104,7 @@ func TestCreateApplicationIndexesReviewDetails(t *testing.T) {
 
 	projected := d.indexer.LatestApplication(created.UID)
 	require.NotNil(t, projected)
+	assert.Equal(t, created.Revision, projected.Revision)
 	assert.Equal(t, payload.Application, projected.Payload)
 	require.NotNil(t, projected.TargetParentUID)
 	assert.Equal(t, target, *projected.TargetParentUID)
@@ -135,24 +137,50 @@ func TestReviseApplicationReplacesTheAnswers(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	revised, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
-		Version: "1",
-		UID:     created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 		Application: map[string]any{
 			"project_name": "Renamed Project",
 		},
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, "Renamed Project", revised.Application["project_name"])
+	assert.Equal(t, "Renamed Project", revised.Application.Application["project_name"])
+	assert.Equal(t, created.Revision+1, revised.Application.Revision)
+	require.NotNil(t, revised.Etag)
+	assert.Equal(t, "2", *revised.Etag)
 	// A replacement, not a merge: the website the original submission carried
 	// is gone because the revision did not carry it.
-	assert.NotContains(t, revised.Application, "project_website")
+	assert.NotContains(t, revised.Application.Application, "project_website")
 
 	stored, err := d.applications.Get(context.Background(), mustUUID(t, created.UID))
 	require.NoError(t, err)
 	assert.Equal(t, "Renamed Project", stored.Payload["project_name"])
 	assert.Equal(t, model.ApplicationSubmitted, stored.State,
 		"revising does not move the state")
+}
+
+func TestApplicationMutationETagWorksAsTheNextIfMatch(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+
+	revised, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
+		Application: map[string]any{"project_name": "Renamed"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, revised.Etag)
+	nextRevision, err := strconv.ParseInt(*revised.Etag, 10, 64)
+	require.NoError(t, err)
+
+	withdrawn, err := d.service.WithdrawApplication(
+		asPrincipal("asmith"),
+		&svc.WithdrawApplicationPayload{
+			Version: "1", UID: created.UID, IfMatch: nextRevision,
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, nextRevision+1, withdrawn.Application.Revision)
 }
 
 // A revision is held to the same rules as the original submission. Otherwise
@@ -169,7 +197,7 @@ func TestReviseApplicationValidatesLikeIntake(t *testing.T) {
 	for name, answers := range cases {
 		t.Run(name, func(t *testing.T) {
 			_, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
-				Version: "1", UID: created.UID, Application: answers,
+				Version: "1", UID: created.UID, IfMatch: created.Revision, Application: answers,
 			})
 			require.Error(t, err)
 			var refusal *svc.ApplicationError
@@ -184,11 +212,11 @@ func TestWithdrawApplicationKeepsTheRecord(t *testing.T) {
 	created := submitOne(t, d.service)
 
 	withdrawn, err := d.service.WithdrawApplication(asPrincipal("asmith"), &svc.WithdrawApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationWithdrawn), withdrawn.State)
+	assert.Equal(t, string(model.ApplicationWithdrawn), withdrawn.Application.State)
 
 	// Withdrawing is not deleting. The row survives, which is the only thing
 	// distinguishing a withdrawn application from one that was never filed.
@@ -201,29 +229,29 @@ func TestReviseAndWithdrawAreNotStateGated(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)
 	_, err := d.service.DenyApplication(asPrincipal("reviewer-one"), &svc.DenyApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
 	})
 	require.NoError(t, err)
 
 	revised, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision + 1,
 		Application: map[string]any{"project_name": "Revised after decision"},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationDenied), revised.State)
+	assert.Equal(t, string(model.ApplicationDenied), revised.Application.State)
 
 	withdrawn, err := d.service.WithdrawApplication(asPrincipal("asmith"), &svc.WithdrawApplicationPayload{
-		Version: "1", UID: created.UID,
+		Version: "1", UID: created.UID, IfMatch: created.Revision + 2,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, string(model.ApplicationWithdrawn), withdrawn.State)
+	assert.Equal(t, string(model.ApplicationWithdrawn), withdrawn.Application.State)
 }
 
 func TestMutationsRefuseAnIdentifierThatIsNotAUUID(t *testing.T) {
 	d := applicationService(t)
 
 	_, err := d.service.WithdrawApplication(asPrincipal("asmith"), &svc.WithdrawApplicationPayload{
-		Version: "1", UID: "not-a-uuid",
+		Version: "1", UID: "not-a-uuid", IfMatch: 1,
 	})
 
 	var refusal *svc.ApplicationError
@@ -269,6 +297,82 @@ func TestApplicationMutationsFailClosedWithoutAUnitOfWork(t *testing.T) {
 	}
 }
 
+func TestApplicationMutationsRejectAStaleRevision(t *testing.T) {
+	cases := map[string]func(*Service, string) error{
+		"revise": func(s *Service, uid string) error {
+			_, err := s.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
+				Version: "1", UID: uid, IfMatch: 2,
+				Application: map[string]any{"project_name": "Stale"},
+			})
+			return err
+		},
+		"withdraw": func(s *Service, uid string) error {
+			_, err := s.WithdrawApplication(asPrincipal("asmith"),
+				&svc.WithdrawApplicationPayload{Version: "1", UID: uid, IfMatch: 2})
+			return err
+		},
+		"accept": func(s *Service, uid string) error {
+			_, err := s.AcceptApplication(asPrincipal("staff"),
+				&svc.AcceptApplicationPayload{Version: "1", UID: uid, IfMatch: 2})
+			return err
+		},
+		"deny": func(s *Service, uid string) error {
+			_, err := s.DenyApplication(asPrincipal("staff"),
+				&svc.DenyApplicationPayload{Version: "1", UID: uid, IfMatch: 2})
+			return err
+		},
+		"delete": func(s *Service, uid string) error {
+			return s.DeleteApplication(asPrincipal("staff"),
+				&svc.DeleteApplicationPayload{Version: "1", UID: uid, IfMatch: 2})
+		},
+	}
+
+	for name, act := range cases {
+		t.Run(name, func(t *testing.T) {
+			d := applicationService(t)
+			created := submitOne(t, d.service)
+
+			err := act(d.service, created.UID)
+
+			var refusal *svc.ApplicationError
+			require.ErrorAs(t, err, &refusal)
+			assert.Equal(t, "412", refusal.Code)
+			assert.Equal(t, reasonVersionMismatch, refusal.Reason)
+			stored, getErr := d.applications.Get(context.Background(), mustUUID(t, created.UID))
+			require.NoError(t, getErr)
+			assert.Equal(t, created.Revision, stored.Revision)
+			assert.Equal(t, model.ApplicationSubmitted, stored.State)
+			assert.Empty(t, d.access.Deleted())
+			assert.Empty(t, d.indexer.ApplicationDeleted())
+		})
+	}
+}
+
+func TestStaleMutationRepublishesTheCurrentRevision(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	uid := mustUUID(t, created.UID)
+	current, err := d.applications.UpdatePayload(
+		context.Background(), uid, created.Revision,
+		map[string]any{"project_name": "Current answers"},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, created.Revision, d.indexer.LatestApplication(created.UID).Revision,
+		"the setup requires a stale indexed projection")
+
+	_, err = d.service.AcceptApplication(asPrincipal("staff"), &svc.AcceptApplicationPayload{
+		Version: "1", UID: created.UID, IfMatch: created.Revision,
+	})
+
+	var refusal *svc.ApplicationError
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, reasonVersionMismatch, refusal.Reason)
+	projected := d.indexer.LatestApplication(created.UID)
+	require.NotNil(t, projected)
+	assert.Equal(t, current.Revision, projected.Revision)
+	assert.Equal(t, "Current answers", projected.Payload["project_name"])
+}
+
 type applicationMutationCase struct {
 	name            string
 	act             func(*Service, string) error
@@ -294,32 +398,32 @@ func applicationMutationCases() []applicationMutationCase {
 
 func reviseApplication(s *Service, uid string) error {
 	_, err := s.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
-		Version: "1", UID: uid, Application: map[string]any{"project_name": "Revised"},
+		Version: "1", UID: uid, IfMatch: 1, Application: map[string]any{"project_name": "Revised"},
 	})
 	return err
 }
 
 func withdrawApplication(s *Service, uid string) error {
 	_, err := s.WithdrawApplication(asPrincipal("asmith"),
-		&svc.WithdrawApplicationPayload{Version: "1", UID: uid})
+		&svc.WithdrawApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 	return err
 }
 
 func acceptApplication(s *Service, uid string) error {
 	_, err := s.AcceptApplication(asPrincipal("staff"),
-		&svc.AcceptApplicationPayload{Version: "1", UID: uid})
+		&svc.AcceptApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 	return err
 }
 
 func denyApplication(s *Service, uid string) error {
 	_, err := s.DenyApplication(asPrincipal("staff"),
-		&svc.DenyApplicationPayload{Version: "1", UID: uid})
+		&svc.DenyApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 	return err
 }
 
 func deleteApplication(s *Service, uid string) error {
 	return s.DeleteApplication(asPrincipal("staff"),
-		&svc.DeleteApplicationPayload{Version: "1", UID: uid})
+		&svc.DeleteApplicationPayload{Version: "1", UID: uid, IfMatch: 1})
 }
 
 func assertApplicationDeleted(t *testing.T, d applicationDoubles, uid string) {

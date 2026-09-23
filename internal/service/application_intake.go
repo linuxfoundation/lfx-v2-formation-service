@@ -27,6 +27,7 @@ const (
 
 var applicationReasonMessages = map[string]string{
 	reasonNotFound:                  "no such application",
+	reasonVersionMismatch:           "if-match did not match the application's current revision",
 	reasonSubmitterUsernameRequired: "submitter_username is required",
 	reasonProjectWebsiteBad:         "project_website must be an http or https URL",
 	reasonFormationListInvalid:      "formation_list must be a list of email addresses",
@@ -111,7 +112,7 @@ func (s *Service) CreateApplication(
 // these are logged at error rather than swallowed.
 func (s *Service) publishApplication(ctx context.Context, a *model.Application) {
 	if s.applicationAccess == nil || s.applicationTeam == "" {
-		slog.ErrorContext(ctx, "formationService.create-application: no access publisher wired; the application is readable by nobody",
+		slog.ErrorContext(ctx, "formationService.publish-application: no access publisher wired; the application is readable by nobody",
 			"application_uid", a.UID,
 		)
 	} else if err := s.applicationAccess.PublishApplicationAccess(ctx, port.ApplicationAccess{
@@ -119,7 +120,7 @@ func (s *Service) publishApplication(ctx context.Context, a *model.Application) 
 		SubmitterUsername: a.SubmitterUsername,
 		FormationTeam:     s.applicationTeam,
 	}); err != nil {
-		slog.ErrorContext(ctx, "formationService.create-application: granting access failed",
+		slog.ErrorContext(ctx, "formationService.publish-application: granting access failed",
 			"application_uid", a.UID, log.ErrKey, err,
 		)
 	}
@@ -128,7 +129,7 @@ func (s *Service) publishApplication(ctx context.Context, a *model.Application) 
 		return
 	}
 	if err := s.applicationIndexer.PublishApplication(ctx, applicationProjection(a)); err != nil {
-		slog.ErrorContext(ctx, "formationService.create-application: indexing failed",
+		slog.ErrorContext(ctx, "formationService.publish-application: indexing failed",
 			"application_uid", a.UID, log.ErrKey, err,
 		)
 	}
@@ -143,6 +144,7 @@ func applicationProjection(a *model.Application) *port.ApplicationProjection {
 	return &port.ApplicationProjection{
 		ApplicationUID:    a.UID.String(),
 		State:             string(a.State),
+		Revision:          a.Revision,
 		SubmitterUsername: a.SubmitterUsername,
 		SubmitterName:     a.SubmitterName,
 		SubmitterEmail:    a.SubmitterEmail,
@@ -236,6 +238,7 @@ func applicationToWire(a *model.Application) *svc.ProjectApplication {
 	return &svc.ProjectApplication{
 		UID:               a.UID.String(),
 		State:             string(a.State),
+		Revision:          a.Revision,
 		SubmitterUsername: a.SubmitterUsername,
 		SubmitterName:     a.SubmitterName,
 		SubmitterEmail:    a.SubmitterEmail,
@@ -261,9 +264,12 @@ func applicationToWire(a *model.Application) *svc.ProjectApplication {
 // the routes did not anticipate is a fault until somebody decides what it
 // means.
 func withApplicationReason(err error) error {
-	if errors.Is(err, domain.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrVersionMismatch) {
 		var re *domain.ReasonError
 		if !errors.As(err, &re) {
+			if errors.Is(err, domain.ErrVersionMismatch) {
+				return domain.NewReasonError(domain.ErrVersionMismatch, reasonVersionMismatch)
+			}
 			return domain.NewReasonError(domain.ErrNotFound, reasonNotFound)
 		}
 	}
@@ -294,6 +300,8 @@ func mapApplicationError(err error) error {
 		name, code = "NotFound", "404"
 	case errors.Is(re.Err, domain.ErrInvalidRequest):
 		name, code = "BadRequest", "400"
+	case errors.Is(re.Err, domain.ErrVersionMismatch):
+		name, code = "VersionMismatch", "412"
 	default:
 		return err
 	}

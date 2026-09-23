@@ -30,7 +30,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Harum optio aut quibusdam.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Fugiat maxime.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -93,26 +93,31 @@ func ParseEndpoint(
 		lfxV2FormationServiceReviseApplicationUIDFlag         = lfxV2FormationServiceReviseApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
 		lfxV2FormationServiceReviseApplicationVersionFlag     = lfxV2FormationServiceReviseApplicationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceReviseApplicationBearerTokenFlag = lfxV2FormationServiceReviseApplicationFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceReviseApplicationIfMatchFlag     = lfxV2FormationServiceReviseApplicationFlags.String("if-match", "REQUIRED", "")
 
 		lfxV2FormationServiceWithdrawApplicationFlags           = flag.NewFlagSet("withdraw-application", flag.ExitOnError)
 		lfxV2FormationServiceWithdrawApplicationUIDFlag         = lfxV2FormationServiceWithdrawApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
 		lfxV2FormationServiceWithdrawApplicationVersionFlag     = lfxV2FormationServiceWithdrawApplicationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceWithdrawApplicationBearerTokenFlag = lfxV2FormationServiceWithdrawApplicationFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceWithdrawApplicationIfMatchFlag     = lfxV2FormationServiceWithdrawApplicationFlags.String("if-match", "REQUIRED", "")
 
 		lfxV2FormationServiceAcceptApplicationFlags           = flag.NewFlagSet("accept-application", flag.ExitOnError)
 		lfxV2FormationServiceAcceptApplicationUIDFlag         = lfxV2FormationServiceAcceptApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
 		lfxV2FormationServiceAcceptApplicationVersionFlag     = lfxV2FormationServiceAcceptApplicationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceAcceptApplicationBearerTokenFlag = lfxV2FormationServiceAcceptApplicationFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceAcceptApplicationIfMatchFlag     = lfxV2FormationServiceAcceptApplicationFlags.String("if-match", "REQUIRED", "")
 
 		lfxV2FormationServiceDenyApplicationFlags           = flag.NewFlagSet("deny-application", flag.ExitOnError)
 		lfxV2FormationServiceDenyApplicationUIDFlag         = lfxV2FormationServiceDenyApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
 		lfxV2FormationServiceDenyApplicationVersionFlag     = lfxV2FormationServiceDenyApplicationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceDenyApplicationBearerTokenFlag = lfxV2FormationServiceDenyApplicationFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceDenyApplicationIfMatchFlag     = lfxV2FormationServiceDenyApplicationFlags.String("if-match", "REQUIRED", "")
 
 		lfxV2FormationServiceDeleteApplicationFlags           = flag.NewFlagSet("delete-application", flag.ExitOnError)
 		lfxV2FormationServiceDeleteApplicationUIDFlag         = lfxV2FormationServiceDeleteApplicationFlags.String("uid", "REQUIRED", "The application's unique identifier.")
 		lfxV2FormationServiceDeleteApplicationVersionFlag     = lfxV2FormationServiceDeleteApplicationFlags.String("version", "REQUIRED", "")
 		lfxV2FormationServiceDeleteApplicationBearerTokenFlag = lfxV2FormationServiceDeleteApplicationFlags.String("bearer-token", "", "")
+		lfxV2FormationServiceDeleteApplicationIfMatchFlag     = lfxV2FormationServiceDeleteApplicationFlags.String("if-match", "REQUIRED", "")
 
 		lfxV2FormationServiceLivezFlags = flag.NewFlagSet("livez", flag.ExitOnError)
 
@@ -251,19 +256,19 @@ func ParseEndpoint(
 				data, err = lfxv2formationservicec.BuildCreateApplicationPayload(*lfxV2FormationServiceCreateApplicationBodyFlag, *lfxV2FormationServiceCreateApplicationVersionFlag, *lfxV2FormationServiceCreateApplicationBearerTokenFlag)
 			case "revise-application":
 				endpoint = c.ReviseApplication()
-				data, err = lfxv2formationservicec.BuildReviseApplicationPayload(*lfxV2FormationServiceReviseApplicationBodyFlag, *lfxV2FormationServiceReviseApplicationUIDFlag, *lfxV2FormationServiceReviseApplicationVersionFlag, *lfxV2FormationServiceReviseApplicationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildReviseApplicationPayload(*lfxV2FormationServiceReviseApplicationBodyFlag, *lfxV2FormationServiceReviseApplicationUIDFlag, *lfxV2FormationServiceReviseApplicationVersionFlag, *lfxV2FormationServiceReviseApplicationBearerTokenFlag, *lfxV2FormationServiceReviseApplicationIfMatchFlag)
 			case "withdraw-application":
 				endpoint = c.WithdrawApplication()
-				data, err = lfxv2formationservicec.BuildWithdrawApplicationPayload(*lfxV2FormationServiceWithdrawApplicationUIDFlag, *lfxV2FormationServiceWithdrawApplicationVersionFlag, *lfxV2FormationServiceWithdrawApplicationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildWithdrawApplicationPayload(*lfxV2FormationServiceWithdrawApplicationUIDFlag, *lfxV2FormationServiceWithdrawApplicationVersionFlag, *lfxV2FormationServiceWithdrawApplicationBearerTokenFlag, *lfxV2FormationServiceWithdrawApplicationIfMatchFlag)
 			case "accept-application":
 				endpoint = c.AcceptApplication()
-				data, err = lfxv2formationservicec.BuildAcceptApplicationPayload(*lfxV2FormationServiceAcceptApplicationUIDFlag, *lfxV2FormationServiceAcceptApplicationVersionFlag, *lfxV2FormationServiceAcceptApplicationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildAcceptApplicationPayload(*lfxV2FormationServiceAcceptApplicationUIDFlag, *lfxV2FormationServiceAcceptApplicationVersionFlag, *lfxV2FormationServiceAcceptApplicationBearerTokenFlag, *lfxV2FormationServiceAcceptApplicationIfMatchFlag)
 			case "deny-application":
 				endpoint = c.DenyApplication()
-				data, err = lfxv2formationservicec.BuildDenyApplicationPayload(*lfxV2FormationServiceDenyApplicationUIDFlag, *lfxV2FormationServiceDenyApplicationVersionFlag, *lfxV2FormationServiceDenyApplicationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildDenyApplicationPayload(*lfxV2FormationServiceDenyApplicationUIDFlag, *lfxV2FormationServiceDenyApplicationVersionFlag, *lfxV2FormationServiceDenyApplicationBearerTokenFlag, *lfxV2FormationServiceDenyApplicationIfMatchFlag)
 			case "delete-application":
 				endpoint = c.DeleteApplication()
-				data, err = lfxv2formationservicec.BuildDeleteApplicationPayload(*lfxV2FormationServiceDeleteApplicationUIDFlag, *lfxV2FormationServiceDeleteApplicationVersionFlag, *lfxV2FormationServiceDeleteApplicationBearerTokenFlag)
+				data, err = lfxv2formationservicec.BuildDeleteApplicationPayload(*lfxV2FormationServiceDeleteApplicationUIDFlag, *lfxV2FormationServiceDeleteApplicationVersionFlag, *lfxV2FormationServiceDeleteApplicationBearerTokenFlag, *lfxV2FormationServiceDeleteApplicationIfMatchFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -320,7 +325,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Harum optio aut quibusdam.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Fugiat maxime.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -348,7 +353,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Voluptatem quia.\" --version \"1\" --cursor \"Facilis est voluptatum.\" --item-uid \"ce906d9a-e946-48c3-98b4-eb17a74407ee\" --limit 57 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Hic quis possimus.\" --version \"1\" --cursor \"Neque quia odio.\" --item-uid \"283fd04b-2419-4b89-ad85-27a2bcc76f4a\" --limit 73 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceSetItemStatusUsage() {
@@ -376,7 +381,7 @@ func lfxV2FormationServiceSetItemStatusUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Eum laboriosam quidem suscipit harum in.\",\n      \"status\": \"skipped\",\n      \"sub_items\": [\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Ea explicabo ullam pariatur.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }' --project-uid \"Vel provident quas.\" --item-key \"Laborum culpa modi ratione fugiat.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8769000837009531518")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Exercitationem ipsam eveniet possimus impedit sed.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }' --project-uid \"Animi sed qui tempore tempora molestiae culpa.\" --item-key \"Iure velit enim omnis eos quo quaerat.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 7007409453027247288")
 }
 
 func lfxV2FormationServiceAssignItemUsage() {
@@ -404,7 +409,7 @@ func lfxV2FormationServiceAssignItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Ea vitae aut modi officia nihil.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Est quos ratione ipsam dolores est illum.\" --item-key \"Voluptates voluptatem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8573593535633967341")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Cum impedit nihil quo reprehenderit perspiciatis tempora.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Sed optio et perspiciatis consequuntur et.\" --item-key \"Voluptas impedit labore voluptatum cupiditate.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 3750224575653225403")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -432,7 +437,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Quae quasi.\"\n   }' --project-uid \"Aut provident sit dicta culpa.\" --item-key \"Laudantium consequatur aut nulla aut.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4141311935613513418")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusamus dolorum ad voluptas vero sit.\"\n   }' --project-uid \"Ipsa natus impedit sed perferendis ut.\" --item-key \"Natus modi itaque sit nobis.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2650899129366168379")
 }
 
 func lfxV2FormationServiceCreateApplicationUsage() {
@@ -454,7 +459,7 @@ func lfxV2FormationServiceCreateApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Perferendis culpa amet eos.\": \"Laborum sequi itaque sed.\"\n      },\n      \"submitter_email\": \"jo.herman@kiehn.info\",\n      \"submitter_name\": \"Labore eius ut.\",\n      \"submitter_username\": \"Nostrum quam optio nihil et inventore odio.\",\n      \"target_parent_uid\": \"Et reprehenderit qui qui omnis ea.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Temporibus est repellendus et aspernatur sapiente.\": \"Asperiores iure eveniet.\"\n      },\n      \"submitter_email\": \"ethyl_wuckert@shanahan.com\",\n      \"submitter_name\": \"Velit perferendis assumenda quibusdam.\",\n      \"submitter_username\": \"Expedita rerum aut et eum iure.\",\n      \"target_parent_uid\": \"Dolorem sunt occaecati est ab aliquid inventore.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceReviseApplicationUsage() {
@@ -464,6 +469,7 @@ func lfxV2FormationServiceReviseApplicationUsage() {
 	fmt.Fprint(os.Stderr, " -uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
@@ -475,10 +481,11 @@ func lfxV2FormationServiceReviseApplicationUsage() {
 	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Maxime qui in minus.\": \"Saepe illo est tempore sit nulla in.\",\n         \"Soluta amet.\": \"Est et amet quos.\"\n      }\n   }' --uid \"db4130e5-28de-433a-8914-d98947b80e36\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Minus fugiat doloribus.\": \"Nulla modi.\",\n         \"Qui voluptatem debitis.\": \"Soluta amet.\",\n         \"Quisquam perferendis sit impedit explicabo et omnis.\": \"Delectus accusantium a eos ab in natus.\"\n      }\n   }' --uid \"a07fb92a-8671-4077-9e0c-0a8766b02f21\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4371918712410206452")
 }
 
 func lfxV2FormationServiceWithdrawApplicationUsage() {
@@ -487,6 +494,7 @@ func lfxV2FormationServiceWithdrawApplicationUsage() {
 	fmt.Fprint(os.Stderr, " -uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
@@ -497,10 +505,11 @@ func lfxV2FormationServiceWithdrawApplicationUsage() {
 	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"afd49fea-d181-4084-9be3-6374cb7fbca3\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"926200aa-ed52-4abd-8ef4-c4f640f21075\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4197369989738536091")
 }
 
 func lfxV2FormationServiceAcceptApplicationUsage() {
@@ -509,6 +518,7 @@ func lfxV2FormationServiceAcceptApplicationUsage() {
 	fmt.Fprint(os.Stderr, " -uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
@@ -519,10 +529,11 @@ func lfxV2FormationServiceAcceptApplicationUsage() {
 	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"1d1e4a40-8ca7-4f54-ad55-93710b20daca\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"c6f28e20-4a11-44cf-8bf3-cecee9b34aeb\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1254533308960179078")
 }
 
 func lfxV2FormationServiceDenyApplicationUsage() {
@@ -531,6 +542,7 @@ func lfxV2FormationServiceDenyApplicationUsage() {
 	fmt.Fprint(os.Stderr, " -uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
@@ -541,10 +553,11 @@ func lfxV2FormationServiceDenyApplicationUsage() {
 	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"f2601d5f-0d9c-49ec-b069-1feafa30e6b6\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"95965ef9-ffe6-4e38-82f7-1bdb50fe44e7\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5680640692798451540")
 }
 
 func lfxV2FormationServiceDeleteApplicationUsage() {
@@ -553,6 +566,7 @@ func lfxV2FormationServiceDeleteApplicationUsage() {
 	fmt.Fprint(os.Stderr, " -uid STRING")
 	fmt.Fprint(os.Stderr, " -version STRING")
 	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprint(os.Stderr, " -if-match INT64")
 	fmt.Fprintln(os.Stderr)
 
 	// Description
@@ -563,10 +577,11 @@ func lfxV2FormationServiceDeleteApplicationUsage() {
 	fmt.Fprintln(os.Stderr, `    -uid STRING: The application's unique identifier.`)
 	fmt.Fprintln(os.Stderr, `    -version STRING: `)
 	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+	fmt.Fprintln(os.Stderr, `    -if-match INT64: `)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"a7494d98-890d-4060-96f1-85b682b30f29\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"2bbc53d9-335f-4157-ae67-9924085b42a6\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2903342341236727817")
 }
 
 func lfxV2FormationServiceLivezUsage() {

@@ -114,7 +114,9 @@ type CreateApplicationResponseBody struct {
 	UID string `form:"uid" json:"uid" xml:"uid"`
 	// Where the application stands. accepted and denied are the two decided
 	// outcomes.
-	State             string `form:"state" json:"state" xml:"state"`
+	State string `form:"state" json:"state" xml:"state"`
+	// Echo as If-Match on every mutation.
+	Revision          int64  `form:"revision" json:"revision" xml:"revision"`
 	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
 	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
 	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
@@ -129,88 +131,20 @@ type CreateApplicationResponseBody struct {
 
 // ReviseApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "revise_application" endpoint HTTP response body.
-type ReviseApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             string `form:"state" json:"state" xml:"state"`
-	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
-	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
-	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application" json:"application" xml:"application"`
-	CreatedAt   string         `form:"created_at" json:"created_at" xml:"created_at"`
-	UpdatedAt   string         `form:"updated_at" json:"updated_at" xml:"updated_at"`
-}
+type ReviseApplicationResponseBody ProjectApplicationResponseBody
 
 // WithdrawApplicationResponseBody is the type of the
 // "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
 // response body.
-type WithdrawApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             string `form:"state" json:"state" xml:"state"`
-	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
-	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
-	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application" json:"application" xml:"application"`
-	CreatedAt   string         `form:"created_at" json:"created_at" xml:"created_at"`
-	UpdatedAt   string         `form:"updated_at" json:"updated_at" xml:"updated_at"`
-}
+type WithdrawApplicationResponseBody ProjectApplicationResponseBody
 
 // AcceptApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "accept_application" endpoint HTTP response body.
-type AcceptApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             string `form:"state" json:"state" xml:"state"`
-	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
-	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
-	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application" json:"application" xml:"application"`
-	CreatedAt   string         `form:"created_at" json:"created_at" xml:"created_at"`
-	UpdatedAt   string         `form:"updated_at" json:"updated_at" xml:"updated_at"`
-}
+type AcceptApplicationResponseBody ProjectApplicationResponseBody
 
 // DenyApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "deny_application" endpoint HTTP response body.
-type DenyApplicationResponseBody struct {
-	// The application's UID. The FGA object id and the indexed document id are
-	// both this value.
-	UID string `form:"uid" json:"uid" xml:"uid"`
-	// Where the application stands. accepted and denied are the two decided
-	// outcomes.
-	State             string `form:"state" json:"state" xml:"state"`
-	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
-	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
-	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
-	// Absent unless the applicant started from somewhere. A hint, never a
-	// placement.
-	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
-	// The intake answers, as submitted.
-	Application map[string]any `form:"application" json:"application" xml:"application"`
-	CreatedAt   string         `form:"created_at" json:"created_at" xml:"created_at"`
-	UpdatedAt   string         `form:"updated_at" json:"updated_at" xml:"updated_at"`
-}
+type DenyApplicationResponseBody ProjectApplicationResponseBody
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -513,6 +447,21 @@ type ReviseApplicationNotFoundResponseBody struct {
 	Reason string `form:"reason" json:"reason" xml:"reason"`
 }
 
+// ReviseApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "revise_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type ReviseApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
 // ReviseApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "revise_application" endpoint HTTP
 // response body for the "Unauthorized" error.
@@ -527,6 +476,21 @@ type ReviseApplicationUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
 // response body for the "NotFound" error.
 type WithdrawApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// WithdrawApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "withdraw_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type WithdrawApplicationVersionMismatchResponseBody struct {
 	// Which declared error this is — matches the Error() name. Transport dispatch
 	// only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
@@ -563,6 +527,21 @@ type AcceptApplicationNotFoundResponseBody struct {
 	Reason string `form:"reason" json:"reason" xml:"reason"`
 }
 
+// AcceptApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "accept_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type AcceptApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
 // AcceptApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "accept_application" endpoint HTTP
 // response body for the "Unauthorized" error.
@@ -588,6 +567,21 @@ type DenyApplicationNotFoundResponseBody struct {
 	Reason string `form:"reason" json:"reason" xml:"reason"`
 }
 
+// DenyApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
+// body for the "VersionMismatch" error.
+type DenyApplicationVersionMismatchResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
 // DenyApplicationUnauthorizedResponseBody is the type of the
 // "lfx_v2_formation_service" service "deny_application" endpoint HTTP response
 // body for the "Unauthorized" error.
@@ -602,6 +596,21 @@ type DenyApplicationUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "delete_application" endpoint HTTP
 // response body for the "NotFound" error.
 type DeleteApplicationNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string `form:"name" json:"name" xml:"name"`
+	// HTTP status code
+	Code string `form:"code" json:"code" xml:"code"`
+	// Human-readable message
+	Message string `form:"message" json:"message" xml:"message"`
+	// Machine-readable; switch on this, not on status.
+	Reason string `form:"reason" json:"reason" xml:"reason"`
+}
+
+// DeleteApplicationVersionMismatchResponseBody is the type of the
+// "lfx_v2_formation_service" service "delete_application" endpoint HTTP
+// response body for the "VersionMismatch" error.
+type DeleteApplicationVersionMismatchResponseBody struct {
 	// Which declared error this is — matches the Error() name. Transport dispatch
 	// only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
@@ -746,6 +755,29 @@ type FormationActivityEntryResponseBody struct {
 	Before any    `form:"before,omitempty" json:"before,omitempty" xml:"before,omitempty"`
 	After  any    `form:"after,omitempty" json:"after,omitempty" xml:"after,omitempty"`
 	At     string `form:"at" json:"at" xml:"at"`
+}
+
+// ProjectApplicationResponseBody is used to define fields on response body
+// types.
+type ProjectApplicationResponseBody struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID string `form:"uid" json:"uid" xml:"uid"`
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State string `form:"state" json:"state" xml:"state"`
+	// Echo as If-Match on every mutation.
+	Revision          int64  `form:"revision" json:"revision" xml:"revision"`
+	SubmitterUsername string `form:"submitter_username" json:"submitter_username" xml:"submitter_username"`
+	SubmitterName     string `form:"submitter_name" json:"submitter_name" xml:"submitter_name"`
+	SubmitterEmail    string `form:"submitter_email" json:"submitter_email" xml:"submitter_email"`
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string `form:"target_parent_uid,omitempty" json:"target_parent_uid,omitempty" xml:"target_parent_uid,omitempty"`
+	// The intake answers, as submitted.
+	Application map[string]any `form:"application" json:"application" xml:"application"`
+	CreatedAt   string         `form:"created_at" json:"created_at" xml:"created_at"`
+	UpdatedAt   string         `form:"updated_at" json:"updated_at" xml:"updated_at"`
 }
 
 // FormationSubItemUpdateRequestBody is used to define fields on request body
@@ -989,6 +1021,7 @@ func NewCreateApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApp
 	body := &CreateApplicationResponseBody{
 		UID:               *res.UID,
 		State:             *res.State,
+		Revision:          *res.Revision,
 		SubmitterUsername: *res.SubmitterUsername,
 		SubmitterName:     *res.SubmitterName,
 		SubmitterEmail:    *res.SubmitterEmail,
@@ -1010,20 +1043,21 @@ func NewCreateApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApp
 // NewReviseApplicationResponseBody builds the HTTP response body from the
 // result of the "revise_application" endpoint of the
 // "lfx_v2_formation_service" service.
-func NewReviseApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationView) *ReviseApplicationResponseBody {
+func NewReviseApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *ReviseApplicationResponseBody {
 	body := &ReviseApplicationResponseBody{
-		UID:               *res.UID,
-		State:             *res.State,
-		SubmitterUsername: *res.SubmitterUsername,
-		SubmitterName:     *res.SubmitterName,
-		SubmitterEmail:    *res.SubmitterEmail,
-		TargetParentUID:   res.TargetParentUID,
-		CreatedAt:         *res.CreatedAt,
-		UpdatedAt:         *res.UpdatedAt,
+		UID:               *res.Application.UID,
+		State:             *res.Application.State,
+		Revision:          *res.Application.Revision,
+		SubmitterUsername: *res.Application.SubmitterUsername,
+		SubmitterName:     *res.Application.SubmitterName,
+		SubmitterEmail:    *res.Application.SubmitterEmail,
+		TargetParentUID:   res.Application.TargetParentUID,
+		CreatedAt:         *res.Application.CreatedAt,
+		UpdatedAt:         *res.Application.UpdatedAt,
 	}
-	if res.Application != nil {
-		body.Application = make(map[string]any, len(res.Application))
-		for key, val := range res.Application {
+	if res.Application.Application != nil {
+		body.Application = make(map[string]any, len(res.Application.Application))
+		for key, val := range res.Application.Application {
 			tk := key
 			tv := val
 			body.Application[tk] = tv
@@ -1035,20 +1069,21 @@ func NewReviseApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApp
 // NewWithdrawApplicationResponseBody builds the HTTP response body from the
 // result of the "withdraw_application" endpoint of the
 // "lfx_v2_formation_service" service.
-func NewWithdrawApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationView) *WithdrawApplicationResponseBody {
+func NewWithdrawApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *WithdrawApplicationResponseBody {
 	body := &WithdrawApplicationResponseBody{
-		UID:               *res.UID,
-		State:             *res.State,
-		SubmitterUsername: *res.SubmitterUsername,
-		SubmitterName:     *res.SubmitterName,
-		SubmitterEmail:    *res.SubmitterEmail,
-		TargetParentUID:   res.TargetParentUID,
-		CreatedAt:         *res.CreatedAt,
-		UpdatedAt:         *res.UpdatedAt,
+		UID:               *res.Application.UID,
+		State:             *res.Application.State,
+		Revision:          *res.Application.Revision,
+		SubmitterUsername: *res.Application.SubmitterUsername,
+		SubmitterName:     *res.Application.SubmitterName,
+		SubmitterEmail:    *res.Application.SubmitterEmail,
+		TargetParentUID:   res.Application.TargetParentUID,
+		CreatedAt:         *res.Application.CreatedAt,
+		UpdatedAt:         *res.Application.UpdatedAt,
 	}
-	if res.Application != nil {
-		body.Application = make(map[string]any, len(res.Application))
-		for key, val := range res.Application {
+	if res.Application.Application != nil {
+		body.Application = make(map[string]any, len(res.Application.Application))
+		for key, val := range res.Application.Application {
 			tk := key
 			tv := val
 			body.Application[tk] = tv
@@ -1060,20 +1095,21 @@ func NewWithdrawApplicationResponseBody(res *lfxv2formationserviceviews.ProjectA
 // NewAcceptApplicationResponseBody builds the HTTP response body from the
 // result of the "accept_application" endpoint of the
 // "lfx_v2_formation_service" service.
-func NewAcceptApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationView) *AcceptApplicationResponseBody {
+func NewAcceptApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *AcceptApplicationResponseBody {
 	body := &AcceptApplicationResponseBody{
-		UID:               *res.UID,
-		State:             *res.State,
-		SubmitterUsername: *res.SubmitterUsername,
-		SubmitterName:     *res.SubmitterName,
-		SubmitterEmail:    *res.SubmitterEmail,
-		TargetParentUID:   res.TargetParentUID,
-		CreatedAt:         *res.CreatedAt,
-		UpdatedAt:         *res.UpdatedAt,
+		UID:               *res.Application.UID,
+		State:             *res.Application.State,
+		Revision:          *res.Application.Revision,
+		SubmitterUsername: *res.Application.SubmitterUsername,
+		SubmitterName:     *res.Application.SubmitterName,
+		SubmitterEmail:    *res.Application.SubmitterEmail,
+		TargetParentUID:   res.Application.TargetParentUID,
+		CreatedAt:         *res.Application.CreatedAt,
+		UpdatedAt:         *res.Application.UpdatedAt,
 	}
-	if res.Application != nil {
-		body.Application = make(map[string]any, len(res.Application))
-		for key, val := range res.Application {
+	if res.Application.Application != nil {
+		body.Application = make(map[string]any, len(res.Application.Application))
+		for key, val := range res.Application.Application {
 			tk := key
 			tv := val
 			body.Application[tk] = tv
@@ -1084,20 +1120,21 @@ func NewAcceptApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApp
 
 // NewDenyApplicationResponseBody builds the HTTP response body from the result
 // of the "deny_application" endpoint of the "lfx_v2_formation_service" service.
-func NewDenyApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationView) *DenyApplicationResponseBody {
+func NewDenyApplicationResponseBody(res *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *DenyApplicationResponseBody {
 	body := &DenyApplicationResponseBody{
-		UID:               *res.UID,
-		State:             *res.State,
-		SubmitterUsername: *res.SubmitterUsername,
-		SubmitterName:     *res.SubmitterName,
-		SubmitterEmail:    *res.SubmitterEmail,
-		TargetParentUID:   res.TargetParentUID,
-		CreatedAt:         *res.CreatedAt,
-		UpdatedAt:         *res.UpdatedAt,
+		UID:               *res.Application.UID,
+		State:             *res.Application.State,
+		Revision:          *res.Application.Revision,
+		SubmitterUsername: *res.Application.SubmitterUsername,
+		SubmitterName:     *res.Application.SubmitterName,
+		SubmitterEmail:    *res.Application.SubmitterEmail,
+		TargetParentUID:   res.Application.TargetParentUID,
+		CreatedAt:         *res.Application.CreatedAt,
+		UpdatedAt:         *res.Application.UpdatedAt,
 	}
-	if res.Application != nil {
-		body.Application = make(map[string]any, len(res.Application))
-		for key, val := range res.Application {
+	if res.Application.Application != nil {
+		body.Application = make(map[string]any, len(res.Application.Application))
+		for key, val := range res.Application.Application {
 			tk := key
 			tv := val
 			body.Application[tk] = tv
@@ -1389,6 +1426,19 @@ func NewReviseApplicationNotFoundResponseBody(res *lfxv2formationservice.Applica
 	return body
 }
 
+// NewReviseApplicationVersionMismatchResponseBody builds the HTTP response
+// body from the result of the "revise_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewReviseApplicationVersionMismatchResponseBody(res *lfxv2formationservice.ApplicationError) *ReviseApplicationVersionMismatchResponseBody {
+	body := &ReviseApplicationVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
 // NewReviseApplicationUnauthorizedResponseBody builds the HTTP response body
 // from the result of the "revise_application" endpoint of the
 // "lfx_v2_formation_service" service.
@@ -1405,6 +1455,19 @@ func NewReviseApplicationUnauthorizedResponseBody(res *lfxv2formationservice.Una
 // "lfx_v2_formation_service" service.
 func NewWithdrawApplicationNotFoundResponseBody(res *lfxv2formationservice.ApplicationError) *WithdrawApplicationNotFoundResponseBody {
 	body := &WithdrawApplicationNotFoundResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewWithdrawApplicationVersionMismatchResponseBody builds the HTTP response
+// body from the result of the "withdraw_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewWithdrawApplicationVersionMismatchResponseBody(res *lfxv2formationservice.ApplicationError) *WithdrawApplicationVersionMismatchResponseBody {
+	body := &WithdrawApplicationVersionMismatchResponseBody{
 		Name:    res.Name,
 		Code:    res.Code,
 		Message: res.Message,
@@ -1437,6 +1500,19 @@ func NewAcceptApplicationNotFoundResponseBody(res *lfxv2formationservice.Applica
 	return body
 }
 
+// NewAcceptApplicationVersionMismatchResponseBody builds the HTTP response
+// body from the result of the "accept_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewAcceptApplicationVersionMismatchResponseBody(res *lfxv2formationservice.ApplicationError) *AcceptApplicationVersionMismatchResponseBody {
+	body := &AcceptApplicationVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
 // NewAcceptApplicationUnauthorizedResponseBody builds the HTTP response body
 // from the result of the "accept_application" endpoint of the
 // "lfx_v2_formation_service" service.
@@ -1461,6 +1537,19 @@ func NewDenyApplicationNotFoundResponseBody(res *lfxv2formationservice.Applicati
 	return body
 }
 
+// NewDenyApplicationVersionMismatchResponseBody builds the HTTP response body
+// from the result of the "deny_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewDenyApplicationVersionMismatchResponseBody(res *lfxv2formationservice.ApplicationError) *DenyApplicationVersionMismatchResponseBody {
+	body := &DenyApplicationVersionMismatchResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
 // NewDenyApplicationUnauthorizedResponseBody builds the HTTP response body
 // from the result of the "deny_application" endpoint of the
 // "lfx_v2_formation_service" service.
@@ -1477,6 +1566,19 @@ func NewDenyApplicationUnauthorizedResponseBody(res *lfxv2formationservice.Unaut
 // "lfx_v2_formation_service" service.
 func NewDeleteApplicationNotFoundResponseBody(res *lfxv2formationservice.ApplicationError) *DeleteApplicationNotFoundResponseBody {
 	body := &DeleteApplicationNotFoundResponseBody{
+		Name:    res.Name,
+		Code:    res.Code,
+		Message: res.Message,
+		Reason:  res.Reason,
+	}
+	return body
+}
+
+// NewDeleteApplicationVersionMismatchResponseBody builds the HTTP response
+// body from the result of the "delete_application" endpoint of the
+// "lfx_v2_formation_service" service.
+func NewDeleteApplicationVersionMismatchResponseBody(res *lfxv2formationservice.ApplicationError) *DeleteApplicationVersionMismatchResponseBody {
+	body := &DeleteApplicationVersionMismatchResponseBody{
 		Name:    res.Name,
 		Code:    res.Code,
 		Message: res.Message,
@@ -1613,7 +1715,7 @@ func NewCreateApplicationPayload(body *CreateApplicationRequestBody, version str
 
 // NewReviseApplicationPayload builds a lfx_v2_formation_service service
 // revise_application endpoint payload.
-func NewReviseApplicationPayload(body *ReviseApplicationRequestBody, uid string, version string, bearerToken *string) *lfxv2formationservice.ReviseApplicationPayload {
+func NewReviseApplicationPayload(body *ReviseApplicationRequestBody, uid string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.ReviseApplicationPayload {
 	v := &lfxv2formationservice.ReviseApplicationPayload{}
 	v.Application = make(map[string]any, len(body.Application))
 	for key, val := range body.Application {
@@ -1624,50 +1726,55 @@ func NewReviseApplicationPayload(body *ReviseApplicationRequestBody, uid string,
 	v.UID = uid
 	v.Version = version
 	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v
 }
 
 // NewWithdrawApplicationPayload builds a lfx_v2_formation_service service
 // withdraw_application endpoint payload.
-func NewWithdrawApplicationPayload(uid string, version string, bearerToken *string) *lfxv2formationservice.WithdrawApplicationPayload {
+func NewWithdrawApplicationPayload(uid string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.WithdrawApplicationPayload {
 	v := &lfxv2formationservice.WithdrawApplicationPayload{}
 	v.UID = uid
 	v.Version = version
 	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v
 }
 
 // NewAcceptApplicationPayload builds a lfx_v2_formation_service service
 // accept_application endpoint payload.
-func NewAcceptApplicationPayload(uid string, version string, bearerToken *string) *lfxv2formationservice.AcceptApplicationPayload {
+func NewAcceptApplicationPayload(uid string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.AcceptApplicationPayload {
 	v := &lfxv2formationservice.AcceptApplicationPayload{}
 	v.UID = uid
 	v.Version = version
 	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v
 }
 
 // NewDenyApplicationPayload builds a lfx_v2_formation_service service
 // deny_application endpoint payload.
-func NewDenyApplicationPayload(uid string, version string, bearerToken *string) *lfxv2formationservice.DenyApplicationPayload {
+func NewDenyApplicationPayload(uid string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.DenyApplicationPayload {
 	v := &lfxv2formationservice.DenyApplicationPayload{}
 	v.UID = uid
 	v.Version = version
 	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v
 }
 
 // NewDeleteApplicationPayload builds a lfx_v2_formation_service service
 // delete_application endpoint payload.
-func NewDeleteApplicationPayload(uid string, version string, bearerToken *string) *lfxv2formationservice.DeleteApplicationPayload {
+func NewDeleteApplicationPayload(uid string, version string, bearerToken *string, ifMatch int64) *lfxv2formationservice.DeleteApplicationPayload {
 	v := &lfxv2formationservice.DeleteApplicationPayload{}
 	v.UID = uid
 	v.Version = version
 	v.BearerToken = bearerToken
+	v.IfMatch = ifMatch
 
 	return v
 }

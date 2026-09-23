@@ -352,6 +352,7 @@ func (p *IndexerPublisher) PublishApplication(ctx context.Context, doc *port.App
 type applicationProjectionWire struct {
 	ObjectID          string         `json:"object_id"`
 	State             string         `json:"state"`
+	Revision          int64          `json:"revision"`
 	SubmitterUsername string         `json:"submitter_username"`
 	SubmitterName     string         `json:"submitter_name"`
 	SubmitterEmail    string         `json:"submitter_email"`
@@ -369,6 +370,7 @@ func newApplicationProjectionWire(doc *port.ApplicationProjection) *applicationP
 	return &applicationProjectionWire{
 		ObjectID:          doc.ApplicationUID,
 		State:             doc.State,
+		Revision:          doc.Revision,
 		SubmitterUsername: doc.SubmitterUsername,
 		SubmitterName:     doc.SubmitterName,
 		SubmitterEmail:    doc.SubmitterEmail,

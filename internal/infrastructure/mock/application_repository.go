@@ -43,6 +43,9 @@ func (r *ApplicationRepository) Create(
 	if clone.State == "" {
 		clone.State = model.ApplicationSubmitted
 	}
+	if clone.Revision == 0 {
+		clone.Revision = 1
+	}
 	if clone.Payload == nil {
 		clone.Payload = map[string]any{}
 	}
@@ -77,7 +80,7 @@ func (r *ApplicationRepository) GetForUpdate(ctx context.Context, uid uuid.UUID)
 
 // UpdatePayload replaces the intake answers, leaving the state alone.
 func (r *ApplicationRepository) UpdatePayload(
-	_ context.Context, uid uuid.UUID, payload map[string]any,
+	_ context.Context, uid uuid.UUID, revision int64, payload map[string]any,
 ) (*model.Application, error) {
 	r.record("applications.UpdatePayload")
 	r.mu.Lock()
@@ -91,17 +94,22 @@ func (r *ApplicationRepository) UpdatePayload(
 		payload = map[string]any{}
 	}
 	stored := r.apps[uid]
+	if stored.Revision != revision {
+		return nil, domain.ErrVersionMismatch
+	}
 	stored.Payload = payload
+	stored.Revision++
 	stored.UpdatedAt = time.Now().UTC()
 
 	a.Payload = payload
+	a.Revision = stored.Revision
 	a.UpdatedAt = stored.UpdatedAt
 	return a, nil
 }
 
 // Transition moves the state.
 func (r *ApplicationRepository) Transition(
-	_ context.Context, uid uuid.UUID, to model.ApplicationState,
+	_ context.Context, uid uuid.UUID, revision int64, to model.ApplicationState,
 ) (*model.Application, error) {
 	r.record("applications.Transition")
 	r.mu.Lock()
@@ -112,22 +120,31 @@ func (r *ApplicationRepository) Transition(
 		return nil, err
 	}
 	stored := r.apps[uid]
+	if stored.Revision != revision {
+		return nil, domain.ErrVersionMismatch
+	}
 	stored.State = to
+	stored.Revision++
 	stored.UpdatedAt = time.Now().UTC()
 
 	a.State = to
+	a.Revision = stored.Revision
 	a.UpdatedAt = stored.UpdatedAt
 	return a, nil
 }
 
 // Delete removes the application.
-func (r *ApplicationRepository) Delete(_ context.Context, uid uuid.UUID) error {
+func (r *ApplicationRepository) Delete(_ context.Context, uid uuid.UUID, revision int64) error {
 	r.record("applications.Delete")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.apps[uid]; !ok {
+	stored, ok := r.apps[uid]
+	if !ok {
 		return domain.ErrNotFound
+	}
+	if stored.Revision != revision {
+		return domain.ErrVersionMismatch
 	}
 	delete(r.apps, uid)
 	return nil

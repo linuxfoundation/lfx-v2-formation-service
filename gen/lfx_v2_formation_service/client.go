@@ -155,66 +155,71 @@ func (c *Client) CreateApplication(ctx context.Context, p *CreateApplicationPayl
 // ReviseApplication may return the following errors:
 //   - "BadRequest" (type *ApplicationError): The payload itself is invalid
 //   - "NotFound" (type *ApplicationError): No such application
+//   - "VersionMismatch" (type *ApplicationError): If-Match did not match the application's current revision
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) ReviseApplication(ctx context.Context, p *ReviseApplicationPayload) (res *ProjectApplication, err error) {
+func (c *Client) ReviseApplication(ctx context.Context, p *ReviseApplicationPayload) (res *ProjectApplicationMutationResult, err error) {
 	var ires any
 	ires, err = c.ReviseApplicationEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*ProjectApplication), nil
+	return ires.(*ProjectApplicationMutationResult), nil
 }
 
 // WithdrawApplication calls the "withdraw_application" endpoint of the
 // "lfx_v2_formation_service" service.
 // WithdrawApplication may return the following errors:
 //   - "NotFound" (type *ApplicationError): No such application
+//   - "VersionMismatch" (type *ApplicationError): If-Match did not match the application's current revision
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) WithdrawApplication(ctx context.Context, p *WithdrawApplicationPayload) (res *ProjectApplication, err error) {
+func (c *Client) WithdrawApplication(ctx context.Context, p *WithdrawApplicationPayload) (res *ProjectApplicationMutationResult, err error) {
 	var ires any
 	ires, err = c.WithdrawApplicationEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*ProjectApplication), nil
+	return ires.(*ProjectApplicationMutationResult), nil
 }
 
 // AcceptApplication calls the "accept_application" endpoint of the
 // "lfx_v2_formation_service" service.
 // AcceptApplication may return the following errors:
 //   - "NotFound" (type *ApplicationError): No such application
+//   - "VersionMismatch" (type *ApplicationError): If-Match did not match the application's current revision
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) AcceptApplication(ctx context.Context, p *AcceptApplicationPayload) (res *ProjectApplication, err error) {
+func (c *Client) AcceptApplication(ctx context.Context, p *AcceptApplicationPayload) (res *ProjectApplicationMutationResult, err error) {
 	var ires any
 	ires, err = c.AcceptApplicationEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*ProjectApplication), nil
+	return ires.(*ProjectApplicationMutationResult), nil
 }
 
 // DenyApplication calls the "deny_application" endpoint of the
 // "lfx_v2_formation_service" service.
 // DenyApplication may return the following errors:
 //   - "NotFound" (type *ApplicationError): No such application
+//   - "VersionMismatch" (type *ApplicationError): If-Match did not match the application's current revision
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
-func (c *Client) DenyApplication(ctx context.Context, p *DenyApplicationPayload) (res *ProjectApplication, err error) {
+func (c *Client) DenyApplication(ctx context.Context, p *DenyApplicationPayload) (res *ProjectApplicationMutationResult, err error) {
 	var ires any
 	ires, err = c.DenyApplicationEndpoint(ctx, p)
 	if err != nil {
 		return
 	}
-	return ires.(*ProjectApplication), nil
+	return ires.(*ProjectApplicationMutationResult), nil
 }
 
 // DeleteApplication calls the "delete_application" endpoint of the
 // "lfx_v2_formation_service" service.
 // DeleteApplication may return the following errors:
 //   - "NotFound" (type *ApplicationError): No such application
+//   - "VersionMismatch" (type *ApplicationError): If-Match did not match the application's current revision
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
 func (c *Client) DeleteApplication(ctx context.Context, p *DeleteApplicationPayload) (err error) {

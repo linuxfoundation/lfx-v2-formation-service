@@ -126,6 +126,7 @@ CREATE INDEX IF NOT EXISTS formation_items_assignee_idx  ON formation_items (ass
 CREATE TABLE IF NOT EXISTS project_applications (
     uid                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     state              TEXT        NOT NULL,
+    revision           BIGINT      NOT NULL DEFAULT 1,
 
     -- The submitter as data, not as a credential. The UI creates the record as
     -- itself, so the end user never authenticates to this service and nothing
@@ -143,6 +144,8 @@ CREATE TABLE IF NOT EXISTS project_applications (
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
 
 -- Append-only activity feed. ULID primary keys give a time-ordered feed and
 -- cursor paging from a plain index read. Rows are never updated, so there is

@@ -61,6 +61,7 @@ func TestCreateApplicationRecordsSubmitterFromThePayload(t *testing.T) {
 	assert.Equal(t, "asmith@example.test", got.SubmitterEmail)
 	assert.NotEmpty(t, got.UID)
 	assert.Equal(t, "submitted", got.State)
+	assert.Equal(t, int64(1), got.Revision)
 	// No parent was sent, and none may be invented. An application with no
 	// parent is its ordinary state while under review.
 	assert.Nil(t, got.TargetParentUID)

@@ -861,9 +861,12 @@ func EncodeCreateApplicationError(encoder func(context.Context, http.ResponseWri
 // the lfx_v2_formation_service revise_application endpoint.
 func EncodeReviseApplicationResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res := v.(*lfxv2formationserviceviews.ProjectApplication)
+		res := v.(*lfxv2formationserviceviews.ProjectApplicationMutationResult)
 		enc := encoder(ctx, w)
 		body := NewReviseApplicationResponseBody(res.Projected)
+		if res.Projected.Etag != nil {
+			w.Header().Set("Etag", *res.Projected.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -898,6 +901,7 @@ func DecodeReviseApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 			uid         string
 			version     string
 			bearerToken *string
+			ifMatch     int64
 
 			params = mux.Vars(r)
 		)
@@ -914,10 +918,21 @@ func DecodeReviseApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
 		if err != nil {
 			return payload, err
 		}
-		payload = NewReviseApplicationPayload(&body, uid, version, bearerToken)
+		payload = NewReviseApplicationPayload(&body, uid, version, bearerToken, ifMatch)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -966,6 +981,19 @@ func EncodeReviseApplicationError(encoder func(context.Context, http.ResponseWri
 			w.Header().Set("goa-error", res.GoaErrorName())
 			w.WriteHeader(http.StatusNotFound)
 			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.ApplicationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewReviseApplicationVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return enc.Encode(body)
 		case "Unauthorized":
 			var res *lfxv2formationservice.UnauthorizedError
 			errors.As(v, &res)
@@ -989,9 +1017,12 @@ func EncodeReviseApplicationError(encoder func(context.Context, http.ResponseWri
 // by the lfx_v2_formation_service withdraw_application endpoint.
 func EncodeWithdrawApplicationResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res := v.(*lfxv2formationserviceviews.ProjectApplication)
+		res := v.(*lfxv2formationserviceviews.ProjectApplicationMutationResult)
 		enc := encoder(ctx, w)
 		body := NewWithdrawApplicationResponseBody(res.Projected)
+		if res.Projected.Etag != nil {
+			w.Header().Set("Etag", *res.Projected.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -1006,6 +1037,7 @@ func DecodeWithdrawApplicationRequest(mux goahttp.Muxer, decoder func(*http.Requ
 			uid         string
 			version     string
 			bearerToken *string
+			ifMatch     int64
 			err         error
 
 			params = mux.Vars(r)
@@ -1023,10 +1055,21 @@ func DecodeWithdrawApplicationRequest(mux goahttp.Muxer, decoder func(*http.Requ
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
 		if err != nil {
 			return payload, err
 		}
-		payload = NewWithdrawApplicationPayload(uid, version, bearerToken)
+		payload = NewWithdrawApplicationPayload(uid, version, bearerToken, ifMatch)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -1062,6 +1105,19 @@ func EncodeWithdrawApplicationError(encoder func(context.Context, http.ResponseW
 			w.Header().Set("goa-error", res.GoaErrorName())
 			w.WriteHeader(http.StatusNotFound)
 			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.ApplicationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewWithdrawApplicationVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return enc.Encode(body)
 		case "Unauthorized":
 			var res *lfxv2formationservice.UnauthorizedError
 			errors.As(v, &res)
@@ -1085,9 +1141,12 @@ func EncodeWithdrawApplicationError(encoder func(context.Context, http.ResponseW
 // the lfx_v2_formation_service accept_application endpoint.
 func EncodeAcceptApplicationResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res := v.(*lfxv2formationserviceviews.ProjectApplication)
+		res := v.(*lfxv2formationserviceviews.ProjectApplicationMutationResult)
 		enc := encoder(ctx, w)
 		body := NewAcceptApplicationResponseBody(res.Projected)
+		if res.Projected.Etag != nil {
+			w.Header().Set("Etag", *res.Projected.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -1102,6 +1161,7 @@ func DecodeAcceptApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 			uid         string
 			version     string
 			bearerToken *string
+			ifMatch     int64
 			err         error
 
 			params = mux.Vars(r)
@@ -1119,10 +1179,21 @@ func DecodeAcceptApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
 		if err != nil {
 			return payload, err
 		}
-		payload = NewAcceptApplicationPayload(uid, version, bearerToken)
+		payload = NewAcceptApplicationPayload(uid, version, bearerToken, ifMatch)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -1158,6 +1229,19 @@ func EncodeAcceptApplicationError(encoder func(context.Context, http.ResponseWri
 			w.Header().Set("goa-error", res.GoaErrorName())
 			w.WriteHeader(http.StatusNotFound)
 			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.ApplicationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewAcceptApplicationVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return enc.Encode(body)
 		case "Unauthorized":
 			var res *lfxv2formationservice.UnauthorizedError
 			errors.As(v, &res)
@@ -1181,9 +1265,12 @@ func EncodeAcceptApplicationError(encoder func(context.Context, http.ResponseWri
 // the lfx_v2_formation_service deny_application endpoint.
 func EncodeDenyApplicationResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
 	return func(ctx context.Context, w http.ResponseWriter, v any) error {
-		res := v.(*lfxv2formationserviceviews.ProjectApplication)
+		res := v.(*lfxv2formationserviceviews.ProjectApplicationMutationResult)
 		enc := encoder(ctx, w)
 		body := NewDenyApplicationResponseBody(res.Projected)
+		if res.Projected.Etag != nil {
+			w.Header().Set("Etag", *res.Projected.Etag)
+		}
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
 	}
@@ -1198,6 +1285,7 @@ func DecodeDenyApplicationRequest(mux goahttp.Muxer, decoder func(*http.Request)
 			uid         string
 			version     string
 			bearerToken *string
+			ifMatch     int64
 			err         error
 
 			params = mux.Vars(r)
@@ -1215,10 +1303,21 @@ func DecodeDenyApplicationRequest(mux goahttp.Muxer, decoder func(*http.Request)
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
 		if err != nil {
 			return payload, err
 		}
-		payload = NewDenyApplicationPayload(uid, version, bearerToken)
+		payload = NewDenyApplicationPayload(uid, version, bearerToken, ifMatch)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -1253,6 +1352,19 @@ func EncodeDenyApplicationError(encoder func(context.Context, http.ResponseWrite
 			}
 			w.Header().Set("goa-error", res.GoaErrorName())
 			w.WriteHeader(http.StatusNotFound)
+			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.ApplicationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewDenyApplicationVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
 			return enc.Encode(body)
 		case "Unauthorized":
 			var res *lfxv2formationservice.UnauthorizedError
@@ -1291,6 +1403,7 @@ func DecodeDeleteApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 			uid         string
 			version     string
 			bearerToken *string
+			ifMatch     int64
 			err         error
 
 			params = mux.Vars(r)
@@ -1308,10 +1421,21 @@ func DecodeDeleteApplicationRequest(mux goahttp.Muxer, decoder func(*http.Reques
 		if bearerTokenRaw != "" {
 			bearerToken = &bearerTokenRaw
 		}
+		{
+			ifMatchRaw := r.Header.Get("If-Match")
+			if ifMatchRaw == "" {
+				err = goa.MergeErrors(err, goa.MissingFieldError("if_match", "header"))
+			}
+			v, err2 := strconv.ParseInt(ifMatchRaw, 10, 64)
+			if err2 != nil {
+				err = goa.MergeErrors(err, goa.InvalidFieldTypeError("if_match", ifMatchRaw, "integer"))
+			}
+			ifMatch = v
+		}
 		if err != nil {
 			return payload, err
 		}
-		payload = NewDeleteApplicationPayload(uid, version, bearerToken)
+		payload = NewDeleteApplicationPayload(uid, version, bearerToken, ifMatch)
 		if payload.BearerToken != nil {
 			if strings.Contains(*payload.BearerToken, " ") {
 				// Remove authorization scheme prefix (e.g. "Bearer")
@@ -1346,6 +1470,19 @@ func EncodeDeleteApplicationError(encoder func(context.Context, http.ResponseWri
 			}
 			w.Header().Set("goa-error", res.GoaErrorName())
 			w.WriteHeader(http.StatusNotFound)
+			return enc.Encode(body)
+		case "VersionMismatch":
+			var res *lfxv2formationservice.ApplicationError
+			errors.As(v, &res)
+			enc := encoder(ctx, w)
+			var body any
+			if formatter != nil {
+				body = formatter(ctx, res)
+			} else {
+				body = NewDeleteApplicationVersionMismatchResponseBody(res)
+			}
+			w.Header().Set("goa-error", res.GoaErrorName())
+			w.WriteHeader(http.StatusPreconditionFailed)
 			return enc.Encode(body)
 		case "Unauthorized":
 			var res *lfxv2formationservice.UnauthorizedError
