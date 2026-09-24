@@ -298,7 +298,7 @@ func TestReviseApplicationValidatesLikeIntake(t *testing.T) {
 		},
 		"a malformed canonical field": {
 			answers: map[string]any{"project_name": "P", "is_spec_project": "yes"},
-			reason:  "application_field_invalid",
+			reason:  reasonApplicationFieldInvalid,
 		},
 	}
 

@@ -213,14 +213,28 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_name"] = false
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "repository is not an HTTP URL",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_repository_url"] = "git@example.test:repo"
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
+		},
+		{
+			name: "repository URL has no host",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_repository_url"] = "https:repo"
+			},
+			reason: reasonApplicationFieldInvalid,
+		},
+		{
+			name: "repository URL has a port but no hostname",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_repository_url"] = "https://:443/repo"
+			},
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "website is not a URL",
@@ -234,28 +248,42 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["trademark_status"] = true
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "contributing organization has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["contributing_organization"] = []any{}
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "legal contact is not an email address",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["legal_contact_email"] = "not-an-address"
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "legal contact has multiple at signs",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["legal_contact_email"] = "a@b@c"
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
+		},
+		{
+			name: "legal contact contains Unicode whitespace",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["legal_contact_email"] = "a@\nb"
+			},
+			reason: reasonApplicationFieldInvalid,
+		},
+		{
+			name: "legal contact has surrounding Unicode whitespace",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["legal_contact_email"] = "\u00a0a@example.test"
+			},
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "formation list carries something that is not an address",
@@ -269,42 +297,42 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["license"] = 42
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "chat platform has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["chat_platform"] = false
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "mission statement has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["mission_statement"] = []any{}
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "agreement type has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["agreement_type"] = 7
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "specification flag has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["is_spec_project"] = "yes"
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "description has the wrong type",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["description"] = map[string]any{}
 			},
-			reason: "application_field_invalid",
+			reason: reasonApplicationFieldInvalid,
 		},
 		{
 			name: "project name would overfill the duplicated index metadata",
@@ -366,6 +394,9 @@ func TestCreateApplicationAcceptsMissingNullAndBlankCanonicalFields(t *testing.T
 		},
 		"arbitrary agreement type": {
 			"agreement_type": "handshake",
+		},
+		"legacy scheme-only website": {
+			"project_website": "https:site",
 		},
 		"false specification flag": {
 			"is_spec_project": false,

@@ -243,7 +243,9 @@ func validateAnswers(answers map[string]any) (map[string]any, error) {
 
 	// Website keeps its established field-specific refusal; other canonical
 	// field failures share reasonApplicationFieldInvalid.
-	if err := validateOptionalURL(answers, payloadProjectWebsite, reasonProjectWebsiteBad); err != nil {
+	if err := validateOptionalURL(
+		answers, payloadProjectWebsite, reasonProjectWebsiteBad, isSafeURL,
+	); err != nil {
 		return nil, err
 	}
 
@@ -270,7 +272,7 @@ func validateCanonicalApplicationFields(answers map[string]any) error {
 		}
 	}
 	if err := validateOptionalURL(
-		answers, payloadProjectRepositoryURL, reasonApplicationFieldInvalid,
+		answers, payloadProjectRepositoryURL, reasonApplicationFieldInvalid, isSafeAbsoluteURL,
 	); err != nil {
 		return err
 	}
@@ -291,13 +293,15 @@ func validateOptionalString(answers map[string]any, key string) error {
 	return nil
 }
 
-func validateOptionalURL(answers map[string]any, key, reason string) error {
+func validateOptionalURL(
+	answers map[string]any, key, reason string, valid func(string) bool,
+) error {
 	value, present := answers[key]
 	if !present || value == nil {
 		return nil
 	}
 	url, ok := value.(string)
-	if !ok || strings.TrimSpace(url) != "" && !isSafeURL(strings.TrimSpace(url)) {
+	if !ok || (strings.TrimSpace(url) != "" && !valid(strings.TrimSpace(url))) {
 		return domain.NewReasonError(domain.ErrInvalidRequest, reason)
 	}
 	return nil
@@ -309,7 +313,7 @@ func validateOptionalEmail(answers map[string]any, key string) error {
 		return nil
 	}
 	address, ok := value.(string)
-	if !ok || strings.TrimSpace(address) != "" && !isEmailAddress(strings.TrimSpace(address)) {
+	if !ok || (strings.TrimSpace(address) != "" && !isEmailAddress(address)) {
 		return domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationFieldInvalid)
 	}
 	return nil
@@ -331,7 +335,7 @@ func isEmailAddress(value string) bool {
 	return strings.Count(value, "@") == 1 &&
 		at > 0 &&
 		at < len(value)-1 &&
-		!strings.Contains(value, " ")
+		strings.IndexFunc(value, unicode.IsSpace) == -1
 }
 
 // validateFormationList checks the legacy address shape for people named for

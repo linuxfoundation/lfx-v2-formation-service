@@ -21,3 +21,12 @@ func isSafeURL(rawURL string) bool {
 	scheme := strings.ToLower(u.Scheme)
 	return scheme == "http" || scheme == "https"
 }
+
+func isSafeAbsoluteURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	return u.Hostname() != "" && (scheme == "http" || scheme == "https")
+}
