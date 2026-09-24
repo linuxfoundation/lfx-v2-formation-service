@@ -158,8 +158,8 @@ func (r *ApplicationRepository) Delete(
 		DeletedAt: time.Now().UTC(),
 	}
 	r.deletions[uid] = marker
-	copy := *marker
-	return &copy, nil
+	clone := *marker
+	return &clone, nil
 }
 
 // ListRepairPage returns live applications after the UID cursor.
@@ -174,8 +174,8 @@ func (r *ApplicationRepository) ListRepairPage(
 		if after != uuid.Nil && uid.String() <= after.String() {
 			continue
 		}
-		copy := *application
-		out = append(out, &copy)
+		clone := *application
+		out = append(out, &clone)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].UID.String() < out[j].UID.String() })
 	if len(out) > limit {
@@ -196,8 +196,8 @@ func (r *ApplicationRepository) ListDeletionPage(
 		if after != uuid.Nil && uid.String() <= after.String() {
 			continue
 		}
-		copy := *deletion
-		out = append(out, &copy)
+		clone := *deletion
+		out = append(out, &clone)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].UID.String() < out[j].UID.String() })
 	if len(out) > limit {

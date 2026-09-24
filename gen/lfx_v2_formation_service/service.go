@@ -169,8 +169,18 @@ type CreateApplicationPayload struct {
 	// approver's form. It does not decide the parent or the incorporated entity,
 	// and it grants nobody anything. Normally absent.
 	TargetParentUID *string
-	// The intake answers. Carries the proposed project's website as a URL. People
-	// named for the formation work are email addresses only — they are not
+	// The intake answers. Canonical keys (all optional): project_name (string);
+	// project_repository_url (string; nonblank HTTP or HTTPS URL with a hostname);
+	// project_website (string; nonblank legacy HTTP or HTTPS URL, hostname
+	// optional); trademark_status (string); contributing_organization (string);
+	// legal_contact_email (string; when nonblank, exactly one non-edge @ and no
+	// whitespace or control characters); formation_list (list of strings using the
+	// legacy email-shape rule); license (string); chat_platform (string);
+	// mission_statement (string); agreement_type (string); is_spec_project
+	// (boolean); description (string). Missing and null are accepted for every
+	// key; blank strings are accepted for string, URL, and legal-contact fields.
+	// Unknown keys are retained. Create and revise apply identical validation.
+	// People named for the formation work are email addresses only — they are not
 	// resolved to platform identities, granted anything, or notified.
 	Application map[string]any
 }
@@ -423,8 +433,20 @@ type ReviseApplicationPayload struct {
 	UID string
 	// Must equal the application's current revision.
 	IfMatch int64
-	// The complete set of intake answers, replacing what is stored. Validated the
-	// same way the original submission was.
+	// The complete set of intake answers, replacing what is stored. Canonical keys
+	// (all optional): project_name (string); project_repository_url (string;
+	// nonblank HTTP or HTTPS URL with a hostname); project_website (string;
+	// nonblank legacy HTTP or HTTPS URL, hostname optional); trademark_status
+	// (string); contributing_organization (string); legal_contact_email (string;
+	// when nonblank, exactly one non-edge @ and no whitespace or control
+	// characters); formation_list (list of strings using the legacy email-shape
+	// rule); license (string); chat_platform (string); mission_statement (string);
+	// agreement_type (string); is_spec_project (boolean); description (string).
+	// Missing and null are accepted for every key; blank strings are accepted for
+	// string, URL, and legal-contact fields. Unknown keys are retained. Create and
+	// revise apply identical validation. People named for the formation work are
+	// email addresses only — they are not resolved to platform identities, granted
+	// anything, or notified.
 	Application map[string]any
 }
 

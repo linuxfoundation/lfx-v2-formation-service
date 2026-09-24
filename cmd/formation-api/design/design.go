@@ -7,6 +7,19 @@ package design
 
 import "goa.design/goa/v3/dsl"
 
+const applicationCanonicalMapContract = "Canonical keys (all optional): project_name (string); " +
+	"project_repository_url (string; nonblank HTTP or HTTPS URL with a hostname); " +
+	"project_website (string; nonblank legacy HTTP or HTTPS URL, hostname optional); " +
+	"trademark_status (string); contributing_organization (string); legal_contact_email " +
+	"(string; when nonblank, exactly one non-edge @ and no whitespace or control characters); " +
+	"formation_list (list of strings using the legacy email-shape rule); license (string); " +
+	"chat_platform (string); mission_statement (string); agreement_type (string); " +
+	"is_spec_project (boolean); description (string). Missing and null are accepted for every " +
+	"key; blank strings are accepted for string, URL, and legal-contact fields. Unknown keys " +
+	"are retained. Create and revise apply identical validation. People named for the formation " +
+	"work are email addresses only — they are not resolved to platform identities, granted " +
+	"anything, or notified."
+
 var _ = dsl.API("lfx-v2-formation-service", func() {
 	dsl.Title("LFX V2 Formation Service")
 	dsl.Version("1.0")
@@ -423,13 +436,8 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 					"approver's form. It does not decide the parent or the incorporated entity, and "+
 					"it grants nobody anything. Normally absent.")
 
-			// The source names the intake fields but does not define their wire
-			// keys, types or requiredness. Keep the questionnaire as one map
-			// rather than inventing a typed contract.
 			dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any),
-				"The intake answers. Carries the proposed project's website as a URL. People "+
-					"named for the formation work are email addresses only — they are not "+
-					"resolved to platform identities, granted anything, or notified.")
+				"The intake answers. "+applicationCanonicalMapContract)
 
 			dsl.Required("version", "submitter_username", "submitter_name", "submitter_email", "application")
 		})
@@ -470,8 +478,8 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			// answer" — a key absent from the request and a key the caller
 			// meant to clear are the same bytes.
 			dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any),
-				"The complete set of intake answers, replacing what is stored. Validated the same "+
-					"way the original submission was.")
+				"The complete set of intake answers, replacing what is stored. "+
+					applicationCanonicalMapContract)
 
 			dsl.Required("version", "uid", "if_match", "application")
 		})
@@ -742,6 +750,7 @@ var ApplicationError = dsl.Type("ApplicationError", func() {
 			"submitter_username_required",
 			"project_website_invalid",
 			"formation_list_invalid",
+			"application_field_invalid",
 			"application_payload_too_large",
 		)
 	})

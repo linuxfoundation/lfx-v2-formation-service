@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
@@ -107,6 +108,49 @@ func TestRepairApplicationsCountsOneFailureAndContinues(t *testing.T) {
 	assert.Equal(t, 2, report.LiveAttempted)
 	assert.Equal(t, 1, report.Failed)
 	require.NotNil(t, d.indexer.LatestApplication(healthy.UID))
+}
+
+func TestRepairApplicationsSkipsRowDeletedAfterListing(t *testing.T) {
+	d := applicationService(t)
+	created := submitOne(t, d.service)
+	repository := &deleteAfterListApplicationRepository{
+		ApplicationRepository: d.applications,
+		uid:                   mustUUID(t, created.UID),
+		revision:              created.Revision,
+	}
+	repairer := NewService(
+		WithApplications(repository),
+		WithApplicationAccess(d.access),
+		WithApplicationIndexer(d.indexer),
+		WithApplicationTeam("formation"),
+	)
+
+	report, err := repairer.RepairApplications(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.LiveAttempted)
+	assert.Equal(t, 1, report.DeletedAttempted)
+	assert.Zero(t, report.Failed)
+	assert.Len(t, d.indexer.ApplicationPublished(), 1)
+	assert.Equal(t, []string{created.UID}, d.access.Deleted())
+	assert.Equal(t, []string{created.UID}, d.indexer.ApplicationDeleted())
+}
+
+type deleteAfterListApplicationRepository struct {
+	port.ApplicationRepository
+	uid      uuid.UUID
+	revision int64
+}
+
+func (r *deleteAfterListApplicationRepository) ListRepairPage(
+	ctx context.Context, after uuid.UUID, limit int,
+) ([]*model.Application, error) {
+	page, err := r.ApplicationRepository.ListRepairPage(ctx, after, limit)
+	if err != nil || len(page) == 0 {
+		return page, err
+	}
+	_, err = r.Delete(ctx, r.uid, r.revision)
+	return page, err
 }
 
 // failOneApplication fails the index publish for a single application.

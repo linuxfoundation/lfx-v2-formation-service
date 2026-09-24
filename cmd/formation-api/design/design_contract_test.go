@@ -24,3 +24,18 @@ func TestApplicationPayloadTooLargeIsADeclaredReason(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestApplicationFieldInvalidIsADeclaredReason(t *testing.T) {
+	name := "bad_request"
+	code := "400"
+	message := "an application field has an invalid value"
+	reason := "application_field_invalid"
+
+	err := httpclient.ValidateCreateApplicationBadRequestResponseBody(
+		&httpclient.CreateApplicationBadRequestResponseBody{
+			Name: &name, Code: &code, Message: &message, Reason: &reason,
+		},
+	)
+
+	require.NoError(t, err)
+}

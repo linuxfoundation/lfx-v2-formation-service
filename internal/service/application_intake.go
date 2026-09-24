@@ -22,11 +22,13 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
 )
 
-// Refusals cover an unusable access subject and the two payload shapes this service interprets.
+// Refusals cover an unusable access subject and the application constraints
+// this service validates.
 const (
 	reasonSubmitterUsernameRequired = "submitter_username_required"
 	reasonProjectWebsiteBad         = "project_website_invalid"
 	reasonFormationListInvalid      = "formation_list_invalid"
+	reasonApplicationFieldInvalid   = "application_field_invalid"
 	reasonApplicationTooLarge       = "application_payload_too_large"
 )
 
@@ -36,6 +38,7 @@ var applicationReasonMessages = map[string]string{
 	reasonSubmitterUsernameRequired: "submitter_username is required and must name one user",
 	reasonProjectWebsiteBad:         "project_website must be an http or https URL",
 	reasonFormationListInvalid:      "formation_list must be a list of email addresses",
+	reasonApplicationFieldInvalid:   "an application field has an invalid value",
 	reasonApplicationTooLarge:       "application submission exceeds the transport-safe size limit",
 	reasonApplicationUIDBad:         "the application identifier is not a uuid",
 }
@@ -50,9 +53,19 @@ const (
 // Intake payload keys this service knows about by name. Everything else in
 // the map is carried through untouched.
 const (
-	payloadProjectName    = "project_name"
-	payloadProjectWebsite = "project_website"
-	payloadFormationList  = "formation_list"
+	payloadProjectName              = "project_name"
+	payloadProjectRepositoryURL     = "project_repository_url"
+	payloadProjectWebsite           = "project_website"
+	payloadTrademarkStatus          = "trademark_status"
+	payloadContributingOrganization = "contributing_organization"
+	payloadLegalContactEmail        = "legal_contact_email"
+	payloadFormationList            = "formation_list"
+	payloadLicense                  = "license"
+	payloadChatPlatform             = "chat_platform"
+	payloadMissionStatement         = "mission_statement"
+	payloadAgreementType            = "agreement_type"
+	payloadIsSpecProject            = "is_spec_project"
+	payloadDescription              = "description"
 )
 
 // CreateApplication records a proposal to start a new foundation.
@@ -191,11 +204,9 @@ func (s *Service) validateApplicationProjection(a *model.Application) error {
 	return nil
 }
 
-// validateIntake checks the envelope and returns the answers to store.
-//
-// The source names the intake fields but does not define their wire keys,
-// types or requiredness. Only the two approved product shapes are enforced:
-// the project website and formation-contact email addresses.
+// validateIntake checks the submitter envelope and questionnaire answers,
+// including the approved canonical field shapes, and returns the answers to
+// store. Unknown answer fields are carried through untouched.
 func validateIntake(p *svc.CreateApplicationPayload) (map[string]any, error) {
 	p.SubmitterUsername = strings.TrimSpace(p.SubmitterUsername)
 	// fga-sync prefixes this value with `user:` verbatim, so FGA subject
@@ -222,29 +233,146 @@ func validateAnswers(answers map[string]any) (map[string]any, error) {
 	if err != nil || len(encoded) > maxApplicationPayloadBytes {
 		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
 	}
-	if projectName, ok := answers[payloadProjectName].(string); ok &&
-		len(projectName) > maxProjectNameBytes {
-		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	if containsNUL(answers) {
+		return nil, domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"application must not contain NUL characters")
 	}
 
-	// The website stands in for the logo the mockup asked for, so it is the
-	// one intake answer whose shape is checked here.
-	if raw, present := answers[payloadProjectWebsite]; present {
-		website, ok := raw.(string)
-		if !ok || !isSafeURL(strings.TrimSpace(website)) {
-			return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonProjectWebsiteBad)
-		}
+	// project_website and formation_list keep their established reasons and
+	// rules; every other canonical shape failure is application_field_invalid.
+	if err := validateOptionalURL(
+		answers, payloadProjectWebsite, reasonProjectWebsiteBad, isSafeURL,
+	); err != nil {
+		return nil, err
 	}
 
 	if err := validateFormationList(answers[payloadFormationList]); err != nil {
 		return nil, err
 	}
+	if err := validateCanonicalApplicationFields(answers); err != nil {
+		return nil, err
+	}
+	if projectName, ok := answers[payloadProjectName].(string); ok &&
+		len(projectName) > maxProjectNameBytes {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	}
 
 	return answers, nil
 }
 
-// validateFormationList checks that the people named for the formation work
-// are email addresses.
+func validateCanonicalApplicationFields(answers map[string]any) error {
+	for _, key := range []string{
+		payloadProjectName,
+		payloadTrademarkStatus,
+		payloadContributingOrganization,
+		payloadLicense,
+		payloadChatPlatform,
+		payloadMissionStatement,
+		payloadAgreementType,
+		payloadDescription,
+	} {
+		if err := validateOptionalString(answers, key); err != nil {
+			return err
+		}
+	}
+	if err := validateOptionalURL(
+		answers, payloadProjectRepositoryURL, reasonApplicationFieldInvalid, isSafeURLWithHost,
+	); err != nil {
+		return err
+	}
+	if err := validateOptionalEmail(answers, payloadLegalContactEmail); err != nil {
+		return err
+	}
+	return validateOptionalBool(answers, payloadIsSpecProject)
+}
+
+func validateOptionalString(answers map[string]any, key string) error {
+	value, present := answers[key]
+	if !present || value == nil {
+		return nil
+	}
+	if _, ok := value.(string); !ok {
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be a string", key)
+	}
+	return nil
+}
+
+func validateOptionalURL(
+	answers map[string]any, key, reason string, valid func(string) bool,
+) error {
+	value, present := answers[key]
+	if !present || value == nil {
+		return nil
+	}
+	url, ok := value.(string)
+	if !ok || (strings.TrimSpace(url) != "" && !valid(strings.TrimSpace(url))) {
+		if reason == reasonApplicationFieldInvalid {
+			return domain.NewReasonErrorf(domain.ErrInvalidRequest, reason,
+				"%s must be an http or https URL with a hostname", key)
+		}
+		return domain.NewReasonError(domain.ErrInvalidRequest, reason)
+	}
+	return nil
+}
+
+func validateOptionalEmail(answers map[string]any, key string) error {
+	value, present := answers[key]
+	if !present || value == nil {
+		return nil
+	}
+	address, ok := value.(string)
+	if !ok || (strings.TrimSpace(address) != "" && !isEmailAddress(address)) {
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be an email address", key)
+	}
+	return nil
+}
+
+func validateOptionalBool(answers map[string]any, key string) error {
+	value, present := answers[key]
+	if !present || value == nil {
+		return nil
+	}
+	if _, ok := value.(bool); !ok {
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be a boolean", key)
+	}
+	return nil
+}
+
+func isEmailAddress(value string) bool {
+	at := strings.Index(value, "@")
+	return strings.Count(value, "@") == 1 &&
+		at > 0 &&
+		at < len(value)-1 &&
+		strings.IndexFunc(value, func(r rune) bool {
+			return unicode.IsSpace(r) || unicode.IsControl(r)
+		}) == -1
+}
+
+func containsNUL(value any) bool {
+	switch value := value.(type) {
+	case string:
+		return strings.ContainsRune(value, '\x00')
+	case map[string]any:
+		for key, nested := range value {
+			if strings.ContainsRune(key, '\x00') || containsNUL(nested) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range value {
+			if containsNUL(nested) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// validateFormationList checks the legacy address shape for people named for
+// the formation work.
 //
 // Addresses and nothing else. They are never resolved to a platform identity,
 // never granted anything and never notified at submit time — the work they
@@ -264,10 +392,8 @@ func validateFormationList(raw any) error {
 			return domain.NewReasonError(domain.ErrInvalidRequest, reasonFormationListInvalid)
 		}
 		address = strings.TrimSpace(address)
-		// Deliberately shallow: an at-sign with something either side. A
-		// stricter parser refuses addresses that are perfectly deliverable,
-		// and nothing here sends mail, so the cost of a wrong refusal is
-		// higher than the cost of a wrong acceptance.
+		// Preserve the original shallow rule: use the first at-sign only.
+		// Existing payloads with another at-sign after it remain accepted.
 		at := strings.Index(address, "@")
 		if at <= 0 || at == len(address)-1 || strings.Contains(address, " ") {
 			return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonFormationListInvalid,

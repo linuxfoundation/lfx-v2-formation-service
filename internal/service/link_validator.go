@@ -21,3 +21,14 @@ func isSafeURL(rawURL string) bool {
 	scheme := strings.ToLower(u.Scheme)
 	return scheme == "http" || scheme == "https"
 }
+
+// isSafeURLWithHost adds a hostname requirement that legacy website values do
+// not have.
+func isSafeURLWithHost(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	return u.Hostname() != "" && (scheme == "http" || scheme == "https")
+}

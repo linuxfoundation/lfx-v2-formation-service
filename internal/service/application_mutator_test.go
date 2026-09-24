@@ -284,20 +284,34 @@ func TestReviseApplicationValidatesLikeIntake(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)
 
-	cases := map[string]map[string]any{
-		"a bad website":        {"project_name": "P", "project_website": "javascript:alert(1)"},
-		"a bad formation list": {"project_name": "P", "formation_list": []any{"not-an-address"}},
+	cases := map[string]struct {
+		answers map[string]any
+		reason  string
+	}{
+		"a bad website": {
+			answers: map[string]any{"project_name": "P", "project_website": "javascript:alert(1)"},
+			reason:  reasonProjectWebsiteBad,
+		},
+		"a bad formation list": {
+			answers: map[string]any{"project_name": "P", "formation_list": []any{"not-an-address"}},
+			reason:  reasonFormationListInvalid,
+		},
+		"a malformed canonical field": {
+			answers: map[string]any{"project_name": "P", "is_spec_project": "yes"},
+			reason:  reasonApplicationFieldInvalid,
+		},
 	}
 
-	for name, answers := range cases {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			_, err := d.service.ReviseApplication(asPrincipal("asmith"), &svc.ReviseApplicationPayload{
-				Version: "1", UID: created.UID, IfMatch: created.Revision, Application: answers,
+				Version: "1", UID: created.UID, IfMatch: created.Revision, Application: tc.answers,
 			})
 			require.Error(t, err)
 			var refusal *svc.ApplicationError
 			require.ErrorAs(t, err, &refusal)
 			assert.Equal(t, "400", refusal.Code)
+			assert.Equal(t, tc.reason, refusal.Reason)
 		})
 	}
 }
