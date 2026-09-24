@@ -11,7 +11,7 @@ const applicationCanonicalMapContract = "Canonical keys (all optional): project_
 	"project_repository_url (string; nonblank HTTP or HTTPS URL with a hostname); " +
 	"project_website (string; nonblank legacy HTTP or HTTPS URL, hostname optional); " +
 	"trademark_status (string); contributing_organization (string); legal_contact_email " +
-	"(string; when nonblank, exactly one @ and no whitespace or control characters); " +
+	"(string; when nonblank, exactly one non-edge @ and no whitespace or control characters); " +
 	"formation_list (list of strings using the legacy email-shape rule); license (string); " +
 	"chat_platform (string); mission_statement (string); agreement_type (string); " +
 	"is_spec_project (boolean); description (string). Missing and null are accepted for every " +

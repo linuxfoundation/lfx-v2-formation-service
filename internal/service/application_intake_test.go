@@ -230,7 +230,7 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 				p.Application["project_repository_url"] = "https:repo"
 			},
 			reason:  reasonApplicationFieldInvalid,
-			message: "project_repository_url must be an http or https URL with a host",
+			message: "project_repository_url must be an http or https URL with a hostname",
 		},
 		{
 			name: "repository URL has a port but no hostname",
@@ -303,6 +303,22 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 				p.Application["future_field"] = map[string]any{
 					"nested": []any{"a\x00b"},
 				}
+			},
+			reason:  reasonApplicationFieldInvalid,
+			message: "application must not contain NUL characters",
+		},
+		{
+			name: "top-level answer contains NUL",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_name"] = "a\x00b"
+			},
+			reason:  reasonApplicationFieldInvalid,
+			message: "application must not contain NUL characters",
+		},
+		{
+			name: "unknown answer key contains NUL",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["future\x00field"] = "clean-value"
 			},
 			reason:  reasonApplicationFieldInvalid,
 			message: "application must not contain NUL characters",

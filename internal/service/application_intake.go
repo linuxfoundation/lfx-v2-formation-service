@@ -309,7 +309,7 @@ func validateOptionalURL(
 	if !ok || (strings.TrimSpace(url) != "" && !valid(strings.TrimSpace(url))) {
 		if reason == reasonApplicationFieldInvalid {
 			return domain.NewReasonErrorf(domain.ErrInvalidRequest, reason,
-				"%s must be an http or https URL with a host", key)
+				"%s must be an http or https URL with a hostname", key)
 		}
 		return domain.NewReasonError(domain.ErrInvalidRequest, reason)
 	}
@@ -356,8 +356,8 @@ func containsNUL(value any) bool {
 	case string:
 		return strings.ContainsRune(value, '\x00')
 	case map[string]any:
-		for _, nested := range value {
-			if containsNUL(nested) {
+		for key, nested := range value {
+			if strings.ContainsRune(key, '\x00') || containsNUL(nested) {
 				return true
 			}
 		}

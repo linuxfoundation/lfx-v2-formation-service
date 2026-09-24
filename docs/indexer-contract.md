@@ -244,7 +244,7 @@ The `application` object retains unknown keys. Its optional canonical keys are:
 | `project_website` | string; when nonblank, the legacy rule requires an HTTP or HTTPS scheme but not a hostname |
 | `trademark_status` | string |
 | `contributing_organization` | string |
-| `legal_contact_email` | string; when nonblank, exactly one `@` and no whitespace or control characters |
+| `legal_contact_email` | string; when nonblank, exactly one non-edge `@` and no whitespace or control characters |
 | `formation_list` | list of strings using the legacy email-shape rule |
 | `license` | string |
 | `chat_platform` | string |
