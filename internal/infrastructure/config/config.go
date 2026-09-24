@@ -36,6 +36,10 @@ type Config struct {
 	// Email carries the formation notification email settings.
 	Email EmailConfig
 
+	// ApplicationFormationTeam is the OpenFGA team granted review standing on
+	// every project application created here.
+	ApplicationFormationTeam string
+
 	// QueryService carries the read layer's address and the identity used to
 	// read it. Absent by default.
 	QueryService QueryServiceConfig
@@ -176,6 +180,7 @@ func LoadConfig() *Config {
 			FormationInbox: envOrDefault(constants.EnvFormationInboxEmail, constants.DefaultFormationInboxEmail),
 			AdminBaseURL:   envOrDefault(constants.EnvFormationAdminBaseURL, constants.DefaultFormationAdminBaseURL),
 		},
+		ApplicationFormationTeam: envOrDefault(constants.EnvApplicationFormationTeam, constants.DefaultApplicationFormationTeam),
 		QueryService: QueryServiceConfig{
 			BaseURL:    os.Getenv(constants.EnvQueryServiceURL),
 			Timeout:    constants.DefaultQueryServiceTimeout,

@@ -5,9 +5,9 @@ service, which makes resources searchable via the [query service](https://github
 
 **Update this document in the same PR as any change to indexer message construction.**
 
-**Scope note:** this service publishes two object types — `formation` (the checklist queue row)
-and `formation_item` (this document's subject). Only `formation_item` is documented here; it is the
-one this feature introduces. `formation`'s own contract is not yet written down — see
+**Scope note:** this service publishes three object types — `formation` (the checklist queue row),
+`formation_item`, and `project_application`. The latter two are documented here. `formation`'s
+own contract is not yet written down — see
 `internal/infrastructure/nats/indexer_publisher.go`'s `PublishFormation`/`projectionData` for its
 current shape until a follow-up documents it here too.
 
@@ -16,6 +16,7 @@ current shape until a follow-up documents it here too.
 ## Resource Types
 
 - [Formation Item](#formation-item)
+- [Project Application](#project-application)
 
 ---
 
@@ -205,3 +206,79 @@ checklist-deletion operation exists in this service (`FormationRepository` has n
 so `DeleteFormation` itself has no production caller either. An item's document is not removed
 automatically when its checklist disappears; this is a pre-existing gap the checklist document
 already has, inherited unchanged rather than newly introduced by this document.
+
+---
+
+## Project Application
+
+**Object type:** `project_application`
+
+**NATS subject:** `lfx.index.project_application`
+
+**Source struct:** `internal/domain/port/ports.go` — `ApplicationProjection`
+
+**Indexed on:** create, revise, withdraw, accept, and deny. Delete sends only the application UID.
+
+### Application Data Schema
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `object_id` | string (UUID) | Application UID and index document ID |
+| `state` | string | Current application state |
+| `revision` | integer | Current database revision; clients echo it as `If-Match` on mutations |
+| `submitter_username` | string | LFX username recorded by the UI |
+| `submitter_name` | string | Submitter display name |
+| `submitter_email` | string | Submitter email; private personal data |
+| `project_name` | string | Proposed project name copied from the application payload |
+| `application` | object | Complete intake answers |
+| `target_parent_uid` | string (optional) | Private prefill hint; never placement or ancestry |
+| `created_at` | timestamp | Creation time (RFC3339) |
+| `updated_at` | timestamp | Last update time (RFC3339) |
+
+### Application Tags
+
+| Tag Format | Purpose |
+| --- | --- |
+| `state:{value}` | Filter the staff queue by state |
+| `submitter:{username}` | Find a submitter's own applications |
+
+Tags are omitted when their value is empty.
+
+### Application Access Control (IndexingConfig)
+
+| Field | Value |
+| --- | --- |
+| `object_id` | Application UID |
+| `access_check_object` | `project_application:{uid}` |
+| `access_check_relation` | `viewer` |
+| `history_check_object` | `project_application:{uid}` |
+| `history_check_relation` | `viewer` |
+| `public` | omitted/false |
+
+The document is private. The platform model resolves `viewer` only through the submitter or
+formation team.
+
+### Application Search Behavior
+
+| Field | Value |
+| --- | --- |
+| `fulltext` | none |
+| `name_and_aliases` | proposed project name |
+| `sort_name` | proposed project name |
+
+### Application Parent References
+
+None. `target_parent_uid` remains document data and never enters `parent_refs`.
+
+### Delivery
+
+Messages use core NATS publish. A nil publish result means the client accepted the message; it is
+not a broker acknowledgement or confirmation that indexing completed. Publish failures are logged
+and do not change the API response.
+
+Each reconcile sweep republishes every live application. Delete atomically removes the PII-bearing
+row and retains a PII-free deletion marker; the sweep republishes every retained marker. Database
+writes commit before publication. Timed-out or reordered core NATS delivery is repaired by the
+retained source state; strict stale-event rejection requires revision-aware indexer handling. A
+mutation rejected by `If-Match` publishes nothing, so a caller reading a stale projection retries
+after the sweep refreshes it.

@@ -26,6 +26,14 @@ spec:
     - path:
         type: PathPrefix
         value: /_formations/
+    # Not under /formations, because an application is not a formation: it
+    # exists before any project does, so there is no project UID to key it by.
+    - path:
+        type: Exact
+        value: /project-applications
+    - path:
+        type: PathPrefix
+        value: /project-applications/
     {{- if .Values.heimdall.enabled }}
     filters:
       - type: ExtensionRef

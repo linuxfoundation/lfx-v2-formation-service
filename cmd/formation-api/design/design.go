@@ -51,6 +51,14 @@ func ETagAttribute() {
 	})
 }
 
+// ApplicationETagAttribute carries an application's new revision as bare
+// digits so it can be echoed into the Int64 If-Match field.
+func ApplicationETagAttribute() {
+	dsl.Attribute("etag", dsl.String, "The application's new revision. Send as If-Match on the next write.", func() {
+		dsl.Example("2")
+	})
+}
+
 var _ = dsl.Service("lfx_v2_formation_service", func() {
 	dsl.Description("LFX V2 Formation Service")
 
@@ -366,6 +374,271 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
+	// Project applications. These are the first routes here that are not
+	// under /formations/{project_uid}, and that is the object model rather
+	// than a naming choice: an application exists before any project does, so
+	// there is no project UID to key it by and no project to resolve a
+	// permission through.
+	//
+	// There is deliberately no collection route and no /me-scoped route.
+	// Listing — both a submitter's own applications and the staff review queue
+	// — is served by the query service over the indexed document, which
+	// resolves the reader's access per document. A collection endpoint here
+	// would have to re-derive that access in Go from a stored attribute, which
+	// is the design the architecture review names as the alternative it does
+	// not recommend, and it is how the two audiences' rules drift apart.
+	//
+	// There is no read-one route either, for the same reason: the query
+	// service already serves it, and a second read path is a second place for
+	// the access rule to be decided.
+	dsl.Method("create_application", func() {
+		dsl.Description("Submit an application to start a new foundation. Creates an application " +
+			"record and nothing else — no project, no checklist, no stage, no entity placement. " +
+			"The submitter's identity is recorded from the payload rather than from the caller's " +
+			"token: this route is called by the UI authenticating as itself, so the end user never " +
+			"presents a credential here. Anti-automation belongs to that caller; this service adds " +
+			"no second control. The response body carries revision 1; create does not duplicate it " +
+			"in an ETag header.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+
+			// Recorded as data, and named so on the wire. A caller holding the
+			// intake grant can name any submitter, which is a property of the
+			// create guard rather than something this route can check.
+			dsl.Attribute("submitter_username", dsl.String, "The applicant's username, as the calling UI knows it.")
+			dsl.Attribute("submitter_name", dsl.String, "The applicant's display name.")
+			dsl.Attribute("submitter_email", dsl.String, "The applicant's email address.", func() {
+				dsl.Format(dsl.FormatEmail)
+			})
+
+			// A hint, never a placement. The incorporated entity is chosen by
+			// whoever approves, and is deliberately not asked at intake, so
+			// nothing downstream may read this as where the project will sit.
+			dsl.Attribute("target_parent_uid", dsl.String,
+				"Optional. Where the applicant started from, carried as a hint to prefill the "+
+					"approver's form. It does not decide the parent or the incorporated entity, and "+
+					"it grants nobody anything. Normally absent.")
+
+			// The source names the intake fields but does not define their wire
+			// keys, types or requiredness. Keep the questionnaire as one map
+			// rather than inventing a typed contract.
+			dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any),
+				"The intake answers. Carries the proposed project's website as a URL. People "+
+					"named for the formation work are email addresses only — they are not "+
+					"resolved to platform identities, granted anything, or notified.")
+
+			dsl.Required("version", "submitter_username", "submitter_name", "submitter_email", "application")
+		})
+		dsl.Result(ProjectApplication)
+		dsl.Error("BadRequest", ApplicationError, "The payload itself is invalid")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/project-applications")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusCreated)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	// Revise and withdraw are one route each, open to the submitter and to
+	// the formation team alike. Neither carries an audience in its path or in
+	// its payload: the gateway resolves `writer` on the application object,
+	// and the model grants that relation to both. A `/me`-scoped twin of
+	// either route would be a second place for the same rule to be decided,
+	// and the two copies drift.
+	dsl.Method("revise_application", func() {
+		dsl.Description("Replace an application's answers without changing its state.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+
+			// A replacement rather than a merge. The questionnaire is an open
+			// map, so a merge would have no way to express "remove this
+			// answer" — a key absent from the request and a key the caller
+			// meant to clear are the same bytes.
+			dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any),
+				"The complete set of intake answers, replacing what is stored. Validated the same "+
+					"way the original submission was.")
+
+			dsl.Required("version", "uid", "if_match", "application")
+		})
+		dsl.Result(ProjectApplicationMutationResult)
+		dsl.Error("BadRequest", ApplicationError, "The payload itself is invalid")
+		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.PUT("/project-applications/{uid}")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("withdraw_application", func() {
+		dsl.Description("Withdraw an application and retain its record.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+
+			dsl.Required("version", "uid", "if_match")
+		})
+		dsl.Result(ProjectApplicationMutationResult)
+		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/project-applications/{uid}/withdraw")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	// Accepting and denying are separate routes rather than one route with a
+	// decision in the payload.
+	//
+	// The gateway authorizes a route, not a field, so a single route would
+	// have to admit anyone allowed to make either decision and then let the
+	// service sort out which was asked for — putting half the authorization
+	// question inside Go code, where these rules deliberately do not live.
+	// Two routes means each one's guard is the whole of its guard.
+	//
+	// Both are guarded on `formation_team`, which the submitter does not
+	// hold. That is what stops a submitter deciding their own application:
+	// revising, withdrawing and deleting need `writer`, which they do hold,
+	// and deciding needs a relation they do not.
+	dsl.Method("accept_application", func() {
+		dsl.Description("Accept an application without creating a project.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
+		})
+		dsl.Result(ProjectApplicationMutationResult)
+		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/project-applications/{uid}/accept")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("deny_application", func() {
+		dsl.Description("Deny an application and retain its record.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
+		})
+		dsl.Result(ProjectApplicationMutationResult)
+		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/project-applications/{uid}/deny")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusOK, func() {
+				dsl.Body("application")
+				dsl.Header("etag:ETag")
+			})
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("delete_application", func() {
+		dsl.Description("Delete an application from storage and search, and remove its submitter " +
+			"grant. The formation-team tuple is retained.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The application's unique identifier.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("if_match", dsl.Int64, "Must equal the application's current revision.")
+			dsl.Required("version", "uid", "if_match")
+		})
+		dsl.Error("NotFound", ApplicationError, "No such application")
+		dsl.Error("VersionMismatch", ApplicationError, "If-Match did not match the application's current revision")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.DELETE("/project-applications/{uid}")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Header("if_match:If-Match")
+			dsl.Response(dsl.StatusNoContent)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("VersionMismatch", dsl.StatusPreconditionFailed)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
 	dsl.Method("livez", func() {
 		dsl.Description("Liveness probe.")
 		dsl.Meta("swagger:generate", "false")
@@ -449,6 +722,73 @@ var FormationError = dsl.Type("FormationError", func() {
 	})
 	dsl.Required("name", "code", "message", "reason")
 })
+
+// ApplicationError is the error shape for the application routes.
+//
+// Separate from FormationError rather than sharing it: the two have disjoint
+// reason sets, and a shared enum would publish checklist reasons like
+// skip_reason_required on a route that can never produce one, inviting a
+// client to handle cases that do not exist and to treat the shared type as a
+// promise that they do.
+var ApplicationError = dsl.Type("ApplicationError", func() {
+	dsl.ErrorName("name", dsl.String, "Which declared error this is — matches the Error() name. Transport dispatch only; switch on reason, not this.")
+	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("400") })
+	dsl.Attribute("message", dsl.String, "Human-readable message")
+	dsl.Attribute("reason", dsl.String, "Machine-readable; switch on this, not on status.", func() {
+		dsl.Enum(
+			"not_found",
+			"application_uid_invalid",
+			"version_mismatch",
+			"submitter_username_required",
+			"project_website_invalid",
+			"formation_list_invalid",
+			"application_payload_too_large",
+		)
+	})
+	dsl.Required("name", "code", "message", "reason")
+})
+
+// ProjectApplication is one application as this service returns it.
+//
+// The submitter's name and email are on the wire because the routes that
+// return this are all reached through a relation on the application itself,
+// so every caller is either the submitter or the formation team. Nothing here
+// is readable on the public wildcard.
+//
+// No project_uid field, in either direction. An application belongs to no
+// project while under review, and nothing writes the created project's UID
+// back after acceptance — so "accepted and created" and "accepted, never
+// created" are indistinguishable from here. That is an accepted consequence
+// of the agreed hand-off, not an omission to be fixed by adding a field.
+var ProjectApplication = dsl.ResultType("application/vnd.project.application+json", "ProjectApplication", func() {
+	dsl.Attribute("uid", dsl.String, "The application's UID. The FGA object id and the indexed document id are both this value.")
+	// No dsl.Enum. Only accepted and denied are agreed names; the rest are
+	// this service's own, and publishing them as a closed set in the OpenAPI
+	// document would invite a client to reject a value it has not seen the
+	// first time one is added.
+	dsl.Attribute("state", dsl.String, "Where the application stands. accepted and denied are the two decided outcomes.", func() {
+		dsl.Example("submitted")
+	})
+	dsl.Attribute("revision", dsl.Int64, "Echo as If-Match on every mutation.")
+	dsl.Attribute("submitter_username", dsl.String)
+	dsl.Attribute("submitter_name", dsl.String)
+	dsl.Attribute("submitter_email", dsl.String)
+	dsl.Attribute("target_parent_uid", dsl.String, "Absent unless the applicant started from somewhere. A hint, never a placement.")
+	dsl.Attribute("application", dsl.MapOf(dsl.String, dsl.Any), "The intake answers, as submitted.")
+	dsl.Attribute("created_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
+	dsl.Attribute("updated_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
+	dsl.Required("uid", "state", "revision", "submitter_username", "submitter_name", "submitter_email", "application", "created_at", "updated_at")
+})
+
+var ProjectApplicationMutationResult = dsl.ResultType(
+	"application/vnd.project.application.mutation+json",
+	"ProjectApplicationMutationResult",
+	func() {
+		dsl.Attribute("application", ProjectApplication)
+		ApplicationETagAttribute()
+		dsl.Required("application")
+	},
+)
 
 // FormationSubItem is informational detail on a checklist item. The parent's
 // status is never derived from these.

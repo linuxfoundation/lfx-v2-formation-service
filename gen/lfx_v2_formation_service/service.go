@@ -53,6 +53,25 @@ type Service interface {
 	// stale value means re-read and retry. The response returns the new version as
 	// ETag.
 	UpdateItem(context.Context, *UpdateItemPayload) (res *UpdateItemResult, err error)
+	// Submit an application to start a new foundation. Creates an application
+	// record and nothing else — no project, no checklist, no stage, no entity
+	// placement. The submitter's identity is recorded from the payload rather than
+	// from the caller's token: this route is called by the UI authenticating as
+	// itself, so the end user never presents a credential here. Anti-automation
+	// belongs to that caller; this service adds no second control. The response
+	// body carries revision 1; create does not duplicate it in an ETag header.
+	CreateApplication(context.Context, *CreateApplicationPayload) (res *ProjectApplication, err error)
+	// Replace an application's answers without changing its state.
+	ReviseApplication(context.Context, *ReviseApplicationPayload) (res *ProjectApplicationMutationResult, err error)
+	// Withdraw an application and retain its record.
+	WithdrawApplication(context.Context, *WithdrawApplicationPayload) (res *ProjectApplicationMutationResult, err error)
+	// Accept an application without creating a project.
+	AcceptApplication(context.Context, *AcceptApplicationPayload) (res *ProjectApplicationMutationResult, err error)
+	// Deny an application and retain its record.
+	DenyApplication(context.Context, *DenyApplicationPayload) (res *ProjectApplicationMutationResult, err error)
+	// Delete an application from storage and search, and remove its submitter
+	// grant. The formation-team tuple is retained.
+	DeleteApplication(context.Context, *DeleteApplicationPayload) (err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -79,7 +98,32 @@ const ServiceName = "lfx_v2_formation_service"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [7]string{"get_formation", "get_formation_activity", "set_item_status", "assign_item", "update_item", "livez", "readyz"}
+var MethodNames = [13]string{"get_formation", "get_formation_activity", "set_item_status", "assign_item", "update_item", "create_application", "revise_application", "withdraw_application", "accept_application", "deny_application", "delete_application", "livez", "readyz"}
+
+// AcceptApplicationPayload is the payload type of the lfx_v2_formation_service
+// service accept_application method.
+type AcceptApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The application's unique identifier.
+	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
+}
+
+type ApplicationError struct {
+	// Which declared error this is — matches the Error() name. Transport dispatch
+	// only; switch on reason, not this.
+	Name string
+	// HTTP status code
+	Code string
+	// Human-readable message
+	Message string
+	// Machine-readable; switch on this, not on status.
+	Reason string
+}
 
 // AssignItemPayload is the payload type of the lfx_v2_formation_service
 // service assign_item method.
@@ -106,6 +150,55 @@ type AssignItemResult struct {
 	Item *FormationItem
 	// The item's new version. Send as If-Match on the next write.
 	Etag *string
+}
+
+// CreateApplicationPayload is the payload type of the lfx_v2_formation_service
+// service create_application method.
+type CreateApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The applicant's username, as the calling UI knows it.
+	SubmitterUsername string
+	// The applicant's display name.
+	SubmitterName string
+	// The applicant's email address.
+	SubmitterEmail string
+	// Optional. Where the applicant started from, carried as a hint to prefill the
+	// approver's form. It does not decide the parent or the incorporated entity,
+	// and it grants nobody anything. Normally absent.
+	TargetParentUID *string
+	// The intake answers. Carries the proposed project's website as a URL. People
+	// named for the formation work are email addresses only — they are not
+	// resolved to platform identities, granted anything, or notified.
+	Application map[string]any
+}
+
+// DeleteApplicationPayload is the payload type of the lfx_v2_formation_service
+// service delete_application method.
+type DeleteApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The application's unique identifier.
+	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
+}
+
+// DenyApplicationPayload is the payload type of the lfx_v2_formation_service
+// service deny_application method.
+type DenyApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The application's unique identifier.
+	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
 }
 
 type FormationActivityEntry struct {
@@ -288,6 +381,53 @@ type NotFoundError struct {
 	Message string
 }
 
+// ProjectApplication is the result type of the lfx_v2_formation_service
+// service create_application method.
+type ProjectApplication struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID string
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State string
+	// Echo as If-Match on every mutation.
+	Revision          int64
+	SubmitterUsername string
+	SubmitterName     string
+	SubmitterEmail    string
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string
+	// The intake answers, as submitted.
+	Application map[string]any
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+// ProjectApplicationMutationResult is the result type of the
+// lfx_v2_formation_service service revise_application method.
+type ProjectApplicationMutationResult struct {
+	Application *ProjectApplication
+	// The application's new revision. Send as If-Match on the next write.
+	Etag *string
+}
+
+// ReviseApplicationPayload is the payload type of the lfx_v2_formation_service
+// service revise_application method.
+type ReviseApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The application's unique identifier.
+	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
+	// The complete set of intake answers, replacing what is stored. Validated the
+	// same way the original submission was.
+	Application map[string]any
+}
+
 type ServiceUnavailableError struct {
 	// HTTP status code
 	Code string
@@ -356,6 +496,36 @@ type UpdateItemResult struct {
 	Item *FormationItem
 	// The item's new version. Send as If-Match on the next write.
 	Etag *string
+}
+
+// WithdrawApplicationPayload is the payload type of the
+// lfx_v2_formation_service service withdraw_application method.
+type WithdrawApplicationPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The application's unique identifier.
+	UID string
+	// Must equal the application's current revision.
+	IfMatch int64
+}
+
+// Error returns an error description.
+func (e *ApplicationError) Error() string {
+	return ""
+}
+
+// ErrorName returns "ApplicationError".
+//
+// Deprecated: Use GoaErrorName - https://github.com/goadesign/goa/issues/3105
+func (e *ApplicationError) ErrorName() string {
+	return e.GoaErrorName()
+}
+
+// GoaErrorName returns "ApplicationError".
+func (e *ApplicationError) GoaErrorName() string {
+	return e.Name
 }
 
 // Error returns an error description.
@@ -451,6 +621,34 @@ func NewFormationActivityPage(vres *lfxv2formationserviceviews.FormationActivity
 func NewViewedFormationActivityPage(res *FormationActivityPage, view string) *lfxv2formationserviceviews.FormationActivityPage {
 	p := newFormationActivityPageView(res)
 	return &lfxv2formationserviceviews.FormationActivityPage{Projected: p, View: "default"}
+}
+
+// NewProjectApplication initializes result type ProjectApplication from viewed
+// result type ProjectApplication.
+func NewProjectApplication(vres *lfxv2formationserviceviews.ProjectApplication) *ProjectApplication {
+	return newProjectApplication(vres.Projected)
+}
+
+// NewViewedProjectApplication initializes viewed result type
+// ProjectApplication from result type ProjectApplication using the given view.
+func NewViewedProjectApplication(res *ProjectApplication, view string) *lfxv2formationserviceviews.ProjectApplication {
+	p := newProjectApplicationView(res)
+	return &lfxv2formationserviceviews.ProjectApplication{Projected: p, View: "default"}
+}
+
+// NewProjectApplicationMutationResult initializes result type
+// ProjectApplicationMutationResult from viewed result type
+// ProjectApplicationMutationResult.
+func NewProjectApplicationMutationResult(vres *lfxv2formationserviceviews.ProjectApplicationMutationResult) *ProjectApplicationMutationResult {
+	return newProjectApplicationMutationResult(vres.Projected)
+}
+
+// NewViewedProjectApplicationMutationResult initializes viewed result type
+// ProjectApplicationMutationResult from result type
+// ProjectApplicationMutationResult using the given view.
+func NewViewedProjectApplicationMutationResult(res *ProjectApplicationMutationResult, view string) *lfxv2formationserviceviews.ProjectApplicationMutationResult {
+	p := newProjectApplicationMutationResultView(res)
+	return &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: "default"}
 }
 
 // newFormationChecklist converts projected type FormationChecklist to service
@@ -574,6 +772,98 @@ func newFormationActivityPageView(res *FormationActivityPage) *lfxv2formationser
 		}
 	} else {
 		vres.Entries = []*lfxv2formationserviceviews.FormationActivityEntryView{}
+	}
+	return vres
+}
+
+// newProjectApplication converts projected type ProjectApplication to service
+// type ProjectApplication.
+func newProjectApplication(vres *lfxv2formationserviceviews.ProjectApplicationView) *ProjectApplication {
+	res := &ProjectApplication{
+		TargetParentUID: vres.TargetParentUID,
+	}
+	if vres.UID != nil {
+		res.UID = *vres.UID
+	}
+	if vres.State != nil {
+		res.State = *vres.State
+	}
+	if vres.Revision != nil {
+		res.Revision = *vres.Revision
+	}
+	if vres.SubmitterUsername != nil {
+		res.SubmitterUsername = *vres.SubmitterUsername
+	}
+	if vres.SubmitterName != nil {
+		res.SubmitterName = *vres.SubmitterName
+	}
+	if vres.SubmitterEmail != nil {
+		res.SubmitterEmail = *vres.SubmitterEmail
+	}
+	if vres.CreatedAt != nil {
+		res.CreatedAt = *vres.CreatedAt
+	}
+	if vres.UpdatedAt != nil {
+		res.UpdatedAt = *vres.UpdatedAt
+	}
+	if vres.Application != nil {
+		res.Application = make(map[string]any, len(vres.Application))
+		for key, val := range vres.Application {
+			tk := key
+			tv := val
+			res.Application[tk] = tv
+		}
+	}
+	return res
+}
+
+// newProjectApplicationView projects result type ProjectApplication to
+// projected type ProjectApplicationView using the "default" view.
+func newProjectApplicationView(res *ProjectApplication) *lfxv2formationserviceviews.ProjectApplicationView {
+	vres := &lfxv2formationserviceviews.ProjectApplicationView{
+		UID:               &res.UID,
+		State:             &res.State,
+		Revision:          &res.Revision,
+		SubmitterUsername: &res.SubmitterUsername,
+		SubmitterName:     &res.SubmitterName,
+		SubmitterEmail:    &res.SubmitterEmail,
+		TargetParentUID:   res.TargetParentUID,
+		CreatedAt:         &res.CreatedAt,
+		UpdatedAt:         &res.UpdatedAt,
+	}
+	if res.Application != nil {
+		vres.Application = make(map[string]any, len(res.Application))
+		for key, val := range res.Application {
+			tk := key
+			tv := val
+			vres.Application[tk] = tv
+		}
+	}
+	return vres
+}
+
+// newProjectApplicationMutationResult converts projected type
+// ProjectApplicationMutationResult to service type
+// ProjectApplicationMutationResult.
+func newProjectApplicationMutationResult(vres *lfxv2formationserviceviews.ProjectApplicationMutationResultView) *ProjectApplicationMutationResult {
+	res := &ProjectApplicationMutationResult{
+		Etag: vres.Etag,
+	}
+	if vres.Application != nil {
+		res.Application = newProjectApplication(vres.Application)
+	}
+	return res
+}
+
+// newProjectApplicationMutationResultView projects result type
+// ProjectApplicationMutationResult to projected type
+// ProjectApplicationMutationResultView using the "default" view.
+func newProjectApplicationMutationResultView(res *ProjectApplicationMutationResult) *lfxv2formationserviceviews.ProjectApplicationMutationResultView {
+	vres := &lfxv2formationserviceviews.ProjectApplicationMutationResultView{
+		Etag: res.Etag,
+	}
+	if res.Application != nil {
+		vres.Application = newProjectApplicationView(res.Application)
 	}
 	return vres
 }

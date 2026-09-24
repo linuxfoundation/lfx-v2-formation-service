@@ -47,6 +47,30 @@ type Service struct {
 	activity   port.ActivityRepository
 	templates  port.TemplateRepository
 
+	// applications stores project applications. Nil fails the intake route
+	// closed as a 500 rather than as a declared refusal: an unwired store is
+	// a deployment fault, and answering "your submission was invalid" would
+	// be a lie the caller might act on by editing a payload that was fine.
+	applications port.ApplicationRepository
+
+	// applicationAccess grants the submitter and the formation team their
+	// standing on a new application. Nil leaves an application readable by
+	// nobody, including the person who filed it, so the create path logs
+	// loudly rather than reporting success quietly.
+	applicationAccess port.AccessPublisher
+
+	// applicationIndexer publishes the application's searchable document.
+	// Nil means the record exists and no queue shows it.
+	applicationIndexer port.IndexerPublisher
+
+	// applicationProjectionValidator checks the exact index envelope before
+	// an application write commits.
+	applicationProjectionValidator port.ApplicationProjectionValidator
+
+	// applicationTeam is the OpenFGA team granted review standing on every
+	// application created here.
+	applicationTeam string
+
 	// uow runs an item mutation and its activity entry as one transaction.
 	// UpdateItem fails closed (a plain error, not a declared error type,
 	// so it falls through as a 500) when this is nil rather than writing
@@ -136,6 +160,34 @@ func WithActivity(activity port.ActivityRepository) serviceOption {
 // WithTemplates wires the template repository.
 func WithTemplates(templates port.TemplateRepository) serviceOption {
 	return func(s *Service) { s.templates = templates }
+}
+
+// WithApplications wires the application repository. Omitting it fails the
+// intake route closed rather than accepting a submission it cannot store.
+func WithApplications(applications port.ApplicationRepository) serviceOption {
+	return func(s *Service) { s.applications = applications }
+}
+
+// WithApplicationAccess wires the publisher that grants access on an
+// application. Omitting it leaves applications unreadable.
+func WithApplicationAccess(access port.AccessPublisher) serviceOption {
+	return func(s *Service) { s.applicationAccess = access }
+}
+
+// WithApplicationIndexer wires the publisher that projects an application
+// into the search index. Omitting it keeps applications out of every queue.
+func WithApplicationIndexer(indexer port.IndexerPublisher) serviceOption {
+	return func(s *Service) { s.applicationIndexer = indexer }
+}
+
+// WithApplicationProjectionValidator wires the private index-envelope check.
+func WithApplicationProjectionValidator(validator port.ApplicationProjectionValidator) serviceOption {
+	return func(s *Service) { s.applicationProjectionValidator = validator }
+}
+
+// WithApplicationTeam names the team granted review standing on applications.
+func WithApplicationTeam(team string) serviceOption {
+	return func(s *Service) { s.applicationTeam = team }
 }
 
 // WithProjects wires the project reader. Omitting it degrades

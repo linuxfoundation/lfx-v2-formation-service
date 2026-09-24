@@ -13,11 +13,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
+	apiService "github.com/linuxfoundation/lfx-v2-formation-service/cmd/formation-api/service"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/config"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/postgres"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/service"
@@ -47,6 +49,8 @@ Usage:
                                   With no argument, covers every checklist.
                                   Adds only; never removes an item or resets a status.
   formation-cli validate          Check the embedded template content, touching no database
+  formation-cli repair-applications
+                                  Republish live applications and retry retained deletions
   formation-cli version           Print build information
 `
 
@@ -77,6 +81,8 @@ func run(ctx context.Context, command string) error {
 		}
 		slog.InfoContext(ctx, "template content is valid")
 		return nil
+	case "repair-applications":
+		return repairApplicationsCommand(ctx)
 	case "version":
 		fmt.Printf("version=%s build_time=%s git_commit=%s\n", version, buildTime, gitCommit)
 		return nil
@@ -87,6 +93,30 @@ func run(ctx context.Context, command string) error {
 		flag.Usage()
 		return fmt.Errorf("unknown command %q", command)
 	}
+}
+
+func repairApplicationsCommand(ctx context.Context) error {
+	cfg := config.LoadConfig()
+	return withDatabaseConfig(ctx, cfg, func(db *postgres.DB) error {
+		applications := postgres.NewApplicationRepo(db.Bun)
+		repairer := service.NewService(
+			service.WithApplications(applications),
+			service.WithApplicationAccess(apiService.AccessPublisherImpl(ctx, cfg)),
+			service.WithApplicationIndexer(apiService.IndexerPublisherImpl(ctx, cfg)),
+			service.WithApplicationTeam(cfg.ApplicationFormationTeam),
+		)
+		report, err := repairer.RepairApplications(ctx)
+		if report != nil {
+			slog.InfoContext(ctx, "application repair finished",
+				"live_attempted", report.LiveAttempted,
+				"delete_attempted", report.DeletedAttempted,
+				"failed", report.Failed)
+			if report.Failed != 0 {
+				return errors.Join(err, fmt.Errorf("%d application repairs failed", report.Failed))
+			}
+		}
+		return err
+	})
 }
 
 // seedCommand connects, then delegates. The connection is opened here rather
@@ -162,7 +192,12 @@ func upgradeCommand(ctx context.Context, projectUID string) error {
 // run against a database the API has not prepared.
 func withDatabase(ctx context.Context, fn func(*postgres.DB) error) error {
 	cfg := config.LoadConfig()
+	return withDatabaseConfig(ctx, cfg, fn)
+}
 
+func withDatabaseConfig(
+	ctx context.Context, cfg *config.Config, fn func(*postgres.DB) error,
+) error {
 	slog.InfoContext(ctx, "connecting to postgres", "database", cfg.Database.Redacted())
 	db, err := postgres.Connect(ctx, cfg.Database.DSN())
 	if err != nil {

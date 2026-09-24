@@ -286,6 +286,167 @@ func (p *IndexerPublisher) DeleteItem(ctx context.Context, itemUID string) error
 	return p.deleteDocument(ctx, IndexItemSubject, itemUID, "item_uid")
 }
 
+const (
+	natsDefaultMaxPayloadBytes = 1 << 20
+	// Publish injects trace context and baggage after encoding the envelope.
+	maxApplicationNATSHeaderBytes = 64 << 10
+	maxApplicationProjectionBytes = natsDefaultMaxPayloadBytes - maxApplicationNATSHeaderBytes
+)
+
+// ApplicationProjectionValidator checks the exact application index envelope
+// without publishing it.
+type ApplicationProjectionValidator struct{}
+
+// NewApplicationProjectionValidator constructs a stateless envelope validator.
+func NewApplicationProjectionValidator() *ApplicationProjectionValidator {
+	return &ApplicationProjectionValidator{}
+}
+
+// ValidateApplication checks that one application can be encoded and carried
+// by the index transport.
+func (v *ApplicationProjectionValidator) ValidateApplication(doc *port.ApplicationProjection) error {
+	_, err := encodeApplicationProjection(doc)
+	return err
+}
+
+// PublishApplication upserts one application's projection.
+//
+// A different document from the two above in every way that matters, and
+// built separately rather than by adapting them:
+//
+//   - The access check is against the application itself, not a project. The
+//     other two resolve through `project:<uid>`, which an application does not
+//     have and will not have until somebody accepts it.
+//   - No parent refs. The staff queue is reached by navigating the project
+//     tree, but it is not scoped by it — an application belongs to no entity
+//     at all, and publishing ancestry would let the LF subtree filter rows out
+//     of the queue that is supposed to show all of them.
+//   - No project tags. There is no project to tag it with.
+//
+// The application repair lane republishes this independently of project
+// reconciliation.
+func (p *IndexerPublisher) PublishApplication(ctx context.Context, doc *port.ApplicationProjection) error {
+	payload, err := encodeApplicationProjection(doc)
+	if err != nil {
+		return err
+	}
+	return p.client.Publish(ctx, IndexApplicationSubject, payload)
+}
+
+func encodeApplicationProjection(doc *port.ApplicationProjection) ([]byte, error) {
+	if doc == nil {
+		return nil, fmt.Errorf("nil application projection")
+	}
+	if doc.ApplicationUID == "" {
+		// Becomes indexing_config.object_id, which the indexer requires and
+		// refuses the message without — a refusal that arrives here as
+		// silence, because the publish is fire-and-forget.
+		return nil, fmt.Errorf("application projection has no application_uid")
+	}
+	if doc.AccessRelation == "" {
+		// Refuse projections that do not explicitly name their read relation.
+		return nil, fmt.Errorf("application projection %s declares no access relation", doc.ApplicationUID)
+	}
+
+	object := applicationRefPrefix + doc.ApplicationUID
+	config := accessBlock(doc.ApplicationUID, object, doc.AccessRelation)
+	config.SortName = doc.ProjectName
+	config.NameAndAliases = applicationNameAndAliases(doc)
+	config.Tags = applicationTags(doc)
+
+	envelope := indexerMessage{
+		Action:         indexerConstants.ActionUpdated,
+		Headers:        serviceAccountHeaders(),
+		Data:           newApplicationProjectionWire(doc),
+		IndexingConfig: config,
+	}
+
+	payload, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, fmt.Errorf("encoding the application projection: %w", err)
+	}
+	if len(payload) > maxApplicationProjectionBytes {
+		return nil, fmt.Errorf(
+			"application projection is %d bytes; maximum is %d bytes after reserving NATS headers",
+			len(payload), maxApplicationProjectionBytes,
+		)
+	}
+	return payload, nil
+}
+
+// applicationProjectionWire is the searchable body for one application.
+//
+// The same allowlist discipline as itemProjectionWire: a field added to
+// ApplicationProjection cannot reach the index without being named here. That
+// matters more on this document because its questionnaire contains
+// person-level data. The payload and target-parent hint are included
+// explicitly for relation-checked review and project-create prefilling.
+//
+// The submitter's email is present and is PII. It is here because the queue
+// renders it on the row, and it is safe only because the access check on this
+// document resolves to the submitter and the formation team and nobody else.
+type applicationProjectionWire struct {
+	ObjectID          string         `json:"object_id"`
+	State             string         `json:"state"`
+	Revision          int64          `json:"revision"`
+	SubmitterUsername string         `json:"submitter_username"`
+	SubmitterName     string         `json:"submitter_name"`
+	SubmitterEmail    string         `json:"submitter_email"`
+	ProjectName       string         `json:"project_name"`
+	Application       map[string]any `json:"application"`
+	TargetParentUID   *string        `json:"target_parent_uid"`
+	CreatedAt         string         `json:"created_at"`
+	UpdatedAt         string         `json:"updated_at"`
+}
+
+// newApplicationProjectionWire converts the domain projection to its wire
+// shape. Deliberately no project_uid or ancestry: target_parent_uid is private
+// payload data, not an indexing parent or placement.
+func newApplicationProjectionWire(doc *port.ApplicationProjection) *applicationProjectionWire {
+	return &applicationProjectionWire{
+		ObjectID:          doc.ApplicationUID,
+		State:             doc.State,
+		Revision:          doc.Revision,
+		SubmitterUsername: doc.SubmitterUsername,
+		SubmitterName:     doc.SubmitterName,
+		SubmitterEmail:    doc.SubmitterEmail,
+		ProjectName:       doc.ProjectName,
+		Application:       doc.Payload,
+		TargetParentUID:   doc.TargetParentUID,
+		CreatedAt:         doc.CreatedAt,
+		UpdatedAt:         doc.UpdatedAt,
+	}
+}
+
+// applicationNameAndAliases feeds the indexer's name search with the proposed
+// project's name. No slug: nothing has been created, so there is no slug and
+// no URL anybody could have pasted.
+func applicationNameAndAliases(doc *port.ApplicationProjection) []string {
+	if doc.ProjectName == "" {
+		return nil
+	}
+	return []string{doc.ProjectName}
+}
+
+// applicationTags are the exact-match filters the queue and the submitter's
+// own list use.
+//
+// submitter: is what makes "my applications" one query rather than a filter
+// applied after an unrestricted read — the design the architecture review
+// names as the alternative it does not recommend. It discloses nothing
+// further: the same username is already in the document body, and both are
+// behind the same access check.
+func applicationTags(doc *port.ApplicationProjection) []string {
+	tags := make([]string, 0, 2)
+	if doc.State != "" {
+		tags = append(tags, tagState+doc.State)
+	}
+	if doc.SubmitterUsername != "" {
+		tags = append(tags, tagSubmitter+doc.SubmitterUsername)
+	}
+	return tags
+}
+
 // indexerMessage is the upsert envelope: the indexer's own, narrowed so that
 // Data cannot be an arbitrary domain type.
 //
@@ -557,4 +718,10 @@ func projectionTags(doc *port.FormationProjection) []string {
 		tags = append(tags, tagAssignee+a)
 	}
 	return tags
+}
+
+// DeleteApplication removes one application's projection from the index. See
+// deleteDocument for the envelope shape and why it differs from the upsert.
+func (p *IndexerPublisher) DeleteApplication(ctx context.Context, applicationUID string) error {
+	return p.deleteDocument(ctx, IndexApplicationSubject, applicationUID, "application_uid")
 }

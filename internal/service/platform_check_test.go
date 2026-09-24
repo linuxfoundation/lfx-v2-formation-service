@@ -43,7 +43,7 @@ func platformFixtureRequiring(
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
 	activity := mock.NewActivityRepository()
-	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+	uow := mock.NewUnitOfWork(formations, items, activity, templates, mock.NewApplicationRepository())
 
 	formation, err := formations.Create(context.Background(), &model.Formation{
 		ProjectUID: "project-1", Lifecycle: model.LifecycleLive,
@@ -366,7 +366,7 @@ func TestEachRowResolvesAgainstItsOwnLookup(t *testing.T) {
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
 	activity := mock.NewActivityRepository()
-	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+	uow := mock.NewUnitOfWork(formations, items, activity, templates, mock.NewApplicationRepository())
 
 	formation, err := formations.Create(context.Background(), &model.Formation{
 		ProjectUID: "project-1", Lifecycle: model.LifecycleLive,

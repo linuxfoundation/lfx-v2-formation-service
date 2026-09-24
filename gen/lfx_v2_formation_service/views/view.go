@@ -30,6 +30,24 @@ type FormationActivityPage struct {
 	View string
 }
 
+// ProjectApplication is the viewed result type that is projected based on a
+// view.
+type ProjectApplication struct {
+	// Type to project
+	Projected *ProjectApplicationView
+	// View to render
+	View string
+}
+
+// ProjectApplicationMutationResult is the viewed result type that is projected
+// based on a view.
+type ProjectApplicationMutationResult struct {
+	// Type to project
+	Projected *ProjectApplicationMutationResultView
+	// View to render
+	View string
+}
+
 // FormationChecklistView is a type that runs validations on a projected type.
 type FormationChecklistView struct {
 	ProjectUID      *string
@@ -165,6 +183,36 @@ type FormationActivityEntryView struct {
 	At     *string
 }
 
+// ProjectApplicationView is a type that runs validations on a projected type.
+type ProjectApplicationView struct {
+	// The application's UID. The FGA object id and the indexed document id are
+	// both this value.
+	UID *string
+	// Where the application stands. accepted and denied are the two decided
+	// outcomes.
+	State *string
+	// Echo as If-Match on every mutation.
+	Revision          *int64
+	SubmitterUsername *string
+	SubmitterName     *string
+	SubmitterEmail    *string
+	// Absent unless the applicant started from somewhere. A hint, never a
+	// placement.
+	TargetParentUID *string
+	// The intake answers, as submitted.
+	Application map[string]any
+	CreatedAt   *string
+	UpdatedAt   *string
+}
+
+// ProjectApplicationMutationResultView is a type that runs validations on a
+// projected type.
+type ProjectApplicationMutationResultView struct {
+	Application *ProjectApplicationView
+	// The application's new revision. Send as If-Match on the next write.
+	Etag *string
+}
+
 var (
 	// FormationChecklistMap is a map indexing the attribute names of
 	// FormationChecklist by view name.
@@ -188,6 +236,30 @@ var (
 			"next_cursor",
 		},
 	}
+	// ProjectApplicationMap is a map indexing the attribute names of
+	// ProjectApplication by view name.
+	ProjectApplicationMap = map[string][]string{
+		"default": {
+			"uid",
+			"state",
+			"revision",
+			"submitter_username",
+			"submitter_name",
+			"submitter_email",
+			"target_parent_uid",
+			"application",
+			"created_at",
+			"updated_at",
+		},
+	}
+	// ProjectApplicationMutationResultMap is a map indexing the attribute names of
+	// ProjectApplicationMutationResult by view name.
+	ProjectApplicationMutationResultMap = map[string][]string{
+		"default": {
+			"application",
+			"etag",
+		},
+	}
 )
 
 // ValidateFormationChecklist runs the validations defined on the viewed result
@@ -208,6 +280,30 @@ func ValidateFormationActivityPage(result *FormationActivityPage) (err error) {
 	switch result.View {
 	case "default", "":
 		err = ValidateFormationActivityPageView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateProjectApplication runs the validations defined on the viewed result
+// type ProjectApplication.
+func ValidateProjectApplication(result *ProjectApplication) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateProjectApplicationView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateProjectApplicationMutationResult runs the validations defined on the
+// viewed result type ProjectApplicationMutationResult.
+func ValidateProjectApplicationMutationResult(result *ProjectApplicationMutationResult) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateProjectApplicationMutationResultView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -470,6 +566,59 @@ func ValidateFormationActivityEntryView(result *FormationActivityEntryView) (err
 	}
 	if result.At != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("result.at", *result.At, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateProjectApplicationView runs the validations defined on
+// ProjectApplicationView using the "default" view.
+func ValidateProjectApplicationView(result *ProjectApplicationView) (err error) {
+	if result.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "result"))
+	}
+	if result.State == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("state", "result"))
+	}
+	if result.Revision == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("revision", "result"))
+	}
+	if result.SubmitterUsername == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_username", "result"))
+	}
+	if result.SubmitterName == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_name", "result"))
+	}
+	if result.SubmitterEmail == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("submitter_email", "result"))
+	}
+	if result.Application == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("application", "result"))
+	}
+	if result.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "result"))
+	}
+	if result.UpdatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("updated_at", "result"))
+	}
+	if result.CreatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.created_at", *result.CreatedAt, goa.FormatDateTime))
+	}
+	if result.UpdatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.updated_at", *result.UpdatedAt, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateProjectApplicationMutationResultView runs the validations defined on
+// ProjectApplicationMutationResultView using the "default" view.
+func ValidateProjectApplicationMutationResultView(result *ProjectApplicationMutationResultView) (err error) {
+	if result.Application == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("application", "result"))
+	}
+	if result.Application != nil {
+		if err2 := ValidateProjectApplicationView(result.Application); err2 != nil {
+			err = goa.MergeErrors(err, err2)
+		}
 	}
 	return
 }

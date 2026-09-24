@@ -37,6 +37,36 @@ func UpdateItemLfxV2FormationServicePath(projectUID string, itemKey string) stri
 	return fmt.Sprintf("/formations/%v/items/%v", projectUID, itemKey)
 }
 
+// CreateApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service create_application HTTP endpoint.
+func CreateApplicationLfxV2FormationServicePath() string {
+	return "/project-applications"
+}
+
+// ReviseApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service revise_application HTTP endpoint.
+func ReviseApplicationLfxV2FormationServicePath(uid string) string {
+	return fmt.Sprintf("/project-applications/%v", uid)
+}
+
+// WithdrawApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service withdraw_application HTTP endpoint.
+func WithdrawApplicationLfxV2FormationServicePath(uid string) string {
+	return fmt.Sprintf("/project-applications/%v/withdraw", uid)
+}
+
+// AcceptApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service accept_application HTTP endpoint.
+func AcceptApplicationLfxV2FormationServicePath(uid string) string {
+	return fmt.Sprintf("/project-applications/%v/accept", uid)
+}
+
+// DenyApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service deny_application HTTP endpoint.
+func DenyApplicationLfxV2FormationServicePath(uid string) string {
+	return fmt.Sprintf("/project-applications/%v/deny", uid)
+}
+
+// DeleteApplicationLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service delete_application HTTP endpoint.
+func DeleteApplicationLfxV2FormationServicePath(uid string) string {
+	return fmt.Sprintf("/project-applications/%v", uid)
+}
+
 // LivezLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service livez HTTP endpoint.
 func LivezLfxV2FormationServicePath() string {
 	return "/livez"

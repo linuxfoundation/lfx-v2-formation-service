@@ -29,7 +29,7 @@ func newItemMutatorTestService(t *testing.T) (*Service, *model.Formation, *model
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
 	activity := mock.NewActivityRepository()
-	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+	uow := mock.NewUnitOfWork(formations, items, activity, templates, mock.NewApplicationRepository())
 
 	template, err := templates.Upsert(context.Background(), &model.Template{
 		Name: "default", Version: 1, State: model.TemplatePublished,

@@ -34,7 +34,7 @@ func newExpansionFixture(t *testing.T, sections []model.TemplateSection, project
 	items := mock.NewItemRepository()
 	activity := mock.NewActivityRepository()
 	templates := mock.NewTemplateRepository()
-	uow := mock.NewUnitOfWork(formations, items, activity, templates)
+	uow := mock.NewUnitOfWork(formations, items, activity, templates, mock.NewApplicationRepository())
 
 	_, err := templates.Upsert(context.Background(), &model.Template{
 		Name:     "Project formation",
@@ -453,7 +453,7 @@ func TestExpandForWithNoPublishedTemplate(t *testing.T) {
 	formations := mock.NewFormationRepository()
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
-	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates)
+	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates, mock.NewApplicationRepository())
 
 	expander := NewExpander(NewTemplateSelector(templates), uow, nil)
 	if _, err := expander.ExpandFor(ctx, "project-1", TriggerSweep); err == nil {

@@ -60,7 +60,8 @@ func testDB(t *testing.T) *bun.DB {
 		t.Fatalf("apply schema: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`TRUNCATE formation_activity, formation_items, formations, formation_templates CASCADE`,
+		`TRUNCATE formation_activity, formation_items, formations, formation_templates,
+		          project_application_deletions, project_applications CASCADE`,
 	); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
@@ -87,6 +88,8 @@ func TestApplySchemaIsIdempotent(t *testing.T) {
 		"formations",
 		"formation_items",
 		"formation_activity",
+		"project_applications",
+		"project_application_deletions",
 	} {
 		var count int
 		if err := pool.QueryRow(ctx,
@@ -99,6 +102,44 @@ func TestApplySchemaIsIdempotent(t *testing.T) {
 		if count != 1 {
 			t.Errorf("table %s: got %d definitions, want exactly 1", table, count)
 		}
+	}
+}
+
+func TestApplySchemaAddsApplicationRevisionOverAnOlderTable(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `TRUNCATE project_applications`); err != nil {
+		t.Fatalf("truncate applications: %v", err)
+	}
+	var uid string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO project_applications (
+			state, submitter_username, submitter_name, submitter_email
+		) VALUES ('submitted', 'asmith', 'A Smith', 'asmith@example.test')
+		RETURNING uid`,
+	).Scan(&uid); err != nil {
+		t.Fatalf("seed application: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE project_applications DROP COLUMN revision`); err != nil {
+		t.Fatalf("reproduce older application table: %v", err)
+	}
+
+	if err := ApplySchema(ctx, pool); err != nil {
+		t.Fatalf("apply over older application table: %v", err)
+	}
+
+	var revision int64
+	if err := pool.QueryRow(ctx,
+		`SELECT revision FROM project_applications WHERE uid = $1`, uid,
+	).Scan(&revision); err != nil {
+		t.Fatalf("read migrated revision: %v", err)
+	}
+	if revision != 1 {
+		t.Errorf("revision = %d, want 1", revision)
 	}
 }
 

@@ -78,6 +78,9 @@ type IndexerPublisher struct {
 	itemPublished capture[*port.ItemProjection]
 	itemDeleted   capture[string]
 
+	applicationPublished capture[*port.ApplicationProjection]
+	applicationDeleted   capture[string]
+
 	// itemBatches counts PublishItems calls, which the captures above cannot:
 	// this double fans a batch out into one PublishItem record per document,
 	// exactly as a caller looping over items would.
@@ -178,6 +181,49 @@ func (p *IndexerPublisher) DeleteItem(_ context.Context, itemUID string) error {
 	}
 	p.itemDeleted.add(itemUID)
 	return nil
+}
+
+// PublishApplication records the application projection, or fails if SetError
+// armed an error.
+func (p *IndexerPublisher) PublishApplication(_ context.Context, doc *port.ApplicationProjection) error {
+	if err := p.armedError(); err != nil {
+		return err
+	}
+	copied := *doc
+	p.applicationPublished.add(&copied)
+	return nil
+}
+
+// ApplicationPublished returns every application projection published so far,
+// in order.
+func (p *IndexerPublisher) ApplicationPublished() []*port.ApplicationProjection {
+	return p.applicationPublished.all()
+}
+
+// DeleteApplication records the removal, or fails if SetError armed an error.
+func (p *IndexerPublisher) DeleteApplication(_ context.Context, applicationUID string) error {
+	if err := p.armedError(); err != nil {
+		return err
+	}
+	p.applicationDeleted.add(applicationUID)
+	return nil
+}
+
+// ApplicationDeleted returns the application UIDs removed so far, in order.
+func (p *IndexerPublisher) ApplicationDeleted() []string {
+	return p.applicationDeleted.all()
+}
+
+// LatestApplication returns the most recent projection for an application, or
+// nil.
+func (p *IndexerPublisher) LatestApplication(applicationUID string) *port.ApplicationProjection {
+	doc, ok := p.applicationPublished.latest(func(d *port.ApplicationProjection) bool {
+		return d.ApplicationUID == applicationUID
+	})
+	if !ok {
+		return nil
+	}
+	return doc
 }
 
 // Deleted returns the formation UIDs removed so far, in order.

@@ -110,6 +110,49 @@ CREATE TABLE IF NOT EXISTS formation_items (
 CREATE INDEX IF NOT EXISTS formation_items_formation_idx ON formation_items (formation_uid, section_key, position);
 CREATE INDEX IF NOT EXISTS formation_items_assignee_idx  ON formation_items (assignee) WHERE assignee IS NOT NULL;
 
+-- Project applications. Unrelated to every table above: an application exists
+-- before any project does, so it has no project_uid and no formation, and
+-- nothing here references or is referenced by a checklist.
+--
+-- state carries no CHECK constraint. Only 'accepted' and 'denied' are fixed
+-- names; what an application is called before a decision, and after a
+-- withdraw, is not settled, and a CHECK would freeze a vocabulary nobody has
+-- agreed to into the one place that is hardest to change later.
+--
+-- target_parent_uid is a hint prefilled from wherever the submitter started.
+-- It never decides the incorporated entity and never grants anyone anything,
+-- so it is nullable and — like project_uid above — an opaque reference with no
+-- foreign key.
+CREATE TABLE IF NOT EXISTS project_applications (
+    uid                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    state              TEXT        NOT NULL,
+    revision           BIGINT      NOT NULL DEFAULT 1,
+
+    -- The submitter as data, not as a credential. The UI creates the record as
+    -- itself, so the end user never authenticates to this service and nothing
+    -- attests these three columns at write time.
+    submitter_username TEXT        NOT NULL,
+    submitter_name     TEXT        NOT NULL,
+    submitter_email    TEXT        NOT NULL,
+
+    target_parent_uid  TEXT,                                 -- opaque; a hint, never a placement
+
+    -- The source names the intake fields but does not define wire keys, types
+    -- or requiredness, so the answers remain one document.
+    payload            JSONB       NOT NULL DEFAULT '{}',
+
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- PII-free markers make a lost application cleanup recoverable without
+-- retaining the deleted intake answers or applicant identity.
+CREATE TABLE IF NOT EXISTS project_application_deletions (
+    uid        UUID        PRIMARY KEY,
+    revision   BIGINT      NOT NULL,
+    deleted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Append-only activity feed. ULID primary keys give a time-ordered feed and
 -- cursor paging from a plain index read. Rows are never updated, so there is
 -- no revision column. Entries are written in the same transaction as the
@@ -147,6 +190,9 @@ CREATE INDEX IF NOT EXISTS formation_activity_item_idx ON formation_activity (fo
 -- the missing column. Columns therefore have to be added twice: in the
 -- definition, for a new database, and here, for an existing one. Each statement
 -- stays idempotent for the same reason the rest of the file does.
+
+-- project_applications.revision supports databases created before application revisioning.
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
 
 -- formations.sections carries the section snapshot the checklist serves.
 ALTER TABLE formations ADD COLUMN IF NOT EXISTS sections JSONB NOT NULL DEFAULT '[]';
