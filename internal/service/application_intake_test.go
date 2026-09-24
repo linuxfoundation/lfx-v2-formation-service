@@ -4,6 +4,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -23,9 +24,19 @@ func intakePayload() *svc.CreateApplicationPayload {
 		SubmitterName:     "A Smith",
 		SubmitterEmail:    "asmith@example.test",
 		Application: map[string]any{
-			"project_name":    "Proposed Project",
-			"project_website": "https://proposed.example.test",
-			"formation_list":  []any{"one@example.test", "two@example.test"},
+			"project_name":              "Proposed Project",
+			"project_repository_url":    "https://github.com/example/proposed",
+			"project_website":           "https://proposed.example.test",
+			"trademark_status":          "not_sure",
+			"contributing_organization": "Example Organization",
+			"legal_contact_email":       "legal@example.test",
+			"formation_list":            []any{"one@example.test", "two@example.test"},
+			"license":                   "Apache-2.0",
+			"chat_platform":             "slack",
+			"mission_statement":         "Build the proposed project.",
+			"agreement_type":            "dco",
+			"is_spec_project":           false,
+			"description":               "A proposed open source project.",
 		},
 	}
 }
@@ -48,6 +59,15 @@ func intakeService(t *testing.T) (
 		WithItems(items),
 	)
 	return s, applications, formations, items
+}
+
+func snapshotApplication(t *testing.T, application map[string]any) map[string]any {
+	t.Helper()
+	encoded, err := json.Marshal(application)
+	require.NoError(t, err)
+	var snapshot map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &snapshot))
+	return snapshot
 }
 
 func TestCreateApplicationRecordsSubmitterFromThePayload(t *testing.T) {
@@ -78,6 +98,28 @@ func TestCreateApplicationNormalizesSubmitterUsername(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "asmith", got.SubmitterUsername)
+}
+
+func TestCreateApplicationPreservesCanonicalAnswers(t *testing.T) {
+	s, _, _, _ := intakeService(t)
+	p := intakePayload()
+	want := snapshotApplication(t, p.Application)
+
+	got, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+	require.NoError(t, err)
+	assert.Equal(t, want, got.Application)
+}
+
+func TestCreateApplicationAcceptsLegacyFormationListAddress(t *testing.T) {
+	s, _, _, _ := intakeService(t)
+	p := intakePayload()
+	p.Application["formation_list"] = []any{"a@b@c"}
+
+	got, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+	require.NoError(t, err)
+	assert.Equal(t, []any{"a@b@c"}, got.Application["formation_list"])
 }
 
 // A submission produces an application and no other platform state.
@@ -167,6 +209,20 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			reason: "submitter_username_required",
 		},
 		{
+			name: "project name has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_name"] = false
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "repository is not an HTTP URL",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["project_repository_url"] = "git@example.test:repo"
+			},
+			reason: "application_field_invalid",
+		},
+		{
 			name: "website is not a URL",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_website"] = "proposed.example.test"
@@ -174,11 +230,81 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			reason: reasonProjectWebsiteBad,
 		},
 		{
+			name: "trademark status has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["trademark_status"] = true
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "contributing organization has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["contributing_organization"] = []any{}
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "legal contact is not an email address",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["legal_contact_email"] = "not-an-address"
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "legal contact has multiple at signs",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["legal_contact_email"] = "a@b@c"
+			},
+			reason: "application_field_invalid",
+		},
+		{
 			name: "formation list carries something that is not an address",
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["formation_list"] = []any{"not-an-address"}
 			},
 			reason: reasonFormationListInvalid,
+		},
+		{
+			name: "license has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["license"] = 42
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "chat platform has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["chat_platform"] = false
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "mission statement has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["mission_statement"] = []any{}
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "agreement type has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["agreement_type"] = 7
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "specification flag has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["is_spec_project"] = "yes"
+			},
+			reason: "application_field_invalid",
+		},
+		{
+			name: "description has the wrong type",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["description"] = map[string]any{}
+			},
+			reason: "application_field_invalid",
 		},
 		{
 			name: "project name would overfill the duplicated index metadata",
@@ -203,6 +329,68 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			assert.Equal(t, "400", appErr.Code)
 			assert.NotContains(t, applications.Calls(), "applications.Create",
 				"a refused payload must not be stored")
+		})
+	}
+}
+
+func TestCreateApplicationAcceptsMissingNullAndBlankCanonicalFields(t *testing.T) {
+	textFields := []string{
+		"project_name",
+		"project_repository_url",
+		"project_website",
+		"trademark_status",
+		"contributing_organization",
+		"legal_contact_email",
+		"license",
+		"chat_platform",
+		"mission_statement",
+		"agreement_type",
+		"description",
+	}
+	allFields := append(append([]string{}, textFields...), "formation_list", "is_spec_project")
+
+	cases := map[string]map[string]any{
+		"no canonical fields":  {},
+		"empty formation list": {"formation_list": []any{}},
+		"unknown field and value": {
+			"future_field": map[string]any{"nested": []any{"value"}},
+		},
+		"arbitrary trademark status": {
+			"trademark_status": "anything-at-all",
+		},
+		"arbitrary license": {
+			"license": "custom-license-expression",
+		},
+		"arbitrary chat platform": {
+			"chat_platform": "carrier-pigeon",
+		},
+		"arbitrary agreement type": {
+			"agreement_type": "handshake",
+		},
+		"false specification flag": {
+			"is_spec_project": false,
+		},
+		"true specification flag": {
+			"is_spec_project": true,
+		},
+	}
+	for _, field := range allFields {
+		cases[field+" is null"] = map[string]any{field: nil}
+	}
+	for _, field := range textFields {
+		cases[field+" is blank"] = map[string]any{field: ""}
+	}
+
+	for name, application := range cases {
+		t.Run(name, func(t *testing.T) {
+			s, _, _, _ := intakeService(t)
+			p := intakePayload()
+			p.Application = application
+
+			got, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+			require.NoError(t, err)
+			assert.Equal(t, application, got.Application)
 		})
 	}
 }

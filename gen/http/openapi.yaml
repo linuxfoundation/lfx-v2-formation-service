@@ -934,7 +934,7 @@ definitions:
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: version_mismatch
+                example: formation_list_invalid
                 enum:
                     - not_found
                     - application_uid_invalid
@@ -942,13 +942,14 @@ definitions:
                     - submitter_username_required
                     - project_website_invalid
                     - formation_list_invalid
+                    - application_field_invalid
                     - application_payload_too_large
         description: The payload itself is invalid
         example:
             code: "400"
             message: Dolorem provident ea voluptatem qui.
             name: Placeat harum sint aspernatur reprehenderit eos.
-            reason: version_mismatch
+            reason: application_payload_too_large
         required:
             - name
             - code
@@ -1716,7 +1717,7 @@ definitions:
         properties:
             application:
                 type: object
-                description: The intake answers. Carries the proposed project's website as a URL. People named for the formation work are email addresses only — they are not resolved to platform identities, granted anything, or notified.
+                description: 'The intake answers. Canonical keys (all optional): project_name, project_repository_url, project_website, trademark_status, contributing_organization, legal_contact_email, formation_list, license, chat_platform, mission_statement, agreement_type, is_spec_project, description. Unknown keys are retained. Create and revise apply identical validation.'
                 example:
                     Magnam asperiores qui sed labore dolor.: Reprehenderit quibusdam.
                     Qui eos voluptatem.: Enim enim cumque reprehenderit ea velit.
@@ -1762,7 +1763,7 @@ definitions:
         properties:
             application:
                 type: object
-                description: The complete set of intake answers, replacing what is stored. Validated the same way the original submission was.
+                description: 'The complete set of intake answers, replacing what is stored. Canonical keys (all optional): project_name, project_repository_url, project_website, trademark_status, contributing_organization, legal_contact_email, formation_list, license, chat_platform, mission_statement, agreement_type, is_spec_project, description. Unknown keys are retained. Create and revise apply identical validation.'
                 example:
                     Natus et libero dolor labore.: Nesciunt nobis animi nihil ea consectetur et.
                 additionalProperties: true

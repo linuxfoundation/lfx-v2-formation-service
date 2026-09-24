@@ -910,7 +910,7 @@ paths:
                                 code: "400"
                                 message: Magni dolores dolores quasi.
                                 name: Consequatur nobis quaerat dolorem.
-                                reason: formation_list_invalid
+                                reason: submitter_username_required
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -985,7 +985,7 @@ paths:
                                 code: "400"
                                 message: Delectus eos vitae occaecati.
                                 name: Sapiente repellendus perspiciatis excepturi in eum.
-                                reason: not_found
+                                reason: application_field_invalid
                 "412":
                     description: 'VersionMismatch: If-Match did not match the application''s current revision'
                     content:
@@ -996,7 +996,7 @@ paths:
                                 code: "400"
                                 message: Dicta facilis eius molestias porro eum assumenda.
                                 name: Asperiores minima at et rem alias.
-                                reason: submitter_username_required
+                                reason: not_found
             security:
                 - jwt_header_Authorization: []
         put:
@@ -1089,7 +1089,7 @@ paths:
                                 code: "400"
                                 message: Est rem ut.
                                 name: Voluptates distinctio voluptas.
-                                reason: project_website_invalid
+                                reason: not_found
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1109,7 +1109,7 @@ paths:
                                 code: "400"
                                 message: Laudantium necessitatibus eaque odit et.
                                 name: Aliquam qui amet quis rerum.
-                                reason: version_mismatch
+                                reason: application_field_invalid
                 "412":
                     description: 'VersionMismatch: If-Match did not match the application''s current revision'
                     content:
@@ -1120,7 +1120,7 @@ paths:
                                 code: "400"
                                 message: Facilis non ullam doloremque quia qui.
                                 name: Suscipit dolor ut perferendis.
-                                reason: application_payload_too_large
+                                reason: application_uid_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/accept:
@@ -1212,7 +1212,7 @@ paths:
                                 code: "400"
                                 message: Reprehenderit dolorum aliquam.
                                 name: Quasi est voluptas repellat.
-                                reason: project_website_invalid
+                                reason: not_found
                 "412":
                     description: 'VersionMismatch: If-Match did not match the application''s current revision'
                     content:
@@ -1223,7 +1223,7 @@ paths:
                                 code: "400"
                                 message: Voluptatum voluptas et rerum omnis et est.
                                 name: Eum ullam sed praesentium occaecati vel.
-                                reason: version_mismatch
+                                reason: application_uid_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/deny:
@@ -1315,7 +1315,7 @@ paths:
                                 code: "400"
                                 message: Animi quod adipisci reiciendis omnis a veritatis.
                                 name: Et aperiam architecto repudiandae occaecati.
-                                reason: project_website_invalid
+                                reason: not_found
                 "412":
                     description: 'VersionMismatch: If-Match did not match the application''s current revision'
                     content:
@@ -1326,7 +1326,7 @@ paths:
                                 code: "400"
                                 message: Est iusto et et eligendi nemo.
                                 name: Quibusdam repellendus et numquam in quo.
-                                reason: version_mismatch
+                                reason: formation_list_invalid
             security:
                 - jwt_header_Authorization: []
     /project-applications/{uid}/withdraw:
@@ -1418,7 +1418,7 @@ paths:
                                 code: "400"
                                 message: Porro et voluptas voluptatem animi.
                                 name: In enim tempora praesentium.
-                                reason: not_found
+                                reason: project_website_invalid
                 "412":
                     description: 'VersionMismatch: If-Match did not match the application''s current revision'
                     content:
@@ -1429,7 +1429,7 @@ paths:
                                 code: "400"
                                 message: Quod molestias error amet modi.
                                 name: Et rerum vel qui eius omnis tempora.
-                                reason: version_mismatch
+                                reason: application_payload_too_large
             security:
                 - jwt_header_Authorization: []
 components:
@@ -1460,12 +1460,13 @@ components:
                         - submitter_username_required
                         - project_website_invalid
                         - formation_list_invalid
+                        - application_field_invalid
                         - application_payload_too_large
             example:
                 code: "400"
                 message: Nemo dicta neque aut pariatur.
                 name: Ut fuga quisquam maiores modi.
-                reason: application_payload_too_large
+                reason: application_uid_invalid
             required:
                 - name
                 - code
@@ -1490,7 +1491,7 @@ components:
             properties:
                 application:
                     type: object
-                    description: The intake answers. Carries the proposed project's website as a URL. People named for the formation work are email addresses only — they are not resolved to platform identities, granted anything, or notified.
+                    description: 'The intake answers. Canonical keys (all optional): project_name, project_repository_url, project_website, trademark_status, contributing_organization, legal_contact_email, formation_list, license, chat_platform, mission_statement, agreement_type, is_spec_project, description. Unknown keys are retained. Create and revise apply identical validation.'
                     example:
                         Iusto sit eos aut.: Adipisci eius.
                         Optio ab dignissimos.: Sit ut tempora nemo quasi id.
@@ -2382,7 +2383,7 @@ components:
             properties:
                 application:
                     type: object
-                    description: The complete set of intake answers, replacing what is stored. Validated the same way the original submission was.
+                    description: 'The complete set of intake answers, replacing what is stored. Canonical keys (all optional): project_name, project_repository_url, project_website, trademark_status, contributing_organization, legal_contact_email, formation_list, license, chat_platform, mission_statement, agreement_type, is_spec_project, description. Unknown keys are retained. Create and revise apply identical validation.'
                     example:
                         Omnis explicabo perferendis distinctio.: Rem culpa sequi id.
                         Tempore quas at quod sed qui excepturi.: Quos alias.

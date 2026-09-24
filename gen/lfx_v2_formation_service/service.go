@@ -169,9 +169,12 @@ type CreateApplicationPayload struct {
 	// approver's form. It does not decide the parent or the incorporated entity,
 	// and it grants nobody anything. Normally absent.
 	TargetParentUID *string
-	// The intake answers. Carries the proposed project's website as a URL. People
-	// named for the formation work are email addresses only — they are not
-	// resolved to platform identities, granted anything, or notified.
+	// The intake answers. Canonical keys (all optional): project_name,
+	// project_repository_url, project_website, trademark_status,
+	// contributing_organization, legal_contact_email, formation_list, license,
+	// chat_platform, mission_statement, agreement_type, is_spec_project,
+	// description. Unknown keys are retained. Create and revise apply identical
+	// validation.
 	Application map[string]any
 }
 
@@ -423,8 +426,12 @@ type ReviseApplicationPayload struct {
 	UID string
 	// Must equal the application's current revision.
 	IfMatch int64
-	// The complete set of intake answers, replacing what is stored. Validated the
-	// same way the original submission was.
+	// The complete set of intake answers, replacing what is stored. Canonical keys
+	// (all optional): project_name, project_repository_url, project_website,
+	// trademark_status, contributing_organization, legal_contact_email,
+	// formation_list, license, chat_platform, mission_statement, agreement_type,
+	// is_spec_project, description. Unknown keys are retained. Create and revise
+	// apply identical validation.
 	Application map[string]any
 }
 

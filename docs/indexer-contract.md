@@ -235,6 +235,27 @@ already has, inherited unchanged rather than newly introduced by this document.
 | `created_at` | timestamp | Creation time (RFC3339) |
 | `updated_at` | timestamp | Last update time (RFC3339) |
 
+The `application` object retains unknown keys. Its optional canonical keys are:
+
+| Key | Nonblank value |
+| --- | --- |
+| `project_name` | string |
+| `project_repository_url` | HTTP or HTTPS URL |
+| `project_website` | HTTP or HTTPS URL |
+| `trademark_status` | string |
+| `contributing_organization` | string |
+| `legal_contact_email` | email address |
+| `formation_list` | list of email addresses |
+| `license` | string |
+| `chat_platform` | string |
+| `mission_statement` | string |
+| `agreement_type` | string |
+| `is_spec_project` | boolean |
+| `description` | string |
+
+Create and revise apply the same validation. Missing, `null`, and blank optional values are
+accepted.
+
 ### Application Tags
 
 | Tag Format | Purpose |
