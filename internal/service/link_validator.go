@@ -22,7 +22,9 @@ func isSafeURL(rawURL string) bool {
 	return scheme == "http" || scheme == "https"
 }
 
-func isSafeAbsoluteURL(rawURL string) bool {
+// isSafeURLWithHost adds a hostname requirement that legacy website values do
+// not have.
+func isSafeURLWithHost(rawURL string) bool {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return false

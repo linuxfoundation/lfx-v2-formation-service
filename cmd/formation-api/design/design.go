@@ -7,11 +7,18 @@ package design
 
 import "goa.design/goa/v3/dsl"
 
-const applicationCanonicalMapContract = "Canonical keys (all optional): project_name, " +
-	"project_repository_url, project_website, trademark_status, contributing_organization, " +
-	"legal_contact_email, formation_list, license, chat_platform, mission_statement, " +
-	"agreement_type, is_spec_project, description. Unknown keys are retained. Create and " +
-	"revise apply identical validation."
+const applicationCanonicalMapContract = "Canonical keys (all optional): project_name (string); " +
+	"project_repository_url (string; nonblank HTTP or HTTPS URL with a hostname); " +
+	"project_website (string; nonblank legacy HTTP or HTTPS URL, hostname optional); " +
+	"trademark_status (string); contributing_organization (string); legal_contact_email " +
+	"(string; when nonblank, exactly one @ and no whitespace or control characters); " +
+	"formation_list (list of strings using the legacy email-shape rule); license (string); " +
+	"chat_platform (string); mission_statement (string); agreement_type (string); " +
+	"is_spec_project (boolean); description (string). Missing and null are accepted for every " +
+	"key; blank strings are accepted for string, URL, and legal-contact fields. Unknown keys " +
+	"are retained. Create and revise apply identical validation. People named for the formation " +
+	"work are email addresses only — they are not resolved to platform identities, granted " +
+	"anything, or notified."
 
 var _ = dsl.API("lfx-v2-formation-service", func() {
 	dsl.Title("LFX V2 Formation Service")

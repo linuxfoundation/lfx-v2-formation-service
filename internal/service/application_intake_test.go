@@ -155,9 +155,10 @@ func TestCreateApplicationCarriesTargetParentAsAHint(t *testing.T) {
 
 func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 	cases := []struct {
-		name   string
-		mutate func(*svc.CreateApplicationPayload)
-		reason string
+		name    string
+		mutate  func(*svc.CreateApplicationPayload)
+		reason  string
+		message string
 	}{
 		{
 			name: "submitter username is blank",
@@ -213,7 +214,8 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_name"] = false
 			},
-			reason: reasonApplicationFieldInvalid,
+			reason:  reasonApplicationFieldInvalid,
+			message: "project_name must be a string",
 		},
 		{
 			name: "repository is not an HTTP URL",
@@ -227,7 +229,8 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["project_repository_url"] = "https:repo"
 			},
-			reason: reasonApplicationFieldInvalid,
+			reason:  reasonApplicationFieldInvalid,
+			message: "project_repository_url must be an http or https URL with a host",
 		},
 		{
 			name: "repository URL has a port but no hostname",
@@ -262,7 +265,8 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["legal_contact_email"] = "not-an-address"
 			},
-			reason: reasonApplicationFieldInvalid,
+			reason:  reasonApplicationFieldInvalid,
+			message: "legal_contact_email must be an email address",
 		},
 		{
 			name: "legal contact has multiple at signs",
@@ -284,6 +288,24 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 				p.Application["legal_contact_email"] = "\u00a0a@example.test"
 			},
 			reason: reasonApplicationFieldInvalid,
+		},
+		{
+			name: "legal contact contains a control character",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["legal_contact_email"] = "a@\x07b"
+			},
+			reason:  reasonApplicationFieldInvalid,
+			message: "legal_contact_email must be an email address",
+		},
+		{
+			name: "nested answer contains NUL",
+			mutate: func(p *svc.CreateApplicationPayload) {
+				p.Application["future_field"] = map[string]any{
+					"nested": []any{"a\x00b"},
+				}
+			},
+			reason:  reasonApplicationFieldInvalid,
+			message: "application must not contain NUL characters",
 		},
 		{
 			name: "formation list carries something that is not an address",
@@ -325,7 +347,8 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			mutate: func(p *svc.CreateApplicationPayload) {
 				p.Application["is_spec_project"] = "yes"
 			},
-			reason: reasonApplicationFieldInvalid,
+			reason:  reasonApplicationFieldInvalid,
+			message: "is_spec_project must be a boolean",
 		},
 		{
 			name: "description has the wrong type",
@@ -355,8 +378,47 @@ func TestCreateApplicationRefusesInvalidPayloads(t *testing.T) {
 			require.ErrorAs(t, err, &appErr)
 			assert.Equal(t, tc.reason, appErr.Reason)
 			assert.Equal(t, "400", appErr.Code)
+			if tc.message != "" {
+				assert.Equal(t, tc.message, appErr.Message)
+			}
 			assert.NotContains(t, applications.Calls(), "applications.Create",
 				"a refused payload must not be stored")
+		})
+	}
+}
+
+func TestCreateApplicationPreservesLegacyValidationPrecedence(t *testing.T) {
+	cases := map[string]struct {
+		application map[string]any
+		reason      string
+	}{
+		"website before canonical fields": {
+			application: map[string]any{
+				"project_website": "not-a-url",
+				"is_spec_project": "yes",
+			},
+			reason: reasonProjectWebsiteBad,
+		},
+		"formation list before canonical fields": {
+			application: map[string]any{
+				"formation_list":  []any{"not-an-address"},
+				"is_spec_project": "yes",
+			},
+			reason: reasonFormationListInvalid,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			s, _, _, _ := intakeService(t)
+			p := intakePayload()
+			p.Application = tc.application
+
+			_, err := s.CreateApplication(asPrincipal("lfx-ui@clients"), p)
+
+			var appErr *svc.ApplicationError
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, tc.reason, appErr.Reason)
 		})
 	}
 }

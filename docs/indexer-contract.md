@@ -237,15 +237,15 @@ already has, inherited unchanged rather than newly introduced by this document.
 
 The `application` object retains unknown keys. Its optional canonical keys are:
 
-| Key | Nonblank value |
+| Key | Accepted value |
 | --- | --- |
 | `project_name` | string |
-| `project_repository_url` | HTTP or HTTPS URL |
-| `project_website` | HTTP or HTTPS URL |
+| `project_repository_url` | string; when nonblank, an HTTP or HTTPS URL with a hostname |
+| `project_website` | string; when nonblank, the legacy rule requires an HTTP or HTTPS scheme but not a hostname |
 | `trademark_status` | string |
 | `contributing_organization` | string |
-| `legal_contact_email` | email address |
-| `formation_list` | list of email addresses |
+| `legal_contact_email` | string; when nonblank, exactly one `@` and no whitespace or control characters |
+| `formation_list` | list of strings using the legacy email-shape rule |
 | `license` | string |
 | `chat_platform` | string |
 | `mission_statement` | string |
@@ -253,8 +253,16 @@ The `application` object retains unknown keys. Its optional canonical keys are:
 | `is_spec_project` | boolean |
 | `description` | string |
 
-Create and revise apply the same validation. Missing, `null`, and blank optional values are
-accepted.
+Missing and `null` are accepted for every key. Blank strings are accepted for
+the string, URL, and legal-contact fields. `formation_list` accepts an empty
+list, but not a blank string; `is_spec_project` accepts only a boolean when
+present. The legacy `formation_list` rule requires each trimmed string to have
+a non-edge `@` and no literal spaces; repeated `@` characters remain accepted.
+No string anywhere in the application object may contain NUL.
+
+These shapes are enforced when answers are written by create or revise.
+Republishing an existing application does not revalidate its stored answers,
+so older indexed documents may not satisfy these shapes.
 
 ### Application Tags
 

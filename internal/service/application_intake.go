@@ -233,16 +233,13 @@ func validateAnswers(answers map[string]any) (map[string]any, error) {
 	if err != nil || len(encoded) > maxApplicationPayloadBytes {
 		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
 	}
-	if err := validateCanonicalApplicationFields(answers); err != nil {
-		return nil, err
-	}
-	if projectName, ok := answers[payloadProjectName].(string); ok &&
-		len(projectName) > maxProjectNameBytes {
-		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
+	if containsNUL(answers) {
+		return nil, domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"application must not contain NUL characters")
 	}
 
-	// Website keeps its established field-specific refusal; other canonical
-	// field failures share reasonApplicationFieldInvalid.
+	// project_website and formation_list keep their established reasons and
+	// rules; every other canonical shape failure is application_field_invalid.
 	if err := validateOptionalURL(
 		answers, payloadProjectWebsite, reasonProjectWebsiteBad, isSafeURL,
 	); err != nil {
@@ -251,6 +248,13 @@ func validateAnswers(answers map[string]any) (map[string]any, error) {
 
 	if err := validateFormationList(answers[payloadFormationList]); err != nil {
 		return nil, err
+	}
+	if err := validateCanonicalApplicationFields(answers); err != nil {
+		return nil, err
+	}
+	if projectName, ok := answers[payloadProjectName].(string); ok &&
+		len(projectName) > maxProjectNameBytes {
+		return nil, domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationTooLarge)
 	}
 
 	return answers, nil
@@ -272,7 +276,7 @@ func validateCanonicalApplicationFields(answers map[string]any) error {
 		}
 	}
 	if err := validateOptionalURL(
-		answers, payloadProjectRepositoryURL, reasonApplicationFieldInvalid, isSafeAbsoluteURL,
+		answers, payloadProjectRepositoryURL, reasonApplicationFieldInvalid, isSafeURLWithHost,
 	); err != nil {
 		return err
 	}
@@ -288,7 +292,8 @@ func validateOptionalString(answers map[string]any, key string) error {
 		return nil
 	}
 	if _, ok := value.(string); !ok {
-		return domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationFieldInvalid)
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be a string", key)
 	}
 	return nil
 }
@@ -302,6 +307,10 @@ func validateOptionalURL(
 	}
 	url, ok := value.(string)
 	if !ok || (strings.TrimSpace(url) != "" && !valid(strings.TrimSpace(url))) {
+		if reason == reasonApplicationFieldInvalid {
+			return domain.NewReasonErrorf(domain.ErrInvalidRequest, reason,
+				"%s must be an http or https URL with a host", key)
+		}
 		return domain.NewReasonError(domain.ErrInvalidRequest, reason)
 	}
 	return nil
@@ -314,7 +323,8 @@ func validateOptionalEmail(answers map[string]any, key string) error {
 	}
 	address, ok := value.(string)
 	if !ok || (strings.TrimSpace(address) != "" && !isEmailAddress(address)) {
-		return domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationFieldInvalid)
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be an email address", key)
 	}
 	return nil
 }
@@ -325,7 +335,8 @@ func validateOptionalBool(answers map[string]any, key string) error {
 		return nil
 	}
 	if _, ok := value.(bool); !ok {
-		return domain.NewReasonError(domain.ErrInvalidRequest, reasonApplicationFieldInvalid)
+		return domain.NewReasonErrorf(domain.ErrInvalidRequest, reasonApplicationFieldInvalid,
+			"%s must be a boolean", key)
 	}
 	return nil
 }
@@ -335,7 +346,29 @@ func isEmailAddress(value string) bool {
 	return strings.Count(value, "@") == 1 &&
 		at > 0 &&
 		at < len(value)-1 &&
-		strings.IndexFunc(value, unicode.IsSpace) == -1
+		strings.IndexFunc(value, func(r rune) bool {
+			return unicode.IsSpace(r) || unicode.IsControl(r)
+		}) == -1
+}
+
+func containsNUL(value any) bool {
+	switch value := value.(type) {
+	case string:
+		return strings.ContainsRune(value, '\x00')
+	case map[string]any:
+		for _, nested := range value {
+			if containsNUL(nested) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range value {
+			if containsNUL(nested) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // validateFormationList checks the legacy address shape for people named for
