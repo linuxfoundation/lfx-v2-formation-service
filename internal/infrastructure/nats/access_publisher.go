@@ -102,8 +102,8 @@ func (p *AccessPublisher) PublishApplicationAccess(ctx context.Context, access p
 // application.
 //
 // The submitter's relation goes; the formation team's does not. fga-sync
-// preserves every tuple whose subject is a team userset, including this
-// application's formation_team tuple.
+// preserves team subjects on relations not prefixed "global_", including this
+// application's non-global formation_team tuple.
 func (p *AccessPublisher) DeleteApplicationAccess(ctx context.Context, applicationUID string) error {
 	if applicationUID == "" {
 		return fmt.Errorf("no application uid to revoke access for")

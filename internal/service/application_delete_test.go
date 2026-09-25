@@ -20,7 +20,8 @@ import (
 // a refusal on the far side arrives as silence.
 //
 // delete_access removes the submitter tuple but deliberately preserves the
-// formation-team tuple because fga-sync preserves team-subject grants.
+// formation-team tuple because fga-sync preserves team subjects on the
+// non-global formation_team relation.
 func TestDeleteApplicationRemovesRowDocumentAndSubmitterGrant(t *testing.T) {
 	d := applicationService(t)
 	created := submitOne(t, d.service)

@@ -132,8 +132,8 @@ const (
 	FGAUpdateAccessSubject = fgaConstants.GenericUpdateAccessSubject
 
 	// FGADeleteAccessSubject removes the publisher-managed tuples for one
-	// object, leaving externally managed team grants in place. Used when an
-	// application is deleted.
+	// object, leaving the team grant on the non-global formation_team relation
+	// in place. Used when an application is deleted.
 	FGADeleteAccessSubject = fgaConstants.GenericDeleteAccessSubject
 )
 

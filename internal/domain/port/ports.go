@@ -449,8 +449,8 @@ type AccessPublisher interface {
 	PublishApplicationAccess(ctx context.Context, access ApplicationAccess) error
 
 	// DeleteApplicationAccess removes the publisher-managed grants on one
-	// application. fga-sync preserves team-subject tuples, so the formation
-	// team's standing survives.
+	// application. fga-sync preserves team subjects on the non-global
+	// formation_team relation, so the formation team's standing survives.
 	DeleteApplicationAccess(ctx context.Context, applicationUID string) error
 }
 
