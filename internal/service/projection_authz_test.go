@@ -36,8 +36,8 @@ func TestProjectionIsGatedOnAuditorAndNeverOnViewer(t *testing.T) {
 		t.Fatal("access relation = viewer — the FGA model grants project#viewer to user:*, " +
 			"so this would publish a confidential project's checklist to every authenticated user")
 	}
-	if doc.AccessRelation != "auditor" {
-		t.Errorf("access relation = %q, want auditor", doc.AccessRelation)
+	if doc.AccessRelation != "auditor_guard" {
+		t.Errorf("access relation = %q, want auditor_guard", doc.AccessRelation)
 	}
 }
 
@@ -45,10 +45,11 @@ func TestProjectionIsGatedOnAuditorAndNeverOnViewer(t *testing.T) {
 // could stop setting it — that is what the test above catches — but the constant
 // could also be edited in place, which would leave the builder passing while
 // changing what it means.
-func TestTheAccessRelationConstantIsAuditor(t *testing.T) {
-	if formationAccessRelation != "auditor" {
-		t.Errorf("formationAccessRelation = %q, want auditor. Read the constant's comment "+
-			"before changing this: viewer is public.", formationAccessRelation)
+func TestTheAccessRelationConstantIsAuditorGuard(t *testing.T) {
+	if formationAccessRelation != "auditor_guard" {
+		t.Errorf("formationAccessRelation = %q, want auditor_guard. Read the constant's comment "+
+			"before changing this: viewer is public, and the bare relation loses staff "+
+			"once the platform root grant is withdrawn.", formationAccessRelation)
 	}
 }
 

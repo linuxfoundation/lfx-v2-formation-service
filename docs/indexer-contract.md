@@ -92,15 +92,16 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 | Field | Value |
 |---|---|
 | `access_check_object` | `project:{project_uid}` |
-| `access_check_relation` | `auditor` |
+| `access_check_relation` | `auditor_guard` |
 | `history_check_object` | `project:{project_uid}` |
-| `history_check_relation` | `auditor` |
+| `history_check_relation` | `auditor_guard` |
 | `public` | _(omitted; never public — an item is never visible to an anonymous caller)_ |
 
 > **Access:** identical to the checklist document's own guard, applied at item grain rather than
-> project grain — `auditor` on `project:{uid}`, never `viewer` (`viewer` on a project document
-> includes `[user:*]`, and a formation item is not public). No new OpenFGA type, relation, or grant
-> exists for this document.
+> project grain — `auditor_guard` on `project:{uid}`, never `viewer` (`viewer` on a project document
+> includes `[user:*]`, and a formation item is not public). `auditor_guard` is `auditor or
+> global_auditor`, so it admits the named global audit team alongside the project's own auditors and
+> nobody else. No new OpenFGA type, relation, or grant exists for this document.
 
 ### Search Behavior
 
