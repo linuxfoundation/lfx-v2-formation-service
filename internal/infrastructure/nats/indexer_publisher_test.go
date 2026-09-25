@@ -71,7 +71,7 @@ func sampleItemProjection() *port.ItemProjection {
 		SubItems: []port.ItemProjectionSubItem{
 			{Key: "groupsio-request", Title: "Request Groups.io space", Status: "done"},
 		},
-		AccessRelation: "auditor",
+		AccessRelation: "auditor_guard",
 	}
 }
 
@@ -93,7 +93,7 @@ func sampleProjection() *port.FormationProjection {
 		BlockedItemTitles: []string{"Charter agreed"},
 		StalledCount:      &stalledCount,
 		Assignees:         []string{"assignee-one"},
-		AccessRelation:    "auditor",
+		AccessRelation:    "auditor_guard",
 	}
 }
 
@@ -167,14 +167,14 @@ func TestPublishFormationCarriesTheDocumentsAccessRelation(t *testing.T) {
 		t.Fatalf("envelope carries no indexing_config, so access is undeclared: %v", envelope)
 	}
 
-	if got := config["access_check_relation"]; got != "auditor" {
-		t.Errorf("access_check_relation = %v, want auditor", got)
+	if got := config["access_check_relation"]; got != "auditor_guard" {
+		t.Errorf("access_check_relation = %v, want auditor_guard", got)
 	}
 	if got, want := config["access_check_object"], "project:project-1"; got != want {
 		t.Errorf("access_check_object = %v, want %v", got, want)
 	}
-	if got := config["history_check_relation"]; got != "auditor" {
-		t.Errorf("history_check_relation = %v, want auditor", got)
+	if got := config["history_check_relation"]; got != "auditor_guard" {
+		t.Errorf("history_check_relation = %v, want auditor_guard", got)
 	}
 	if got := config["object_id"]; got != doc.FormationUID {
 		t.Errorf("object_id = %v, want the formation UID %v", got, doc.FormationUID)
@@ -637,14 +637,14 @@ func TestPublishItemCarriesTheDocumentsAccessRelation(t *testing.T) {
 		t.Fatalf("envelope carries no indexing_config, so access is undeclared: %v", envelope)
 	}
 
-	if got := config["access_check_relation"]; got != "auditor" {
-		t.Errorf("access_check_relation = %v, want auditor", got)
+	if got := config["access_check_relation"]; got != "auditor_guard" {
+		t.Errorf("access_check_relation = %v, want auditor_guard", got)
 	}
 	if got, want := config["access_check_object"], "project:project-1"; got != want {
 		t.Errorf("access_check_object = %v, want %v", got, want)
 	}
-	if got := config["history_check_relation"]; got != "auditor" {
-		t.Errorf("history_check_relation = %v, want auditor", got)
+	if got := config["history_check_relation"]; got != "auditor_guard" {
+		t.Errorf("history_check_relation = %v, want auditor_guard", got)
 	}
 	if got := config["object_id"]; got != doc.ItemUID {
 		t.Errorf("object_id = %v, want the item UID %v", got, doc.ItemUID)

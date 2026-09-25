@@ -354,7 +354,7 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 }
 
 // formationAccessRelation is the relation a caller must hold on the project to
-// read a formation row: auditor, and never viewer.
+// read a formation row: the audit guard, and never viewer.
 //
 // The platform's FGA model defines project#viewer with a `user:*` grant — every
 // authenticated user, deliberately, because a public project's existence is
@@ -363,12 +363,19 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 // projects that may be confidential. Declaring against viewer would publish all
 // of that to anyone holding an account.
 //
+// The guard does not weaken that. It is defined as `auditor or global_auditor`,
+// and neither side carries a `user:*` grant, so widening from the bare relation
+// admits the named global audit team and nobody else. Staff reach a checklist
+// today only because the platform root grants them auditor on every project, and
+// that root grant is being withdrawn; without the guard here they would lose the
+// queue when it goes.
+//
 // This was checked against the live dev index rather than assumed, and the index
 // disagrees with it: project documents stamp viewer. That is why this is a named
 // constant carrying its reasoning rather than a string at the call site — the
 // value here is the fail-closed one, and it is meant to survive somebody noticing
 // the inconsistency and "fixing" it in the wrong direction.
-const formationAccessRelation = "auditor"
+const formationAccessRelation = "auditor_guard"
 
 // buildProjection turns a checklist and its items into the one queue row that
 // represents them.
