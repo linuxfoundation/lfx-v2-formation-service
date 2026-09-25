@@ -72,7 +72,8 @@ func (s *Service) WithdrawApplication(
 
 // DeleteApplication removes an application from storage and the search index,
 // and asks access sync to remove publisher-managed user grants. Access sync
-// deliberately preserves team-subject tuples, including formation_team.
+// deliberately preserves team subjects on the non-global formation_team
+// relation.
 //
 // One endpoint for both audiences, like revise and withdraw: the gateway
 // resolves `writer` and the model grants it to the submitter and the

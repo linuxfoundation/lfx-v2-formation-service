@@ -61,8 +61,9 @@ Delete carries only the application UID:
 | `operation` | `delete_access` |
 | `data.uid` | Application UID |
 
-fga-sync removes publisher-managed user tuples, including `submitter`, but preserves tuples whose
-subject is a team userset. The application's `formation_team` tuple therefore remains after delete.
+fga-sync removes publisher-managed user tuples, including `submitter`, but preserves team-subject
+tuples on relations not prefixed `global_`. The application's non-global `formation_team` tuple
+therefore remains after delete.
 
 ### Failure Behavior
 
@@ -73,4 +74,5 @@ Timed-out or reordered core NATS delivery is repaired by the retained source sta
 stale-event rejection requires revision-aware handling in fga-sync.
 
 Changing `APPLICATION_FORMATION_TEAM` does not revoke the old team's existing tuples because
-fga-sync preserves team-subject grants. Such a change requires an explicit tuple cleanup.
+fga-sync preserves team-subject grants on the non-global `formation_team` relation. Such a change
+requires an explicit tuple cleanup.
