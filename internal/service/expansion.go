@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"time"
 
@@ -62,11 +61,6 @@ const (
 // a link change with a template edit, which is the opposite of the pinning rule
 // the rest of expansion follows.
 const projectUIDPlaceholder = "{{project.uid}}"
-
-// dueRulePrefix is the only due rule shape: "announcement-30d" means thirty days
-// before the project's announcement date. An enumerated stand-in rather than an
-// expression, for the same reason match rules are.
-const dueRulePrefix = "announcement-"
 
 // Expander creates a project's checklist from the selected template.
 type Expander struct {
@@ -341,7 +335,7 @@ func resolveDueDate(rule string, announcement *time.Time) *time.Time {
 	if rule == "" || announcement == nil {
 		return nil
 	}
-	offset, ok := ParseDueRule(rule)
+	offset, ok := model.ParseDueRule(rule)
 	if !ok {
 		// Not an error the caller can act on, and refusing to create the
 		// checklist over a malformed due rule would be worse than a row with
@@ -351,23 +345,4 @@ func resolveDueDate(rule string, announcement *time.Time) *time.Time {
 	}
 	due := announcement.AddDate(0, 0, -offset)
 	return &due
-}
-
-// ParseDueRule reads "announcement-30d" as thirty days before the announcement.
-// Exported so the seed job can refuse an unparseable rule at load time: here it
-// only warns and leaves the date unset, which ships a checklist that silently
-// lost its dates.
-func ParseDueRule(rule string) (int, bool) {
-	if !strings.HasPrefix(rule, dueRulePrefix) {
-		return 0, false
-	}
-	days, ok := strings.CutSuffix(strings.TrimPrefix(rule, dueRulePrefix), "d")
-	if !ok {
-		return 0, false
-	}
-	offset, err := strconv.Atoi(days)
-	if err != nil || offset < 0 {
-		return 0, false
-	}
-	return offset, true
 }

@@ -647,6 +647,194 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
+	// Template administration. These routes are platform-wide and are guarded
+	// at the gateway by membership of the global template-admin team — no
+	// resource appears in the object, because the question is not about a
+	// project but about whether the caller is allowed to edit templates at all.
+
+	dsl.Method("list_templates", func() {
+		dsl.Description("Return all templates in every state. Admin view.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Required("version")
+		})
+		dsl.Result(dsl.ArrayOf(AdminTemplate))
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.GET("/templates")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("get_template", func() {
+		dsl.Description("Return one template by UID.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The template's UID.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Required("version", "uid")
+		})
+		dsl.Result(AdminTemplate)
+		dsl.Error("NotFound", TemplateError, "No template with that UID")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.GET("/templates/{uid}")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("create_template", func() {
+		dsl.Description("Create a new draft template.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("name", dsl.String, "Template name. Combined with template_version for uniqueness.")
+			dsl.Attribute("template_version", dsl.Int, "Version number. name+template_version must be unique.", func() {
+				dsl.Minimum(1)
+			})
+			dsl.Attribute("priority", dsl.Int, "Selection priority; lower wins.", func() {
+				dsl.Minimum(0)
+			})
+			dsl.Attribute("match", dsl.String, "Match rule. Currently only 'always' is supported.", func() {
+				dsl.Enum("always")
+			})
+			// sections is dsl.Any — see AdminTemplate for the rationale.
+			dsl.Attribute("sections", dsl.Any, "Array of template sections. Must be a JSON array of section objects.")
+			dsl.Attribute("author", dsl.String)
+			dsl.Required("version", "name", "template_version", "priority", "match", "sections")
+		})
+		dsl.Result(AdminTemplate)
+		dsl.Error("BadRequest", TemplateError, "Invalid payload")
+		dsl.Error("Conflict", TemplateError, "A template with this name and version already exists")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/templates")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusCreated)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	// update_template, publish_template and archive_template carry no If-Match,
+	// unlike every other write route in this service. This is deliberate:
+	// template drafts are managed by a small admin group (not end users), so the
+	// concurrent-edit window is narrow. The atomic state predicates on Publish
+	// and Archive handle the critical safety property (no state regression), and
+	// a last-write-wins policy on draft fields is acceptable at this call volume.
+	// Add If-Match if the admin group grows or tooling enables concurrent editing.
+	dsl.Method("update_template", func() {
+		dsl.Description("Update a draft template's mutable fields. Refused for published or archived templates.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The template's UID.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Attribute("priority", dsl.Int, "Selection priority; lower wins.", func() { dsl.Minimum(0) })
+			dsl.Attribute("match", dsl.String, "Match rule. Currently only 'always' is supported.", func() { dsl.Enum("always") })
+			// sections is dsl.Any — see AdminTemplate for the rationale.
+			dsl.Attribute("sections", dsl.Any, "Array of template sections. Must be a JSON array of section objects.")
+			dsl.Attribute("author", dsl.String)
+			dsl.Required("version", "uid")
+		})
+		dsl.Result(AdminTemplate)
+		dsl.Error("NotFound", TemplateError, "No template with that UID")
+		dsl.Error("Conflict", TemplateError, "Template is not a draft")
+		dsl.Error("BadRequest", TemplateError, "No fields to update, or sections is not a valid section array")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.PUT("/templates/{uid}")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("BadRequest", dsl.StatusBadRequest)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("publish_template", func() {
+		dsl.Description("Publish a draft template, making it immutable and available for checklist selection.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The template's UID.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Required("version", "uid")
+		})
+		dsl.Result(AdminTemplate)
+		dsl.Error("NotFound", TemplateError, "No template with that UID")
+		dsl.Error("Conflict", TemplateError, "Template is not a draft")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/templates/{uid}/publish")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
+	dsl.Method("archive_template", func() {
+		dsl.Description("Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.")
+
+		dsl.Security(JWTAuth)
+
+		dsl.Payload(func() {
+			BearerTokenAttribute()
+			VersionAttribute()
+			dsl.Attribute("uid", dsl.String, "The template's UID.", func() {
+				dsl.Format(dsl.FormatUUID)
+			})
+			dsl.Required("version", "uid")
+		})
+		dsl.Result(AdminTemplate)
+		dsl.Error("NotFound", TemplateError, "No template with that UID")
+		dsl.Error("Conflict", TemplateError, "Template is already archived")
+		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
+		dsl.HTTP(func() {
+			dsl.POST("/templates/{uid}/archive")
+			dsl.Param("version:v")
+			dsl.Header("bearer_token:Authorization")
+			dsl.Response(dsl.StatusOK)
+			dsl.Response("NotFound", dsl.StatusNotFound)
+			dsl.Response("Conflict", dsl.StatusConflict)
+			dsl.Response("Unauthorized", dsl.StatusUnauthorized)
+		})
+	})
+
 	dsl.Method("livez", func() {
 		dsl.Description("Liveness probe.")
 		dsl.Meta("swagger:generate", "false")
@@ -956,6 +1144,52 @@ var FormationActivityEntry = dsl.Type("FormationActivityEntry", func() {
 	dsl.Attribute("after", dsl.Any)
 	dsl.Attribute("at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
 	dsl.Required("ulid", "actor", "set_by", "action", "at")
+})
+
+// TemplateError is the error shape for the template admin routes.
+// Separate from FormationError rather than sharing it: the two have largely
+// disjoint reason sets (template state transitions vs. item mutations) and
+// merging them would make the reason enum a union that no single route
+// exercises fully.
+var TemplateError = dsl.Type("TemplateError", func() {
+	dsl.ErrorName("name", dsl.String, "Which declared error this is — matches the Error() name (e.g. \"Conflict\"). Transport dispatch only; switch on reason, not this.")
+	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("409") })
+	dsl.Attribute("message", dsl.String, "Human-readable message")
+	dsl.Attribute("reason", dsl.String, "Machine-readable; switch on this, not on status.", func() {
+		dsl.Enum(
+			"not_found",
+			"template_not_draft",
+			"template_already_archived",
+			"template_already_exists",
+			"no_fields_to_update",
+			"invalid_sections",
+		)
+	})
+	dsl.Required("name", "code", "message", "reason")
+})
+
+// AdminTemplate is one template as the admin API returns it.
+var AdminTemplate = dsl.ResultType("application/vnd.formation.admin.template+json", "AdminTemplate", func() {
+	dsl.Attribute("uid", dsl.String)
+	dsl.Attribute("name", dsl.String)
+	dsl.Attribute("template_version", dsl.Int, "The template's own version number, distinct from the API version.")
+	dsl.Attribute("state", dsl.String, "Lifecycle state: draft → published (immutable) or archived.", func() {
+		dsl.Enum("draft", "published", "archived")
+	})
+	dsl.Attribute("priority", dsl.Int, "Selection priority; lower value wins when multiple templates match.")
+	dsl.Attribute("match", dsl.String, "Match rule that governs selection; currently only 'always' is supported.", func() {
+		dsl.Enum("always")
+	})
+	// sections is dsl.Any because the section tree is deep and duplicating
+	// the full nested type hierarchy in the DSL would add substantial noise
+	// with no additional runtime safety — Goa decodes it as interface{} either
+	// way, and parseSections handles the typed conversion.
+	dsl.Attribute("sections", dsl.Any, "Array of template sections.")
+	dsl.Attribute("author", dsl.String)
+	dsl.Attribute("created_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
+	dsl.Attribute("updated_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
+	dsl.Attribute("published_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
+	dsl.Required("uid", "name", "template_version", "state", "priority", "match", "sections", "created_at", "updated_at")
 })
 
 // FormationActivityPage is the response body for

@@ -21,6 +21,7 @@ import (
 	lfxv2formationservice "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
 	lfxv2formationserviceviews "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service/views"
 	goahttp "goa.design/goa/v3/http"
+	goa "goa.design/goa/v3/pkg"
 )
 
 // BuildGetFormationRequest instantiates a HTTP request object with method and
@@ -1692,6 +1693,796 @@ func DecodeDeleteApplicationResponse(decoder func(*http.Response) goahttp.Decode
 	}
 }
 
+// BuildListTemplatesRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "list_templates"
+// endpoint
+func (c *Client) BuildListTemplatesRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: ListTemplatesLfxV2FormationServicePath()}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "list_templates", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeListTemplatesRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service list_templates server.
+func EncodeListTemplatesRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.ListTemplatesPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "list_templates", "*lfxv2formationservice.ListTemplatesPayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeListTemplatesResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service list_templates endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodeListTemplatesResponse may return the following errors:
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeListTemplatesResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body []*AdminTemplateResponse
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "list_templates", err)
+			}
+			for _, e := range body {
+				if e != nil {
+					if err2 := ValidateAdminTemplateResponse(e); err2 != nil {
+						err = goa.MergeErrors(err, err2)
+					}
+				}
+			}
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "list_templates", err)
+			}
+			res := NewListTemplatesAdminTemplateOK(body)
+			return res, nil
+		case http.StatusUnauthorized:
+			var (
+				body ListTemplatesUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "list_templates", err)
+			}
+			err = ValidateListTemplatesUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "list_templates", err)
+			}
+			return nil, NewListTemplatesUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "list_templates", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildGetTemplateRequest instantiates a HTTP request object with method and
+// path set to call the "lfx_v2_formation_service" service "get_template"
+// endpoint
+func (c *Client) BuildGetTemplateRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.GetTemplatePayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "get_template", "*lfxv2formationservice.GetTemplatePayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: GetTemplateLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "get_template", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeGetTemplateRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service get_template server.
+func EncodeGetTemplateRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.GetTemplatePayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "get_template", "*lfxv2formationservice.GetTemplatePayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeGetTemplateResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service get_template endpoint. restoreBody controls whether
+// the response body should be restored after having been read.
+// DecodeGetTemplateResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.TemplateError): http.StatusNotFound
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeGetTemplateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body GetTemplateResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "get_template", err)
+			}
+			p := NewGetTemplateAdminTemplateOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateAdminTemplate(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_template", err)
+			}
+			res := lfxv2formationservice.NewAdminTemplate(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body GetTemplateNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "get_template", err)
+			}
+			err = ValidateGetTemplateNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_template", err)
+			}
+			return nil, NewGetTemplateNotFound(&body)
+		case http.StatusUnauthorized:
+			var (
+				body GetTemplateUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "get_template", err)
+			}
+			err = ValidateGetTemplateUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "get_template", err)
+			}
+			return nil, NewGetTemplateUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "get_template", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildCreateTemplateRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "create_template" endpoint
+func (c *Client) BuildCreateTemplateRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: CreateTemplateLfxV2FormationServicePath()}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "create_template", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeCreateTemplateRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service create_template server.
+func EncodeCreateTemplateRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.CreateTemplatePayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "create_template", "*lfxv2formationservice.CreateTemplatePayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewCreateTemplateRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "create_template", err)
+		}
+		return nil
+	}
+}
+
+// DecodeCreateTemplateResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service create_template endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodeCreateTemplateResponse may return the following errors:
+//   - "BadRequest" (type *lfxv2formationservice.TemplateError): http.StatusBadRequest
+//   - "Conflict" (type *lfxv2formationservice.TemplateError): http.StatusConflict
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeCreateTemplateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusCreated:
+			var (
+				body CreateTemplateResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_template", err)
+			}
+			p := NewCreateTemplateAdminTemplateCreated(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateAdminTemplate(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_template", err)
+			}
+			res := lfxv2formationservice.NewAdminTemplate(vres)
+			return res, nil
+		case http.StatusBadRequest:
+			var (
+				body CreateTemplateBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_template", err)
+			}
+			err = ValidateCreateTemplateBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_template", err)
+			}
+			return nil, NewCreateTemplateBadRequest(&body)
+		case http.StatusConflict:
+			var (
+				body CreateTemplateConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_template", err)
+			}
+			err = ValidateCreateTemplateConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_template", err)
+			}
+			return nil, NewCreateTemplateConflict(&body)
+		case http.StatusUnauthorized:
+			var (
+				body CreateTemplateUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "create_template", err)
+			}
+			err = ValidateCreateTemplateUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "create_template", err)
+			}
+			return nil, NewCreateTemplateUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "create_template", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildUpdateTemplateRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "update_template" endpoint
+func (c *Client) BuildUpdateTemplateRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.UpdateTemplatePayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "update_template", "*lfxv2formationservice.UpdateTemplatePayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: UpdateTemplateLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("PUT", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "update_template", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeUpdateTemplateRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service update_template server.
+func EncodeUpdateTemplateRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.UpdateTemplatePayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "update_template", "*lfxv2formationservice.UpdateTemplatePayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		body := NewUpdateTemplateRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("lfx_v2_formation_service", "update_template", err)
+		}
+		return nil
+	}
+}
+
+// DecodeUpdateTemplateResponse returns a decoder for responses returned by the
+// lfx_v2_formation_service update_template endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodeUpdateTemplateResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.TemplateError): http.StatusNotFound
+//   - "Conflict" (type *lfxv2formationservice.TemplateError): http.StatusConflict
+//   - "BadRequest" (type *lfxv2formationservice.TemplateError): http.StatusBadRequest
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeUpdateTemplateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body UpdateTemplateResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_template", err)
+			}
+			p := NewUpdateTemplateAdminTemplateOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateAdminTemplate(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_template", err)
+			}
+			res := lfxv2formationservice.NewAdminTemplate(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body UpdateTemplateNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_template", err)
+			}
+			err = ValidateUpdateTemplateNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_template", err)
+			}
+			return nil, NewUpdateTemplateNotFound(&body)
+		case http.StatusConflict:
+			var (
+				body UpdateTemplateConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_template", err)
+			}
+			err = ValidateUpdateTemplateConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_template", err)
+			}
+			return nil, NewUpdateTemplateConflict(&body)
+		case http.StatusBadRequest:
+			var (
+				body UpdateTemplateBadRequestResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_template", err)
+			}
+			err = ValidateUpdateTemplateBadRequestResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_template", err)
+			}
+			return nil, NewUpdateTemplateBadRequest(&body)
+		case http.StatusUnauthorized:
+			var (
+				body UpdateTemplateUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "update_template", err)
+			}
+			err = ValidateUpdateTemplateUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "update_template", err)
+			}
+			return nil, NewUpdateTemplateUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "update_template", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildPublishTemplateRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "publish_template" endpoint
+func (c *Client) BuildPublishTemplateRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.PublishTemplatePayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "publish_template", "*lfxv2formationservice.PublishTemplatePayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: PublishTemplateLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "publish_template", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodePublishTemplateRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service publish_template server.
+func EncodePublishTemplateRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.PublishTemplatePayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "publish_template", "*lfxv2formationservice.PublishTemplatePayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodePublishTemplateResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service publish_template endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodePublishTemplateResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.TemplateError): http.StatusNotFound
+//   - "Conflict" (type *lfxv2formationservice.TemplateError): http.StatusConflict
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodePublishTemplateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body PublishTemplateResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "publish_template", err)
+			}
+			p := NewPublishTemplateAdminTemplateOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateAdminTemplate(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "publish_template", err)
+			}
+			res := lfxv2formationservice.NewAdminTemplate(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body PublishTemplateNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "publish_template", err)
+			}
+			err = ValidatePublishTemplateNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "publish_template", err)
+			}
+			return nil, NewPublishTemplateNotFound(&body)
+		case http.StatusConflict:
+			var (
+				body PublishTemplateConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "publish_template", err)
+			}
+			err = ValidatePublishTemplateConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "publish_template", err)
+			}
+			return nil, NewPublishTemplateConflict(&body)
+		case http.StatusUnauthorized:
+			var (
+				body PublishTemplateUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "publish_template", err)
+			}
+			err = ValidatePublishTemplateUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "publish_template", err)
+			}
+			return nil, NewPublishTemplateUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "publish_template", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildArchiveTemplateRequest instantiates a HTTP request object with method
+// and path set to call the "lfx_v2_formation_service" service
+// "archive_template" endpoint
+func (c *Client) BuildArchiveTemplateRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		uid string
+	)
+	{
+		p, ok := v.(*lfxv2formationservice.ArchiveTemplatePayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("lfx_v2_formation_service", "archive_template", "*lfxv2formationservice.ArchiveTemplatePayload", v)
+		}
+		uid = p.UID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: ArchiveTemplateLfxV2FormationServicePath(uid)}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("lfx_v2_formation_service", "archive_template", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeArchiveTemplateRequest returns an encoder for requests sent to the
+// lfx_v2_formation_service archive_template server.
+func EncodeArchiveTemplateRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*lfxv2formationservice.ArchiveTemplatePayload)
+		if !ok {
+			return goahttp.ErrInvalidType("lfx_v2_formation_service", "archive_template", "*lfxv2formationservice.ArchiveTemplatePayload", v)
+		}
+		if p.BearerToken != nil {
+			head := *p.BearerToken
+			if !strings.Contains(head, " ") {
+				req.Header.Set("Authorization", "Bearer "+head)
+			} else {
+				req.Header.Set("Authorization", head)
+			}
+		}
+		values := req.URL.Query()
+		values.Add("v", p.Version)
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeArchiveTemplateResponse returns a decoder for responses returned by
+// the lfx_v2_formation_service archive_template endpoint. restoreBody controls
+// whether the response body should be restored after having been read.
+// DecodeArchiveTemplateResponse may return the following errors:
+//   - "NotFound" (type *lfxv2formationservice.TemplateError): http.StatusNotFound
+//   - "Conflict" (type *lfxv2formationservice.TemplateError): http.StatusConflict
+//   - "Unauthorized" (type *lfxv2formationservice.UnauthorizedError): http.StatusUnauthorized
+//   - error: internal error
+func DecodeArchiveTemplateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body ArchiveTemplateResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "archive_template", err)
+			}
+			p := NewArchiveTemplateAdminTemplateOK(&body)
+			view := "default"
+			vres := &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: view}
+			if err = lfxv2formationserviceviews.ValidateAdminTemplate(vres); err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "archive_template", err)
+			}
+			res := lfxv2formationservice.NewAdminTemplate(vres)
+			return res, nil
+		case http.StatusNotFound:
+			var (
+				body ArchiveTemplateNotFoundResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "archive_template", err)
+			}
+			err = ValidateArchiveTemplateNotFoundResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "archive_template", err)
+			}
+			return nil, NewArchiveTemplateNotFound(&body)
+		case http.StatusConflict:
+			var (
+				body ArchiveTemplateConflictResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "archive_template", err)
+			}
+			err = ValidateArchiveTemplateConflictResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "archive_template", err)
+			}
+			return nil, NewArchiveTemplateConflict(&body)
+		case http.StatusUnauthorized:
+			var (
+				body ArchiveTemplateUnauthorizedResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("lfx_v2_formation_service", "archive_template", err)
+			}
+			err = ValidateArchiveTemplateUnauthorizedResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("lfx_v2_formation_service", "archive_template", err)
+			}
+			return nil, NewArchiveTemplateUnauthorized(&body)
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("lfx_v2_formation_service", "archive_template", resp.StatusCode, string(body))
+		}
+	}
+}
+
 // BuildLivezRequest instantiates a HTTP request object with method and path
 // set to call the "lfx_v2_formation_service" service "livez" endpoint
 func (c *Client) BuildLivezRequest(ctx context.Context, v any) (*http.Request, error) {
@@ -2054,6 +2845,27 @@ func unmarshalFormationAvailableActionResponseBodyToLfxv2formationserviceFormati
 		Action:           *v.Action,
 		RequiresReason:   *v.RequiresReason,
 		RequiresRelation: *v.RequiresRelation,
+	}
+
+	return res
+}
+
+// unmarshalAdminTemplateResponseToLfxv2formationserviceAdminTemplate builds a
+// value of type *lfxv2formationservice.AdminTemplate from a value of type
+// *AdminTemplateResponse.
+func unmarshalAdminTemplateResponseToLfxv2formationserviceAdminTemplate(v *AdminTemplateResponse) *lfxv2formationservice.AdminTemplate {
+	res := &lfxv2formationservice.AdminTemplate{
+		UID:             *v.UID,
+		Name:            *v.Name,
+		TemplateVersion: *v.TemplateVersion,
+		State:           *v.State,
+		Priority:        *v.Priority,
+		Match:           *v.Match,
+		Sections:        v.Sections,
+		Author:          v.Author,
+		CreatedAt:       *v.CreatedAt,
+		UpdatedAt:       *v.UpdatedAt,
+		PublishedAt:     v.PublishedAt,
 	}
 
 	return res

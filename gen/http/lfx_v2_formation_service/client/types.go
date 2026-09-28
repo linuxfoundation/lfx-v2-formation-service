@@ -92,6 +92,34 @@ type ReviseApplicationRequestBody struct {
 	Application map[string]any `form:"application" json:"application" xml:"application"`
 }
 
+// CreateTemplateRequestBody is the type of the "lfx_v2_formation_service"
+// service "create_template" endpoint HTTP request body.
+type CreateTemplateRequestBody struct {
+	// Template name. Combined with template_version for uniqueness.
+	Name string `form:"name" json:"name" xml:"name"`
+	// Version number. name+template_version must be unique.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Selection priority; lower wins.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule. Currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections. Must be a JSON array of section objects.
+	Sections any     `form:"sections" json:"sections" xml:"sections"`
+	Author   *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+}
+
+// UpdateTemplateRequestBody is the type of the "lfx_v2_formation_service"
+// service "update_template" endpoint HTTP request body.
+type UpdateTemplateRequestBody struct {
+	// Selection priority; lower wins.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule. Currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections. Must be a JSON array of section objects.
+	Sections any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author   *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+}
+
 // GetFormationResponseBody is the type of the "lfx_v2_formation_service"
 // service "get_formation" endpoint HTTP response body.
 type GetFormationResponseBody struct {
@@ -167,6 +195,111 @@ type AcceptApplicationResponseBody ProjectApplicationResponseBody
 // DenyApplicationResponseBody is the type of the "lfx_v2_formation_service"
 // service "deny_application" endpoint HTTP response body.
 type DenyApplicationResponseBody ProjectApplicationResponseBody
+
+// GetTemplateResponseBody is the type of the "lfx_v2_formation_service"
+// service "get_template" endpoint HTTP response body.
+type GetTemplateResponseBody struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
+
+// CreateTemplateResponseBody is the type of the "lfx_v2_formation_service"
+// service "create_template" endpoint HTTP response body.
+type CreateTemplateResponseBody struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
+
+// UpdateTemplateResponseBody is the type of the "lfx_v2_formation_service"
+// service "update_template" endpoint HTTP response body.
+type UpdateTemplateResponseBody struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
+
+// PublishTemplateResponseBody is the type of the "lfx_v2_formation_service"
+// service "publish_template" endpoint HTTP response body.
+type PublishTemplateResponseBody struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
+
+// ArchiveTemplateResponseBody is the type of the "lfx_v2_formation_service"
+// service "archive_template" endpoint HTTP response body.
+type ArchiveTemplateResponseBody struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
 
 // GetFormationNotFoundResponseBody is the type of the
 // "lfx_v2_formation_service" service "get_formation" endpoint HTTP response
@@ -654,6 +787,216 @@ type DeleteApplicationUnauthorizedResponseBody struct {
 	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
 }
 
+// ListTemplatesUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "list_templates" endpoint HTTP response
+// body for the "Unauthorized" error.
+type ListTemplatesUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// GetTemplateNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_template" endpoint HTTP response
+// body for the "NotFound" error.
+type GetTemplateNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// GetTemplateUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "get_template" endpoint HTTP response
+// body for the "Unauthorized" error.
+type GetTemplateUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// CreateTemplateBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "create_template" endpoint HTTP response
+// body for the "BadRequest" error.
+type CreateTemplateBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// CreateTemplateConflictResponseBody is the type of the
+// "lfx_v2_formation_service" service "create_template" endpoint HTTP response
+// body for the "Conflict" error.
+type CreateTemplateConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// CreateTemplateUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "create_template" endpoint HTTP response
+// body for the "Unauthorized" error.
+type CreateTemplateUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// UpdateTemplateNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "update_template" endpoint HTTP response
+// body for the "NotFound" error.
+type UpdateTemplateNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// UpdateTemplateConflictResponseBody is the type of the
+// "lfx_v2_formation_service" service "update_template" endpoint HTTP response
+// body for the "Conflict" error.
+type UpdateTemplateConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// UpdateTemplateBadRequestResponseBody is the type of the
+// "lfx_v2_formation_service" service "update_template" endpoint HTTP response
+// body for the "BadRequest" error.
+type UpdateTemplateBadRequestResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// UpdateTemplateUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "update_template" endpoint HTTP response
+// body for the "Unauthorized" error.
+type UpdateTemplateUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// PublishTemplateNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "publish_template" endpoint HTTP response
+// body for the "NotFound" error.
+type PublishTemplateNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// PublishTemplateConflictResponseBody is the type of the
+// "lfx_v2_formation_service" service "publish_template" endpoint HTTP response
+// body for the "Conflict" error.
+type PublishTemplateConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// PublishTemplateUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "publish_template" endpoint HTTP response
+// body for the "Unauthorized" error.
+type PublishTemplateUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
+// ArchiveTemplateNotFoundResponseBody is the type of the
+// "lfx_v2_formation_service" service "archive_template" endpoint HTTP response
+// body for the "NotFound" error.
+type ArchiveTemplateNotFoundResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// ArchiveTemplateConflictResponseBody is the type of the
+// "lfx_v2_formation_service" service "archive_template" endpoint HTTP response
+// body for the "Conflict" error.
+type ArchiveTemplateConflictResponseBody struct {
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Human-readable message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+	// Machine-readable; switch on this, not on status.
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty" xml:"reason,omitempty"`
+}
+
+// ArchiveTemplateUnauthorizedResponseBody is the type of the
+// "lfx_v2_formation_service" service "archive_template" endpoint HTTP response
+// body for the "Unauthorized" error.
+type ArchiveTemplateUnauthorizedResponseBody struct {
+	// HTTP status code
+	Code *string `form:"code,omitempty" json:"code,omitempty" xml:"code,omitempty"`
+	// Error message
+	Message *string `form:"message,omitempty" json:"message,omitempty" xml:"message,omitempty"`
+}
+
 // ReadyzServiceUnavailableResponseBody is the type of the
 // "lfx_v2_formation_service" service "readyz" endpoint HTTP response body for
 // the "ServiceUnavailable" error.
@@ -809,6 +1152,26 @@ type ProjectApplicationResponseBody struct {
 	UpdatedAt   *string        `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
 }
 
+// AdminTemplateResponse is used to define fields on response body types.
+type AdminTemplateResponse struct {
+	UID  *string `form:"uid,omitempty" json:"uid,omitempty" xml:"uid,omitempty"`
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string `form:"state,omitempty" json:"state,omitempty" xml:"state,omitempty"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections.
+	Sections    any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
+	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
+	CreatedAt   *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	UpdatedAt   *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	PublishedAt *string `form:"published_at,omitempty" json:"published_at,omitempty" xml:"published_at,omitempty"`
+}
+
 // NewSetItemStatusRequestBody builds the HTTP request body from the payload of
 // the "set_item_status" endpoint of the "lfx_v2_formation_service" service.
 func NewSetItemStatusRequestBody(p *lfxv2formationservice.SetItemStatusPayload) *SetItemStatusRequestBody {
@@ -882,6 +1245,32 @@ func NewReviseApplicationRequestBody(p *lfxv2formationservice.ReviseApplicationP
 			tv := val
 			body.Application[tk] = tv
 		}
+	}
+	return body
+}
+
+// NewCreateTemplateRequestBody builds the HTTP request body from the payload
+// of the "create_template" endpoint of the "lfx_v2_formation_service" service.
+func NewCreateTemplateRequestBody(p *lfxv2formationservice.CreateTemplatePayload) *CreateTemplateRequestBody {
+	body := &CreateTemplateRequestBody{
+		Name:            p.Name,
+		TemplateVersion: p.TemplateVersion,
+		Priority:        p.Priority,
+		Match:           p.Match,
+		Sections:        p.Sections,
+		Author:          p.Author,
+	}
+	return body
+}
+
+// NewUpdateTemplateRequestBody builds the HTTP request body from the payload
+// of the "update_template" endpoint of the "lfx_v2_formation_service" service.
+func NewUpdateTemplateRequestBody(p *lfxv2formationservice.UpdateTemplatePayload) *UpdateTemplateRequestBody {
+	body := &UpdateTemplateRequestBody{
+		Priority: p.Priority,
+		Match:    p.Match,
+		Sections: p.Sections,
+		Author:   p.Author,
 	}
 	return body
 }
@@ -1692,6 +2081,317 @@ func NewDeleteApplicationVersionMismatch(body *DeleteApplicationVersionMismatchR
 // NewDeleteApplicationUnauthorized builds a lfx_v2_formation_service service
 // delete_application endpoint Unauthorized error.
 func NewDeleteApplicationUnauthorized(body *DeleteApplicationUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewListTemplatesAdminTemplateOK builds a "lfx_v2_formation_service" service
+// "list_templates" endpoint result from a HTTP "OK" response.
+func NewListTemplatesAdminTemplateOK(body []*AdminTemplateResponse) []*lfxv2formationservice.AdminTemplate {
+	v := make([]*lfxv2formationservice.AdminTemplate, len(body))
+	for i, val := range body {
+		if val == nil {
+			v[i] = nil
+			continue
+		}
+		v[i] = unmarshalAdminTemplateResponseToLfxv2formationserviceAdminTemplate(val)
+	}
+
+	return v
+}
+
+// NewListTemplatesUnauthorized builds a lfx_v2_formation_service service
+// list_templates endpoint Unauthorized error.
+func NewListTemplatesUnauthorized(body *ListTemplatesUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewGetTemplateAdminTemplateOK builds a "lfx_v2_formation_service" service
+// "get_template" endpoint result from a HTTP "OK" response.
+func NewGetTemplateAdminTemplateOK(body *GetTemplateResponseBody) *lfxv2formationserviceviews.AdminTemplateView {
+	v := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:             body.UID,
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		State:           body.State,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+		CreatedAt:       body.CreatedAt,
+		UpdatedAt:       body.UpdatedAt,
+		PublishedAt:     body.PublishedAt,
+	}
+
+	return v
+}
+
+// NewGetTemplateNotFound builds a lfx_v2_formation_service service
+// get_template endpoint NotFound error.
+func NewGetTemplateNotFound(body *GetTemplateNotFoundResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewGetTemplateUnauthorized builds a lfx_v2_formation_service service
+// get_template endpoint Unauthorized error.
+func NewGetTemplateUnauthorized(body *GetTemplateUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewCreateTemplateAdminTemplateCreated builds a "lfx_v2_formation_service"
+// service "create_template" endpoint result from a HTTP "Created" response.
+func NewCreateTemplateAdminTemplateCreated(body *CreateTemplateResponseBody) *lfxv2formationserviceviews.AdminTemplateView {
+	v := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:             body.UID,
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		State:           body.State,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+		CreatedAt:       body.CreatedAt,
+		UpdatedAt:       body.UpdatedAt,
+		PublishedAt:     body.PublishedAt,
+	}
+
+	return v
+}
+
+// NewCreateTemplateBadRequest builds a lfx_v2_formation_service service
+// create_template endpoint BadRequest error.
+func NewCreateTemplateBadRequest(body *CreateTemplateBadRequestResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewCreateTemplateConflict builds a lfx_v2_formation_service service
+// create_template endpoint Conflict error.
+func NewCreateTemplateConflict(body *CreateTemplateConflictResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewCreateTemplateUnauthorized builds a lfx_v2_formation_service service
+// create_template endpoint Unauthorized error.
+func NewCreateTemplateUnauthorized(body *CreateTemplateUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewUpdateTemplateAdminTemplateOK builds a "lfx_v2_formation_service" service
+// "update_template" endpoint result from a HTTP "OK" response.
+func NewUpdateTemplateAdminTemplateOK(body *UpdateTemplateResponseBody) *lfxv2formationserviceviews.AdminTemplateView {
+	v := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:             body.UID,
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		State:           body.State,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+		CreatedAt:       body.CreatedAt,
+		UpdatedAt:       body.UpdatedAt,
+		PublishedAt:     body.PublishedAt,
+	}
+
+	return v
+}
+
+// NewUpdateTemplateNotFound builds a lfx_v2_formation_service service
+// update_template endpoint NotFound error.
+func NewUpdateTemplateNotFound(body *UpdateTemplateNotFoundResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewUpdateTemplateConflict builds a lfx_v2_formation_service service
+// update_template endpoint Conflict error.
+func NewUpdateTemplateConflict(body *UpdateTemplateConflictResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewUpdateTemplateBadRequest builds a lfx_v2_formation_service service
+// update_template endpoint BadRequest error.
+func NewUpdateTemplateBadRequest(body *UpdateTemplateBadRequestResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewUpdateTemplateUnauthorized builds a lfx_v2_formation_service service
+// update_template endpoint Unauthorized error.
+func NewUpdateTemplateUnauthorized(body *UpdateTemplateUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewPublishTemplateAdminTemplateOK builds a "lfx_v2_formation_service"
+// service "publish_template" endpoint result from a HTTP "OK" response.
+func NewPublishTemplateAdminTemplateOK(body *PublishTemplateResponseBody) *lfxv2formationserviceviews.AdminTemplateView {
+	v := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:             body.UID,
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		State:           body.State,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+		CreatedAt:       body.CreatedAt,
+		UpdatedAt:       body.UpdatedAt,
+		PublishedAt:     body.PublishedAt,
+	}
+
+	return v
+}
+
+// NewPublishTemplateNotFound builds a lfx_v2_formation_service service
+// publish_template endpoint NotFound error.
+func NewPublishTemplateNotFound(body *PublishTemplateNotFoundResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewPublishTemplateConflict builds a lfx_v2_formation_service service
+// publish_template endpoint Conflict error.
+func NewPublishTemplateConflict(body *PublishTemplateConflictResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewPublishTemplateUnauthorized builds a lfx_v2_formation_service service
+// publish_template endpoint Unauthorized error.
+func NewPublishTemplateUnauthorized(body *PublishTemplateUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
+	v := &lfxv2formationservice.UnauthorizedError{
+		Code:    *body.Code,
+		Message: *body.Message,
+	}
+
+	return v
+}
+
+// NewArchiveTemplateAdminTemplateOK builds a "lfx_v2_formation_service"
+// service "archive_template" endpoint result from a HTTP "OK" response.
+func NewArchiveTemplateAdminTemplateOK(body *ArchiveTemplateResponseBody) *lfxv2formationserviceviews.AdminTemplateView {
+	v := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:             body.UID,
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		State:           body.State,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+		CreatedAt:       body.CreatedAt,
+		UpdatedAt:       body.UpdatedAt,
+		PublishedAt:     body.PublishedAt,
+	}
+
+	return v
+}
+
+// NewArchiveTemplateNotFound builds a lfx_v2_formation_service service
+// archive_template endpoint NotFound error.
+func NewArchiveTemplateNotFound(body *ArchiveTemplateNotFoundResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewArchiveTemplateConflict builds a lfx_v2_formation_service service
+// archive_template endpoint Conflict error.
+func NewArchiveTemplateConflict(body *ArchiveTemplateConflictResponseBody) *lfxv2formationservice.TemplateError {
+	v := &lfxv2formationservice.TemplateError{
+		Name:    *body.Name,
+		Code:    *body.Code,
+		Message: *body.Message,
+		Reason:  *body.Reason,
+	}
+
+	return v
+}
+
+// NewArchiveTemplateUnauthorized builds a lfx_v2_formation_service service
+// archive_template endpoint Unauthorized error.
+func NewArchiveTemplateUnauthorized(body *ArchiveTemplateUnauthorizedResponseBody) *lfxv2formationservice.UnauthorizedError {
 	v := &lfxv2formationservice.UnauthorizedError{
 		Code:    *body.Code,
 		Message: *body.Message,
@@ -2650,6 +3350,308 @@ func ValidateDeleteApplicationUnauthorizedResponseBody(body *DeleteApplicationUn
 	return
 }
 
+// ValidateListTemplatesUnauthorizedResponseBody runs the validations defined
+// on list_templates_Unauthorized_response_body
+func ValidateListTemplatesUnauthorizedResponseBody(body *ListTemplatesUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateGetTemplateNotFoundResponseBody runs the validations defined on
+// get_template_NotFound_response_body
+func ValidateGetTemplateNotFoundResponseBody(body *GetTemplateNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateGetTemplateUnauthorizedResponseBody runs the validations defined on
+// get_template_Unauthorized_response_body
+func ValidateGetTemplateUnauthorizedResponseBody(body *GetTemplateUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateCreateTemplateBadRequestResponseBody runs the validations defined on
+// create_template_BadRequest_response_body
+func ValidateCreateTemplateBadRequestResponseBody(body *CreateTemplateBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateCreateTemplateConflictResponseBody runs the validations defined on
+// create_template_Conflict_response_body
+func ValidateCreateTemplateConflictResponseBody(body *CreateTemplateConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateCreateTemplateUnauthorizedResponseBody runs the validations defined
+// on create_template_Unauthorized_response_body
+func ValidateCreateTemplateUnauthorizedResponseBody(body *CreateTemplateUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateUpdateTemplateNotFoundResponseBody runs the validations defined on
+// update_template_NotFound_response_body
+func ValidateUpdateTemplateNotFoundResponseBody(body *UpdateTemplateNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateUpdateTemplateConflictResponseBody runs the validations defined on
+// update_template_Conflict_response_body
+func ValidateUpdateTemplateConflictResponseBody(body *UpdateTemplateConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateUpdateTemplateBadRequestResponseBody runs the validations defined on
+// update_template_BadRequest_response_body
+func ValidateUpdateTemplateBadRequestResponseBody(body *UpdateTemplateBadRequestResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateUpdateTemplateUnauthorizedResponseBody runs the validations defined
+// on update_template_Unauthorized_response_body
+func ValidateUpdateTemplateUnauthorizedResponseBody(body *UpdateTemplateUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidatePublishTemplateNotFoundResponseBody runs the validations defined on
+// publish_template_NotFound_response_body
+func ValidatePublishTemplateNotFoundResponseBody(body *PublishTemplateNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidatePublishTemplateConflictResponseBody runs the validations defined on
+// publish_template_Conflict_response_body
+func ValidatePublishTemplateConflictResponseBody(body *PublishTemplateConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidatePublishTemplateUnauthorizedResponseBody runs the validations defined
+// on publish_template_Unauthorized_response_body
+func ValidatePublishTemplateUnauthorizedResponseBody(body *PublishTemplateUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
+// ValidateArchiveTemplateNotFoundResponseBody runs the validations defined on
+// archive_template_NotFound_response_body
+func ValidateArchiveTemplateNotFoundResponseBody(body *ArchiveTemplateNotFoundResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateArchiveTemplateConflictResponseBody runs the validations defined on
+// archive_template_Conflict_response_body
+func ValidateArchiveTemplateConflictResponseBody(body *ArchiveTemplateConflictResponseBody) (err error) {
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	if body.Reason == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("reason", "body"))
+	}
+	if body.Reason != nil {
+		if !(*body.Reason == "not_found" || *body.Reason == "template_not_draft" || *body.Reason == "template_already_archived" || *body.Reason == "template_already_exists" || *body.Reason == "no_fields_to_update" || *body.Reason == "invalid_sections") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.reason", *body.Reason, []any{"not_found", "template_not_draft", "template_already_archived", "template_already_exists", "no_fields_to_update", "invalid_sections"}))
+		}
+	}
+	return
+}
+
+// ValidateArchiveTemplateUnauthorizedResponseBody runs the validations defined
+// on archive_template_Unauthorized_response_body
+func ValidateArchiveTemplateUnauthorizedResponseBody(body *ArchiveTemplateUnauthorizedResponseBody) (err error) {
+	if body.Code == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("code", "body"))
+	}
+	if body.Message == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("message", "body"))
+	}
+	return
+}
+
 // ValidateReadyzServiceUnavailableResponseBody runs the validations defined on
 // readyz_ServiceUnavailable_response_body
 func ValidateReadyzServiceUnavailableResponseBody(body *ReadyzServiceUnavailableResponseBody) (err error) {
@@ -2883,6 +3885,58 @@ func ValidateProjectApplicationResponseBody(body *ProjectApplicationResponseBody
 	}
 	if body.UpdatedAt != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("body.updated_at", *body.UpdatedAt, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateAdminTemplateResponse runs the validations defined on
+// AdminTemplateResponse
+func ValidateAdminTemplateResponse(body *AdminTemplateResponse) (err error) {
+	if body.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "body"))
+	}
+	if body.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "body"))
+	}
+	if body.TemplateVersion == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("template_version", "body"))
+	}
+	if body.State == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("state", "body"))
+	}
+	if body.Priority == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("priority", "body"))
+	}
+	if body.Match == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("match", "body"))
+	}
+	if body.Sections == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("sections", "body"))
+	}
+	if body.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "body"))
+	}
+	if body.UpdatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("updated_at", "body"))
+	}
+	if body.State != nil {
+		if !(*body.State == "draft" || *body.State == "published" || *body.State == "archived") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.state", *body.State, []any{"draft", "published", "archived"}))
+		}
+	}
+	if body.Match != nil {
+		if !(*body.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.match", *body.Match, []any{"always"}))
+		}
+	}
+	if body.CreatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.created_at", *body.CreatedAt, goa.FormatDateTime))
+	}
+	if body.UpdatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.updated_at", *body.UpdatedAt, goa.FormatDateTime))
+	}
+	if body.PublishedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("body.published_at", *body.PublishedAt, goa.FormatDateTime))
 	}
 	return
 }

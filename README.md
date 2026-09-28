@@ -8,6 +8,7 @@ A backend service for managing project formation checklists and other formation 
 - [FGA Contract](docs/fga-contract.md) — messages sent to the fga-sync service
 - [Activity Contract](docs/activity-contract.md) — lifecycle activity messages
 - [Query Lookup Contract](docs/query-lookup-contract.md) — project-service lookup behavior
+- [Template Admin Team](docs/template-admin-team.md) — provisioning and membership for the template admin gate
 
 ## How a checklist comes to exist
 
@@ -128,9 +129,12 @@ PGDATABASE=formation PGSSLMODE=disable make run
 
 ### Operator commands
 
-Checklist templates have no API routes, so template management is a separate
-binary. It reads the same `PG*` environment as the service and applies the
-embedded schema on connect, so it needs no migration step of its own.
+Checklist templates now have an admin HTTP API (list, get, create, update,
+publish, archive) guarded by a global team — see
+[Template Admin Team](docs/template-admin-team.md). The CLI remains the tool
+for seed, validate, expand, and upgrade. It reads the same `PG*` environment
+as the service and applies the embedded schema on connect, so it needs no
+migration step of its own.
 
 `seed` is a required one-time step when deploying to a new environment, and
 nothing runs it automatically — no service chart here ships a `Job`. Until it
