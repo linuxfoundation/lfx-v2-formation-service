@@ -118,6 +118,7 @@ type EmailConfig struct {
 
 	// AdminBaseURL is the root URL for admin-tool deep links in emails.
 	AdminBaseURL string
+
 }
 
 // Ensure Service satisfies the generated service and authorization interfaces.

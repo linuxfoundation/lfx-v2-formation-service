@@ -1,0 +1,11 @@
+{{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
+Hi formation team,
+
+A new project application for {{.ProjectName}} has been submitted by
+{{.SubmitterName}} ({{.SubmitterEmail}}).
+
+Open review queue:
+{{.ReviewQueueURL}}
+
+---
+This is an automated notification from the LFX formation service.

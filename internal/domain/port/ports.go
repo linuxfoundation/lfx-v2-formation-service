@@ -220,6 +220,16 @@ type ApplicationRepository interface {
 	ListDeletionPage(
 		ctx context.Context, after uuid.UUID, limit int,
 	) ([]*model.ApplicationDeletion, error)
+
+	// MarkApplicationNotified sets one notification timestamp to now() where it
+	// is still NULL and returns acquired=true when this call was the one that set
+	// it. column must be one of:
+	//   "notified_submitted_at"
+	//   "notified_accepted_at"
+	//   "notified_denied_at"
+	//
+	// A false return means another replica already sent the email.
+	MarkApplicationNotified(ctx context.Context, uid uuid.UUID, column string) (acquired bool, err error)
 }
 
 // UnitOfWork runs a function against repositories bound to one transaction, so

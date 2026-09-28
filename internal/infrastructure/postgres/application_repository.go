@@ -199,6 +199,40 @@ func (r *ApplicationRepo) Transition(
 	return a, nil
 }
 
+// allowedApplicationNotifyColumns is the set of column names
+// MarkApplicationNotified may update. A closed set prevents an injection
+// vector on the column name, which cannot be parameterised in SQL.
+var allowedApplicationNotifyColumns = map[string]struct{}{
+	"notified_submitted_at": {},
+	"notified_accepted_at":  {},
+	"notified_denied_at":    {},
+}
+
+// MarkApplicationNotified sets one notification timestamp to now() where it is
+// still NULL. It returns acquired=true when this call was the one that set the
+// column (RowsAffected > 0) and acquired=false when the column was already set
+// by another caller. Only the winner should dispatch the email.
+func (r *ApplicationRepo) MarkApplicationNotified(ctx context.Context, uid uuid.UUID, column string) (bool, error) {
+	if _, ok := allowedApplicationNotifyColumns[column]; !ok {
+		return false, fmt.Errorf("MarkApplicationNotified: unknown column %q", column)
+	}
+	// Column name is safe: validated against an allowlist above.
+	//nolint:gosec // column is validated against allowedApplicationNotifyColumns above.
+	res, err := r.db.NewUpdate().
+		TableExpr("project_applications").
+		Set(column+" = now()").
+		Where("uid = ? AND "+column+" IS NULL", uid).
+		Exec(ctx)
+	if err != nil {
+		return false, fmt.Errorf("mark application notified %s: %w", column, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("mark application notified %s: rows affected: %w", column, err)
+	}
+	return n > 0, nil
+}
+
 func requireApplicationRevision(
 	ctx context.Context, db bun.IDB, res sql.Result, uid uuid.UUID, op string,
 ) error {

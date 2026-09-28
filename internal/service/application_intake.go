@@ -124,6 +124,7 @@ func (s *Service) CreateApplication(
 	)
 
 	_ = s.publishApplication(ctx, created)
+	s.dispatchApplicationSubmittedEmails(ctx, created)
 
 	return applicationToWire(created), nil
 }

@@ -87,6 +87,7 @@ type EmailConfig struct {
 	// AdminBaseURL is the root for checklist deep links in outbound emails.
 	// Links: AdminBaseURL + "/foundation/formations/{formation-slug}?project={parent-slug}".
 	AdminBaseURL string
+
 }
 
 // DatabaseConfig holds the five credential values the provisioned secret
