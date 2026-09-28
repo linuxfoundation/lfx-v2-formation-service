@@ -219,7 +219,27 @@ func parseSections(raw any) ([]model.TemplateSection, error) {
 	if err := json.Unmarshal(b, &sections); err != nil {
 		return nil, fmt.Errorf("sections must be an array of section objects: %w", err)
 	}
+	if err := validateSections(sections); err != nil {
+		return nil, err
+	}
 	return sections, nil
+}
+
+// validateSections checks that each section and item carries the non-empty keys
+// that the expander requires. An empty key would silently produce items with
+// no identity, making them unresolvable in downstream checklist reads.
+func validateSections(sections []model.TemplateSection) error {
+	for i, s := range sections {
+		if s.Key == "" {
+			return fmt.Errorf("section[%d]: key is required", i)
+		}
+		for j, item := range s.Items {
+			if item.Key == "" {
+				return fmt.Errorf("section[%d].items[%d]: key is required", i, j)
+			}
+		}
+	}
+	return nil
 }
 
 // withTemplateReason wraps bare domain sentinel errors with a machine-readable
