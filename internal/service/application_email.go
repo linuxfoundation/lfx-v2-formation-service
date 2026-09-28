@@ -53,25 +53,25 @@ func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *mod
 			slog.ErrorContext(ctx, "formationService.dispatch-application-email: send submitted failed",
 				"application_uid", a.UID, log.ErrKey, sendErr)
 		}
-	}
 
-	// Formation team notification — no idempotency guard; the team inbox
-	// tolerates a duplicate more gracefully than a missed alert.
-	if s.emailCfg.FormationInbox != "" {
-		teamSubject, teamHTML, teamText, renderErr := email.RenderApplicationSubmittedTeam(email.ApplicationSubmittedTeamData{
-			ProjectName:    projectName,
-			SubmitterName:  a.SubmitterName,
-			SubmitterEmail: a.SubmitterEmail,
-			ReviewQueueURL: s.emailCfg.AdminBaseURL + "/foundation/formations?tab=proposals",
-		})
-		if renderErr != nil {
-			slog.ErrorContext(ctx, "formationService.dispatch-application-email: render submitted-team failed",
-				"application_uid", a.UID, log.ErrKey, renderErr)
-		} else if sendErr := s.emailer.Send(ctx, port.EmailMessage{
-			To: s.emailCfg.FormationInbox, Subject: teamSubject, HTML: teamHTML, Text: teamText,
-		}); sendErr != nil {
-			slog.ErrorContext(ctx, "formationService.dispatch-application-email: send submitted-team failed",
-				"application_uid", a.UID, log.ErrKey, sendErr)
+		// Formation team notification — gated on the same acquired claim so
+		// only one replica sends the alert per application submission.
+		if s.emailCfg.FormationInbox != "" {
+			teamSubject, teamHTML, teamText, renderErr := email.RenderApplicationSubmittedTeam(email.ApplicationSubmittedTeamData{
+				ProjectName:    projectName,
+				SubmitterName:  a.SubmitterName,
+				SubmitterEmail: a.SubmitterEmail,
+				ReviewQueueURL: s.emailCfg.AdminBaseURL + "/foundation/formations?tab=proposals",
+			})
+			if renderErr != nil {
+				slog.ErrorContext(ctx, "formationService.dispatch-application-email: render submitted-team failed",
+					"application_uid", a.UID, log.ErrKey, renderErr)
+			} else if sendErr := s.emailer.Send(ctx, port.EmailMessage{
+				To: s.emailCfg.FormationInbox, Subject: teamSubject, HTML: teamHTML, Text: teamText,
+			}); sendErr != nil {
+				slog.ErrorContext(ctx, "formationService.dispatch-application-email: send submitted-team failed",
+					"application_uid", a.UID, log.ErrKey, sendErr)
+			}
 		}
 	}
 }

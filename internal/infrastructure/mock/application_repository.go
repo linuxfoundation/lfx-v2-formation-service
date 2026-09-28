@@ -212,10 +212,11 @@ func (r *ApplicationRepository) ListDeletionPage(
 	return out, nil
 }
 
-// MarkApplicationNotified records that a status email was sent for an
-// application. It returns acquired=true the first time a given column is set
-// and false on every subsequent call, matching the conditional-UPDATE behaviour
-// of the postgres implementation.
+// MarkApplicationNotified records that a notification claim was acquired for
+// an application column. It returns acquired=true the first time a given
+// column is claimed and false on every subsequent call, matching the
+// conditional-UPDATE behaviour of the postgres implementation. A true return
+// means the caller won the race to send; it does not confirm delivery.
 func (r *ApplicationRepository) MarkApplicationNotified(_ context.Context, uid uuid.UUID, column string) (bool, error) {
 	r.record("applications.MarkApplicationNotified")
 	r.mu.Lock()

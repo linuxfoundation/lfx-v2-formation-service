@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	svc "github.com/linuxfoundation/lfx-v2-formation-service/gen/lfx_v2_formation_service"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
@@ -81,27 +82,32 @@ func TestApplicationSubmittedSendsNoTeamAlertWhenInboxEmpty(t *testing.T) {
 }
 
 func TestApplicationSubmittedIdempotent(t *testing.T) {
-	// The mock's MarkApplicationNotified returns false on a second call for the
-	// same column, so a duplicate submit (if it were possible) would not send a
-	// second receipt.
+	// Calling dispatchApplicationSubmittedEmails twice for the same application
+	// must send exactly one receipt and one team alert — the second call finds
+	// the claim already acquired and does nothing.
 	d, mailer := applicationEmailService(t)
 	result, err := d.service.CreateApplication(asPrincipal("asmith"), intakePayload())
 	require.NoError(t, err)
 
-	// Manually mark the submitted column as already sent and fire again.
+	// Fetch the stored application and fire the dispatcher a second time.
 	uid := mustUUID(t, result.UID)
-	acquired, err := d.applications.MarkApplicationNotified(t.Context(), uid, "notified_submitted_at")
+	app, err := d.applications.Get(t.Context(), uid)
 	require.NoError(t, err)
-	assert.False(t, acquired, "second mark must return acquired=false")
+	d.service.dispatchApplicationSubmittedEmails(t.Context(), app)
 
-	// Count how many emails were sent to the submitter.
-	count := 0
+	// The claim was already acquired on the first call; the second dispatch
+	// must not add any new messages.
+	submitter, team := 0, 0
 	for _, m := range mailer.Sent() {
-		if m.To == "asmith@example.test" {
-			count++
+		switch m.To {
+		case "asmith@example.test":
+			submitter++
+		case "formation@example.test":
+			team++
 		}
 	}
-	assert.Equal(t, 1, count, "submitter must receive exactly one receipt even when mark is called twice")
+	assert.Equal(t, 1, submitter, "submitter must receive exactly one receipt")
+	assert.Equal(t, 1, team, "team must receive exactly one alert")
 }
 
 // --- accepted email ---
@@ -123,8 +129,9 @@ func TestApplicationAcceptedSendsEmail(t *testing.T) {
 }
 
 func TestApplicationAcceptedIdempotent(t *testing.T) {
-	// Accepting twice (different reviewers, both succeed) must send only one
-	// email because MarkApplicationNotified returns false on the second call.
+	// Calling dispatchApplicationDecidedEmail twice for the same application
+	// must send exactly one accepted email — the second call finds the claim
+	// already acquired and does nothing.
 	d, mailer := applicationEmailService(t)
 	created := submitOne(t, d.service)
 	mailer.Reset()
@@ -134,11 +141,10 @@ func TestApplicationAcceptedIdempotent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Pre-mark the column so the second accept finds acquired=false.
-	uid := mustUUID(t, created.UID)
-	d.applications.MarkApplicationNotified(t.Context(), uid, "notified_accepted_at") //nolint:errcheck
+	// Fire the dispatcher a second time directly; the claim is already held.
+	d.service.dispatchApplicationDecidedEmail(t.Context(), created.UID, model.ApplicationAccepted)
 
-	assert.Equal(t, 1, mailer.SentCount(), "only one accepted email regardless of how many times the column is checked")
+	assert.Equal(t, 1, mailer.SentCount(), "submitter must receive exactly one accepted email")
 }
 
 // --- denied email ---

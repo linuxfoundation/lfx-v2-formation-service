@@ -228,7 +228,9 @@ type ApplicationRepository interface {
 	//   "notified_accepted_at"
 	//   "notified_denied_at"
 	//
-	// A false return means another replica already sent the email.
+	// A false return means another caller already acquired the claim; it does
+	// not prove an email was delivered, because the winning caller may have
+	// failed after setting the timestamp.
 	MarkApplicationNotified(ctx context.Context, uid uuid.UUID, column string) (acquired bool, err error)
 }
 
