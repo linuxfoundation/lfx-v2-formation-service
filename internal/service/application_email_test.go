@@ -240,6 +240,6 @@ func TestApplicationSubmittedTeamEmailContent(t *testing.T) {
 	}
 	require.NotNil(t, teamMsg)
 	assert.Contains(t, teamMsg.HTML, "Proposed Project")
-	assert.Contains(t, teamMsg.HTML, "asmith@example.test", "team alert must include the submitter's email")
+	assert.NotContains(t, teamMsg.HTML, "asmith@example.test", "team alert must not include the submitter's email")
 }
 

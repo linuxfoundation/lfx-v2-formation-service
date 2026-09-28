@@ -27,12 +27,6 @@ type ApplicationSubmittedTeamData struct {
 	// ProjectName is the proposed project name from the application answers.
 	ProjectName string
 
-	// SubmitterName is the submitter's display name.
-	SubmitterName string
-
-	// SubmitterEmail is the submitter's email address.
-	SubmitterEmail string
-
 	// ReviewQueueURL is the admin tool link to the application review queue.
 	ReviewQueueURL string
 }

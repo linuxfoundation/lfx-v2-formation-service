@@ -59,8 +59,6 @@ func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *mod
 		if s.emailCfg.FormationInbox != "" {
 			teamSubject, teamHTML, teamText, renderErr := email.RenderApplicationSubmittedTeam(email.ApplicationSubmittedTeamData{
 				ProjectName:    projectName,
-				SubmitterName:  a.SubmitterName,
-				SubmitterEmail: a.SubmitterEmail,
 				ReviewQueueURL: s.emailCfg.AdminBaseURL + "/foundation/formations?tab=proposals",
 			})
 			if renderErr != nil {
