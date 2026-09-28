@@ -18,7 +18,10 @@ import (
 // dispatchApplicationSubmittedEmails sends the submission receipt to the
 // submitter and a review-queue alert to the formation team. Both sends are
 // best-effort: a failure is logged and never blocks the API response.
-// MarkApplicationNotified guards against duplicate sends across replicas.
+//
+// MarkApplicationNotified enforces at-most-once delivery across replicas: the
+// column is claimed before the send attempt, so a failed or slow send is NOT
+// retried — the timestamp records a claimed attempt, not a confirmed delivery.
 func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *model.Application) {
 	if s.emailer == nil || !s.emailCfg.Enabled {
 		return
@@ -26,15 +29,15 @@ func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *mod
 
 	projectName := applicationProjectName(a)
 
-	// Submitter notification — guarded by MarkApplicationNotified so only one
-	// replica sends even when multiple pods handle the same request path.
+	// Submitter notification — MarkApplicationNotified ensures at most one
+	// replica sends per application even when multiple pods run concurrently.
 	acquired, err := s.applications.MarkApplicationNotified(ctx, a.UID, "notified_submitted_at")
 	if err != nil {
 		slog.WarnContext(ctx, "formationService.dispatch-application-email: mark submitted failed",
 			"application_uid", a.UID, log.ErrKey, err)
 	}
 	if acquired {
-		appURL := s.emailCfg.AdminBaseURL + "/applications/" + a.UID.String()
+		appURL := s.emailCfg.AdminBaseURL + "/formations?tab=proposals"
 		subject, html, text, renderErr := email.RenderApplicationSubmitted(email.ApplicationSubmittedData{
 			RecipientName:  a.SubmitterName,
 			ProjectName:    projectName,
@@ -59,7 +62,7 @@ func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *mod
 			ProjectName:    projectName,
 			SubmitterName:  a.SubmitterName,
 			SubmitterEmail: a.SubmitterEmail,
-			ReviewQueueURL: s.emailCfg.AdminBaseURL + "/applications",
+			ReviewQueueURL: s.emailCfg.AdminBaseURL + "/foundation/formations?tab=proposals",
 		})
 		if renderErr != nil {
 			slog.ErrorContext(ctx, "formationService.dispatch-application-email: render submitted-team failed",
@@ -75,7 +78,10 @@ func (s *Service) dispatchApplicationSubmittedEmails(ctx context.Context, a *mod
 
 // dispatchApplicationDecidedEmail sends the acceptance or denial notification
 // to the submitter. It looks up the application after the commit so the caller
-// does not need to thread it through the return path. The send is best-effort.
+// does not need to thread it through the return path.
+//
+// Delivery is at most once: MarkApplicationNotified claims the column before
+// the send, so a failed send is not retried on a subsequent call.
 func (s *Service) dispatchApplicationDecidedEmail(ctx context.Context, rawUID string, decision model.ApplicationState) {
 	if s.emailer == nil || !s.emailCfg.Enabled {
 		return
