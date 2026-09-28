@@ -23,7 +23,17 @@ func (s *Service) AcceptApplication(
 	if err != nil {
 		return nil, err
 	}
-	s.dispatchApplicationDecidedEmail(ctx, p.UID, model.ApplicationAccepted)
+	if s.emailDispatchWG != nil {
+		s.emailDispatchWG.Add(1)
+	}
+	go func() {
+		if s.emailDispatchWG != nil {
+			defer s.emailDispatchWG.Done()
+		}
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emailDispatchTimeout)
+		defer cancel()
+		s.dispatchApplicationDecidedEmail(dctx, p.UID, model.ApplicationAccepted)
+	}()
 	return result, nil
 }
 
@@ -39,7 +49,17 @@ func (s *Service) DenyApplication(
 	if err != nil {
 		return nil, err
 	}
-	s.dispatchApplicationDecidedEmail(ctx, p.UID, model.ApplicationDenied)
+	if s.emailDispatchWG != nil {
+		s.emailDispatchWG.Add(1)
+	}
+	go func() {
+		if s.emailDispatchWG != nil {
+			defer s.emailDispatchWG.Done()
+		}
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emailDispatchTimeout)
+		defer cancel()
+		s.dispatchApplicationDecidedEmail(dctx, p.UID, model.ApplicationDenied)
+	}()
 	return result, nil
 }
 

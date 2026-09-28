@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,12 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/service/email"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
 )
+
+// emailDispatchTimeout bounds how long a background email goroutine waits for
+// the NATS email service before giving up. The request has already returned by
+// the time this fires, so the timeout is generous enough for a slow provider
+// but short enough to reclaim goroutines when the service is unreachable.
+const emailDispatchTimeout = 30 * time.Second
 
 // dispatchApplicationSubmittedEmails sends the submission receipt to the
 // submitter and a review-queue alert to the formation team. Both sends are
