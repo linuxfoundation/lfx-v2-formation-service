@@ -101,7 +101,7 @@ type CreateTemplateRequestBody struct {
 	TemplateVersion *int `form:"template_version,omitempty" json:"template_version,omitempty" xml:"template_version,omitempty"`
 	// Selection priority; lower wins.
 	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
-	// Match rule. 'always' is the fallback.
+	// Match rule. Currently only 'always' is supported.
 	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
 	// Template sections array.
 	Sections any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
@@ -2592,6 +2592,11 @@ func ValidateCreateTemplateRequestBody(body *CreateTemplateRequestBody) (err err
 			err = goa.MergeErrors(err, goa.InvalidRangeError("body.priority", *body.Priority, 0, true))
 		}
 	}
+	if body.Match != nil {
+		if !(*body.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.match", *body.Match, []any{"always"}))
+		}
+	}
 	return
 }
 
@@ -2601,6 +2606,11 @@ func ValidateUpdateTemplateRequestBody(body *UpdateTemplateRequestBody) (err err
 	if body.Priority != nil {
 		if *body.Priority < 0 {
 			err = goa.MergeErrors(err, goa.InvalidRangeError("body.priority", *body.Priority, 0, true))
+		}
+	}
+	if body.Match != nil {
+		if !(*body.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.match", *body.Match, []any{"always"}))
 		}
 	}
 	return

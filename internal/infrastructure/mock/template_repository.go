@@ -152,6 +152,9 @@ func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port
 	if t.State != model.TemplateDraft {
 		return nil, fmt.Errorf("%w: only draft templates may be updated", domain.ErrConflict)
 	}
+	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
+		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
+	}
 
 	clone := *t
 	if patch.Priority != nil {

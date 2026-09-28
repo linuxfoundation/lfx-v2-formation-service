@@ -240,7 +240,7 @@ type CreateTemplatePayload struct {
 	TemplateVersion int
 	// Selection priority; lower wins.
 	Priority int
-	// Match rule. 'always' is the fallback.
+	// Match rule. Currently only 'always' is supported.
 	Match string
 	// Template sections array.
 	Sections any

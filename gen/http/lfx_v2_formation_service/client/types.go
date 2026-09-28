@@ -101,7 +101,7 @@ type CreateTemplateRequestBody struct {
 	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
 	// Selection priority; lower wins.
 	Priority int `form:"priority" json:"priority" xml:"priority"`
-	// Match rule. 'always' is the fallback.
+	// Match rule. Currently only 'always' is supported.
 	Match string `form:"match" json:"match" xml:"match"`
 	// Template sections array.
 	Sections any     `form:"sections" json:"sections" xml:"sections"`

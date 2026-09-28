@@ -15,17 +15,10 @@ This value is set in `charts/lfx-v2-formation-service/values.yaml` under
 
 ## Creating the team
 
-The team object must exist in OpenFGA before any template admin route can be
-reached. Use the platform's `fga` CLI or the admin tooling to create it:
-
-```bash
-fga tuple write \
-  --store-id <store-id> \
-  '{"user":"team:global_formation_template_admin#member","relation":"member","object":"team:global_formation_template_admin"}'
-```
-
-Or via the FGA REST API — consult the platform FGA documentation for the
-authoritative procedure.
+The `team:global_formation_template_admin` object is provisioned through the
+platform's admin tooling (not a raw FGA tuple). Contact the platform team or
+follow the internal team-provisioning runbook to create it. Once the team
+object exists, members are added with the tuples below.
 
 ## Adding a member
 

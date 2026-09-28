@@ -26,6 +26,7 @@ const (
 	templateReasonAlreadyArchived  = "template_already_archived"
 	templateReasonAlreadyExists    = "template_already_exists"
 	templateReasonNoFieldsToUpdate = "no_fields_to_update"
+	templateReasonInvalidSections  = "invalid_sections"
 )
 
 var templateReasonMessages = map[string]string{
@@ -34,6 +35,7 @@ var templateReasonMessages = map[string]string{
 	templateReasonAlreadyArchived:  "template is already archived",
 	templateReasonAlreadyExists:    "a template with this name and version already exists",
 	templateReasonNoFieldsToUpdate: "no fields to update",
+	templateReasonInvalidSections:  "sections could not be decoded as a valid section array",
 }
 
 // ListTemplates returns all templates in every state.
@@ -78,7 +80,7 @@ func (s *Service) CreateTemplate(
 ) (*svc.AdminTemplate, error) {
 	sections, err := parseSections(p.Sections)
 	if err != nil {
-		return nil, mapTemplateError(domain.NewReasonErrorf(domain.ErrInvalidRequest, "no_fields_to_update",
+		return nil, mapTemplateError(domain.NewReasonErrorf(domain.ErrInvalidRequest, templateReasonInvalidSections,
 			"sections: %v", err))
 	}
 
@@ -128,7 +130,7 @@ func (s *Service) UpdateTemplate(
 	if p.Sections != nil {
 		sections, err := parseSections(p.Sections)
 		if err != nil {
-			return nil, mapTemplateError(domain.NewReasonErrorf(domain.ErrInvalidRequest, templateReasonNoFieldsToUpdate,
+			return nil, mapTemplateError(domain.NewReasonErrorf(domain.ErrInvalidRequest, templateReasonInvalidSections,
 				"sections: %v", err))
 		}
 		patch.Sections = &sections

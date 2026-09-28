@@ -1426,38 +1426,38 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationActivityEntry'
                 example:
-                    - action: Assumenda animi.
-                      actor: Est laborum.
-                      after: Dolorem veritatis labore accusamus.
-                      at: "2014-01-04T16:20:11Z"
-                      before: Hic non sunt nihil aut consequatur nesciunt.
-                      item_uid: Voluptatem dolor consequatur sint.
-                      set_by: user
-                      ulid: Eum laborum sequi itaque sed nihil.
-                    - action: Assumenda animi.
-                      actor: Est laborum.
-                      after: Dolorem veritatis labore accusamus.
-                      at: "2014-01-04T16:20:11Z"
-                      before: Hic non sunt nihil aut consequatur nesciunt.
-                      item_uid: Voluptatem dolor consequatur sint.
-                      set_by: user
-                      ulid: Eum laborum sequi itaque sed nihil.
-                    - action: Assumenda animi.
-                      actor: Est laborum.
-                      after: Dolorem veritatis labore accusamus.
-                      at: "2014-01-04T16:20:11Z"
-                      before: Hic non sunt nihil aut consequatur nesciunt.
-                      item_uid: Voluptatem dolor consequatur sint.
-                      set_by: user
-                      ulid: Eum laborum sequi itaque sed nihil.
-                    - action: Assumenda animi.
-                      actor: Est laborum.
-                      after: Dolorem veritatis labore accusamus.
-                      at: "2014-01-04T16:20:11Z"
-                      before: Hic non sunt nihil aut consequatur nesciunt.
-                      item_uid: Voluptatem dolor consequatur sint.
-                      set_by: user
-                      ulid: Eum laborum sequi itaque sed nihil.
+                    - action: Sed nihil aut voluptatem dolor consequatur sint.
+                      actor: Ad perferendis culpa amet eos eum laborum.
+                      after: Nulla assumenda animi.
+                      at: "1994-11-23T22:15:47Z"
+                      before: Est laborum.
+                      item_uid: Et reprehenderit qui qui omnis ea.
+                      set_by: system
+                      ulid: Fugiat fugit sed magnam.
+                    - action: Sed nihil aut voluptatem dolor consequatur sint.
+                      actor: Ad perferendis culpa amet eos eum laborum.
+                      after: Nulla assumenda animi.
+                      at: "1994-11-23T22:15:47Z"
+                      before: Est laborum.
+                      item_uid: Et reprehenderit qui qui omnis ea.
+                      set_by: system
+                      ulid: Fugiat fugit sed magnam.
+                    - action: Sed nihil aut voluptatem dolor consequatur sint.
+                      actor: Ad perferendis culpa amet eos eum laborum.
+                      after: Nulla assumenda animi.
+                      at: "1994-11-23T22:15:47Z"
+                      before: Est laborum.
+                      item_uid: Et reprehenderit qui qui omnis ea.
+                      set_by: system
+                      ulid: Fugiat fugit sed magnam.
+                    - action: Sed nihil aut voluptatem dolor consequatur sint.
+                      actor: Ad perferendis culpa amet eos eum laborum.
+                      after: Nulla assumenda animi.
+                      at: "1994-11-23T22:15:47Z"
+                      before: Est laborum.
+                      item_uid: Et reprehenderit qui qui omnis ea.
+                      set_by: system
+                      ulid: Fugiat fugit sed magnam.
             next_cursor:
                 type: string
                 description: Pass as cursor to fetch the next page. Empty on the last page.
@@ -1465,22 +1465,22 @@ definitions:
         description: get_formation_activity_response_body result type (default view)
         example:
             entries:
-                - action: Assumenda animi.
-                  actor: Est laborum.
-                  after: Dolorem veritatis labore accusamus.
-                  at: "2014-01-04T16:20:11Z"
-                  before: Hic non sunt nihil aut consequatur nesciunt.
-                  item_uid: Voluptatem dolor consequatur sint.
-                  set_by: user
-                  ulid: Eum laborum sequi itaque sed nihil.
-                - action: Assumenda animi.
-                  actor: Est laborum.
-                  after: Dolorem veritatis labore accusamus.
-                  at: "2014-01-04T16:20:11Z"
-                  before: Hic non sunt nihil aut consequatur nesciunt.
-                  item_uid: Voluptatem dolor consequatur sint.
-                  set_by: user
-                  ulid: Eum laborum sequi itaque sed nihil.
+                - action: Sed nihil aut voluptatem dolor consequatur sint.
+                  actor: Ad perferendis culpa amet eos eum laborum.
+                  after: Nulla assumenda animi.
+                  at: "1994-11-23T22:15:47Z"
+                  before: Est laborum.
+                  item_uid: Et reprehenderit qui qui omnis ea.
+                  set_by: system
+                  ulid: Fugiat fugit sed magnam.
+                - action: Sed nihil aut voluptatem dolor consequatur sint.
+                  actor: Ad perferendis culpa amet eos eum laborum.
+                  after: Nulla assumenda animi.
+                  at: "1994-11-23T22:15:47Z"
+                  before: Est laborum.
+                  item_uid: Et reprehenderit qui qui omnis ea.
+                  set_by: system
+                  ulid: Fugiat fugit sed magnam.
             next_cursor: Tempore aperiam esse et quia sunt.
         required:
             - entries
@@ -1521,141 +1521,132 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationItem'
                 example:
-                    - action_link: Voluptas impedit labore voluptatum cupiditate.
-                      assignee: Dolores harum quidem qui.
+                    - action_link: Impedit nihil.
+                      assignee: Perspiciatis tempora quod sed optio et.
                       available_actions:
                         - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                         - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                       checklist_type: both
-                      due_date: "1992-11-16"
+                      due_date: "1993-07-17"
                       evidence_link: https://example.org/bylaws.pdf
                       gate: true
-                      is_required: false
-                      item_key: Veniam et minima non.
-                      note: Qui ipsa natus impedit sed perferendis.
+                      is_required: true
+                      item_key: Sed dignissimos deleniti ullam.
+                      note: Dolore accusantium ipsam nemo nulla cumque.
                       owner_team: formation
                       platform_check:
-                        min_count: 1822545900839770926
-                        resource_type: Optio et perspiciatis consequuntur.
-                      position: 5215568676136270126
+                        min_count: 5215568676136270126
+                        resource_type: Aut suscipit est voluptates rerum iure ut.
+                      position: 6233296950229059582
                       requires_writer: false
                       resolved_ref:
-                        type: Incidunt quos et ut.
-                        uid: Tenetur aut eligendi explicabo.
-                      section_key: Aut suscipit est voluptates rerum iure ut.
-                      skip_reason: Fugiat natus modi itaque sit.
-                      status: done
+                        type: Sit qui ipsa natus impedit.
+                        uid: Perferendis ut fugiat natus modi itaque sit.
+                      section_key: Ea atque aspernatur.
+                      skip_reason: Unde accusamus dolorum ad voluptas.
+                      status: skipped
                       status_source: platform
                       sub_items:
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                      title: Impedit nihil.
-                      uid: Atque aspernatur voluptatem ipsum repudiandae sed.
-                      version: 946879189670153557
-                    - action_link: Voluptas impedit labore voluptatum cupiditate.
-                      assignee: Dolores harum quidem qui.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                      title: Repudiandae sed.
+                      uid: Dolorem optio aut architecto iure veritatis.
+                      version: 3879535207512843910
+                    - action_link: Impedit nihil.
+                      assignee: Perspiciatis tempora quod sed optio et.
                       available_actions:
                         - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                         - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                       checklist_type: both
-                      due_date: "1992-11-16"
+                      due_date: "1993-07-17"
                       evidence_link: https://example.org/bylaws.pdf
                       gate: true
-                      is_required: false
-                      item_key: Veniam et minima non.
-                      note: Qui ipsa natus impedit sed perferendis.
+                      is_required: true
+                      item_key: Sed dignissimos deleniti ullam.
+                      note: Dolore accusantium ipsam nemo nulla cumque.
                       owner_team: formation
                       platform_check:
-                        min_count: 1822545900839770926
-                        resource_type: Optio et perspiciatis consequuntur.
-                      position: 5215568676136270126
+                        min_count: 5215568676136270126
+                        resource_type: Aut suscipit est voluptates rerum iure ut.
+                      position: 6233296950229059582
                       requires_writer: false
                       resolved_ref:
-                        type: Incidunt quos et ut.
-                        uid: Tenetur aut eligendi explicabo.
-                      section_key: Aut suscipit est voluptates rerum iure ut.
-                      skip_reason: Fugiat natus modi itaque sit.
-                      status: done
+                        type: Sit qui ipsa natus impedit.
+                        uid: Perferendis ut fugiat natus modi itaque sit.
+                      section_key: Ea atque aspernatur.
+                      skip_reason: Unde accusamus dolorum ad voluptas.
+                      status: skipped
                       status_source: platform
                       sub_items:
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                      title: Impedit nihil.
-                      uid: Atque aspernatur voluptatem ipsum repudiandae sed.
-                      version: 946879189670153557
-                    - action_link: Voluptas impedit labore voluptatum cupiditate.
-                      assignee: Dolores harum quidem qui.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                      title: Repudiandae sed.
+                      uid: Dolorem optio aut architecto iure veritatis.
+                      version: 3879535207512843910
+                    - action_link: Impedit nihil.
+                      assignee: Perspiciatis tempora quod sed optio et.
                       available_actions:
                         - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                         - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
-                          requires_relation: writer
-                        - action: mark_done
-                          requires_reason: false
+                          requires_reason: true
                           requires_relation: writer
                       checklist_type: both
-                      due_date: "1992-11-16"
+                      due_date: "1993-07-17"
                       evidence_link: https://example.org/bylaws.pdf
                       gate: true
-                      is_required: false
-                      item_key: Veniam et minima non.
-                      note: Qui ipsa natus impedit sed perferendis.
+                      is_required: true
+                      item_key: Sed dignissimos deleniti ullam.
+                      note: Dolore accusantium ipsam nemo nulla cumque.
                       owner_team: formation
                       platform_check:
-                        min_count: 1822545900839770926
-                        resource_type: Optio et perspiciatis consequuntur.
-                      position: 5215568676136270126
+                        min_count: 5215568676136270126
+                        resource_type: Aut suscipit est voluptates rerum iure ut.
+                      position: 6233296950229059582
                       requires_writer: false
                       resolved_ref:
-                        type: Incidunt quos et ut.
-                        uid: Tenetur aut eligendi explicabo.
-                      section_key: Aut suscipit est voluptates rerum iure ut.
-                      skip_reason: Fugiat natus modi itaque sit.
-                      status: done
+                        type: Sit qui ipsa natus impedit.
+                        uid: Perferendis ut fugiat natus modi itaque sit.
+                      section_key: Ea atque aspernatur.
+                      skip_reason: Unde accusamus dolorum ad voluptas.
+                      status: skipped
                       status_source: platform
                       sub_items:
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                        - key: Sequi suscipit deleniti libero.
-                          status: blocked
-                          title: Repellendus quae.
-                      title: Impedit nihil.
-                      uid: Atque aspernatur voluptatem ipsum repudiandae sed.
-                      version: 946879189670153557
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                        - key: Quos et.
+                          status: skipped
+                          title: Aperiam tenetur aut eligendi.
+                      title: Repudiandae sed.
+                      uid: Dolorem optio aut architecto iure veritatis.
+                      version: 3879535207512843910
             lifecycle:
                 type: string
                 example: live
@@ -1673,18 +1664,18 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationSection'
                 example:
-                    - key: Veritatis odit.
-                      position: 8782741248168546496
-                      title: Dignissimos deleniti ullam.
-                    - key: Veritatis odit.
-                      position: 8782741248168546496
-                      title: Dignissimos deleniti ullam.
-                    - key: Veritatis odit.
-                      position: 8782741248168546496
-                      title: Dignissimos deleniti ullam.
-                    - key: Veritatis odit.
-                      position: 8782741248168546496
-                      title: Dignissimos deleniti ullam.
+                    - key: Sapiente earum modi in fugiat.
+                      position: 2265930512285047887
+                      title: Dolorem non numquam.
+                    - key: Sapiente earum modi in fugiat.
+                      position: 2265930512285047887
+                      title: Dolorem non numquam.
+                    - key: Sapiente earum modi in fugiat.
+                      position: 2265930512285047887
+                      title: Dolorem non numquam.
+                    - key: Sapiente earum modi in fugiat.
+                      position: 2265930512285047887
+                      title: Dolorem non numquam.
             template_uid:
                 type: string
                 example: Officiis consequatur quia eligendi molestiae culpa quas.
@@ -1696,114 +1687,108 @@ definitions:
         example:
             is_activating: false
             items:
-                - action_link: Voluptas impedit labore voluptatum cupiditate.
-                  assignee: Dolores harum quidem qui.
+                - action_link: Impedit nihil.
+                  assignee: Perspiciatis tempora quod sed optio et.
                   available_actions:
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                     - action: mark_done
-                      requires_reason: false
-                      requires_relation: writer
-                    - action: mark_done
-                      requires_reason: false
-                      requires_relation: writer
-                    - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                   checklist_type: both
-                  due_date: "1992-11-16"
+                  due_date: "1993-07-17"
                   evidence_link: https://example.org/bylaws.pdf
                   gate: true
-                  is_required: false
-                  item_key: Veniam et minima non.
-                  note: Qui ipsa natus impedit sed perferendis.
+                  is_required: true
+                  item_key: Sed dignissimos deleniti ullam.
+                  note: Dolore accusantium ipsam nemo nulla cumque.
                   owner_team: formation
                   platform_check:
-                    min_count: 1822545900839770926
-                    resource_type: Optio et perspiciatis consequuntur.
-                  position: 5215568676136270126
+                    min_count: 5215568676136270126
+                    resource_type: Aut suscipit est voluptates rerum iure ut.
+                  position: 6233296950229059582
                   requires_writer: false
                   resolved_ref:
-                    type: Incidunt quos et ut.
-                    uid: Tenetur aut eligendi explicabo.
-                  section_key: Aut suscipit est voluptates rerum iure ut.
-                  skip_reason: Fugiat natus modi itaque sit.
-                  status: done
+                    type: Sit qui ipsa natus impedit.
+                    uid: Perferendis ut fugiat natus modi itaque sit.
+                  section_key: Ea atque aspernatur.
+                  skip_reason: Unde accusamus dolorum ad voluptas.
+                  status: skipped
                   status_source: platform
                   sub_items:
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
-                  title: Impedit nihil.
-                  uid: Atque aspernatur voluptatem ipsum repudiandae sed.
-                  version: 946879189670153557
-                - action_link: Voluptas impedit labore voluptatum cupiditate.
-                  assignee: Dolores harum quidem qui.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                  title: Repudiandae sed.
+                  uid: Dolorem optio aut architecto iure veritatis.
+                  version: 3879535207512843910
+                - action_link: Impedit nihil.
+                  assignee: Perspiciatis tempora quod sed optio et.
                   available_actions:
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                     - action: mark_done
-                      requires_reason: false
-                      requires_relation: writer
-                    - action: mark_done
-                      requires_reason: false
-                      requires_relation: writer
-                    - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                   checklist_type: both
-                  due_date: "1992-11-16"
+                  due_date: "1993-07-17"
                   evidence_link: https://example.org/bylaws.pdf
                   gate: true
-                  is_required: false
-                  item_key: Veniam et minima non.
-                  note: Qui ipsa natus impedit sed perferendis.
+                  is_required: true
+                  item_key: Sed dignissimos deleniti ullam.
+                  note: Dolore accusantium ipsam nemo nulla cumque.
                   owner_team: formation
                   platform_check:
-                    min_count: 1822545900839770926
-                    resource_type: Optio et perspiciatis consequuntur.
-                  position: 5215568676136270126
+                    min_count: 5215568676136270126
+                    resource_type: Aut suscipit est voluptates rerum iure ut.
+                  position: 6233296950229059582
                   requires_writer: false
                   resolved_ref:
-                    type: Incidunt quos et ut.
-                    uid: Tenetur aut eligendi explicabo.
-                  section_key: Aut suscipit est voluptates rerum iure ut.
-                  skip_reason: Fugiat natus modi itaque sit.
-                  status: done
+                    type: Sit qui ipsa natus impedit.
+                    uid: Perferendis ut fugiat natus modi itaque sit.
+                  section_key: Ea atque aspernatur.
+                  skip_reason: Unde accusamus dolorum ad voluptas.
+                  status: skipped
                   status_source: platform
                   sub_items:
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
-                  title: Impedit nihil.
-                  uid: Atque aspernatur voluptatem ipsum repudiandae sed.
-                  version: 946879189670153557
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                  title: Repudiandae sed.
+                  uid: Dolorem optio aut architecto iure veritatis.
+                  version: 3879535207512843910
             lifecycle: live
             progress:
-                blocked: 1615156263485266341
-                done: 5975945743774508883
-                in_progress: 8852273724284849281
-                not_started: 395820817761022258
-                skipped: 8211245545973451619
+                blocked: 3821923585886803741
+                done: 6656524030546024856
+                in_progress: 3941786985895699002
+                not_started: 1005688932379276524
+                skipped: 7209384863869677893
             project_uid: Facere aut.
             sections:
-                - key: Veritatis odit.
-                  position: 8782741248168546496
-                  title: Dignissimos deleniti ullam.
-                - key: Veritatis odit.
-                  position: 8782741248168546496
-                  title: Dignissimos deleniti ullam.
-                - key: Veritatis odit.
-                  position: 8782741248168546496
-                  title: Dignissimos deleniti ullam.
+                - key: Sapiente earum modi in fugiat.
+                  position: 2265930512285047887
+                  title: Dolorem non numquam.
+                - key: Sapiente earum modi in fugiat.
+                  position: 2265930512285047887
+                  title: Dolorem non numquam.
+                - key: Sapiente earum modi in fugiat.
+                  position: 2265930512285047887
+                  title: Dolorem non numquam.
             template_uid: Libero similique fugiat non numquam consequatur.
             template_version: 7818575063022494291
         required:
@@ -1880,16 +1865,16 @@ definitions:
                 description: 'What this item''s current state permits, and what each action requires. Describes the item, not the caller: two people reading the same item receive the same list, and a browser intersects it with the standing it already holds. Empty, never absent, when the item permits nothing.'
                 example:
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
                     - action: mark_done
-                      requires_reason: false
+                      requires_reason: true
                       requires_relation: writer
             checklist_type:
                 type: string
@@ -1964,12 +1949,12 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationSubItem'
                 example:
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
-                    - key: Sequi suscipit deleniti libero.
-                      status: blocked
-                      title: Repellendus quae.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
+                    - key: Quos et.
+                      status: skipped
+                      title: Aperiam tenetur aut eligendi.
             title:
                 type: string
                 example: Id nisi illo ullam.
@@ -1986,10 +1971,10 @@ definitions:
             assignee: Laborum omnis.
             available_actions:
                 - action: mark_done
-                  requires_reason: false
+                  requires_reason: true
                   requires_relation: writer
                 - action: mark_done
-                  requires_reason: false
+                  requires_reason: true
                   requires_relation: writer
             checklist_type: internal
             due_date: "1978-01-25"
@@ -2000,24 +1985,24 @@ definitions:
             note: Consequatur ullam hic non dolores.
             owner_team: formation
             platform_check:
-                min_count: 1822545900839770926
-                resource_type: Optio et perspiciatis consequuntur.
+                min_count: 5215568676136270126
+                resource_type: Aut suscipit est voluptates rerum iure ut.
             position: 7580961152050487385
             requires_writer: true
             resolved_ref:
-                type: Incidunt quos et ut.
-                uid: Tenetur aut eligendi explicabo.
+                type: Sit qui ipsa natus impedit.
+                uid: Perferendis ut fugiat natus modi itaque sit.
             section_key: Quo ut quia fuga.
             skip_reason: Quae suscipit.
             status: blocked
             status_source: platform
             sub_items:
-                - key: Sequi suscipit deleniti libero.
-                  status: blocked
-                  title: Repellendus quae.
-                - key: Sequi suscipit deleniti libero.
-                  status: blocked
-                  title: Repellendus quae.
+                - key: Quos et.
+                  status: skipped
+                  title: Aperiam tenetur aut eligendi.
+                - key: Quos et.
+                  status: skipped
+                  title: Aperiam tenetur aut eligendi.
             title: Non sint odio ea.
             uid: Ipsum et.
             version: 6763001771543120025
@@ -2235,11 +2220,13 @@ definitions:
         properties:
             author:
                 type: string
-                example: Dolore qui nulla.
+                example: Corrupti dolores tempora cupiditate.
             match:
                 type: string
-                description: Match rule. 'always' is the fallback.
-                example: Ea non aut corporis.
+                description: Match rule. Currently only 'always' is supported.
+                example: always
+                enum:
+                    - always
             name:
                 type: string
                 description: Template name. Combined with template_version for uniqueness.
@@ -2252,7 +2239,7 @@ definitions:
                 minimum: 0
             sections:
                 description: Template sections array.
-                example: Excepturi sunt ipsum sed corrupti dolores tempora.
+                example: Non aut corporis voluptate excepturi sunt ipsum.
             template_version:
                 type: integer
                 description: Version number. name+template_version must be unique.
@@ -2260,11 +2247,11 @@ definitions:
                 format: int64
                 minimum: 1
         example:
-            author: Quasi aut eligendi itaque.
-            match: Sed libero tenetur voluptas.
-            name: Et aliquam sit.
+            author: Atque consequuntur minus eos maiores.
+            match: always
+            name: Qui nulla expedita et aliquam sit.
             priority: 5773875346470727067
-            sections: Omnis atque consequuntur minus eos.
+            sections: Libero tenetur voluptas alias.
             template_version: 7300396992495777222
         required:
             - name
@@ -2318,24 +2305,24 @@ definitions:
                 items:
                     $ref: '#/definitions/FormationSubItemUpdate'
                 example:
-                    - key: Eveniet quae minus quas voluptatem.
-                      status: blocked
-                    - key: Eveniet quae minus quas voluptatem.
-                      status: blocked
-                    - key: Eveniet quae minus quas voluptatem.
-                      status: blocked
+                    - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                      status: done
+                    - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                      status: done
+                    - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                      status: done
         example:
             reason: Quaerat consequuntur consectetur.
             status: skipped
             sub_items:
-                - key: Eveniet quae minus quas voluptatem.
-                  status: blocked
-                - key: Eveniet quae minus quas voluptatem.
-                  status: blocked
-                - key: Eveniet quae minus quas voluptatem.
-                  status: blocked
-                - key: Eveniet quae minus quas voluptatem.
-                  status: blocked
+                - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                  status: done
+                - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                  status: done
+                - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                  status: done
+                - key: Reiciendis ipsum necessitatibus sint eius iusto.
+                  status: done
     LfxV2FormationServiceSetItemStatusResponseBody:
         title: LfxV2FormationServiceSetItemStatusResponseBody
         $ref: '#/definitions/FormationItem'
@@ -2362,22 +2349,24 @@ definitions:
         properties:
             author:
                 type: string
-                example: Alias adipisci dolorem.
+                example: Et ex delectus laudantium sit.
             match:
                 type: string
-                example: Eius et ex delectus laudantium.
+                example: always
+                enum:
+                    - always
             priority:
                 type: integer
-                example: 514336266429819129
+                example: 3544595054771650392
                 format: int64
                 minimum: 0
             sections:
-                example: Totam quas qui.
+                example: Itaque quisquam est.
         example:
-            author: Quis omnis nobis dolores consequuntur necessitatibus impedit.
-            match: Eos expedita et voluptas aut.
-            priority: 7871265592983113525
-            sections: Pariatur temporibus.
+            author: Et voluptas aut.
+            match: always
+            priority: 5587027228381174987
+            sections: Officiis alias adipisci dolorem pariatur et eos.
     LfxV2FormationServiceWithdrawApplicationResponseBody:
         title: LfxV2FormationServiceWithdrawApplicationResponseBody
         $ref: '#/definitions/ProjectApplication'

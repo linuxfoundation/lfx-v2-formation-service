@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -123,12 +124,15 @@ func (r *TemplateRepo) Update(ctx context.Context, uid uuid.UUID, patch port.Tem
 	if patch.Author != nil {
 		t.Author = *patch.Author
 	}
+	t.UpdatedAt = time.Now().UTC()
 
+	// Do NOT combine Column and Set on the same UpdateQuery: Bun's mustAppendSet
+	// takes an early return when len(q.set) > 0, silently ignoring Column. Stamp
+	// updated_at on the model so Column alone drives the full SET clause.
 	_, err = r.db.NewUpdate().
 		Model(t).
 		Column("priority", "match", "sections", "author", "updated_at").
 		Where("uid = ?", uid).
-		Set("updated_at = now()").
 		Returning("*").
 		Exec(ctx)
 	if err != nil {
@@ -143,13 +147,12 @@ func (r *TemplateRepo) Publish(ctx context.Context, uid uuid.UUID) (*model.Templ
 	if err != nil {
 		return nil, err
 	}
-	if t.State != model.TemplateDraft {
-		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
-	}
 
-	_, err = r.db.NewUpdate().
+	// State check is also in the WHERE clause so a concurrent archive between
+	// the Get and this UPDATE cannot move an archived row back to published.
+	res, err := r.db.NewUpdate().
 		Model((*model.Template)(nil)).
-		Where("uid = ?", uid).
+		Where("uid = ? AND state = ?", uid, model.TemplateDraft).
 		Set("state = ?", model.TemplatePublished).
 		Set("published_at = now()").
 		Set("updated_at = now()").
@@ -157,6 +160,13 @@ func (r *TemplateRepo) Publish(ctx context.Context, uid uuid.UUID) (*model.Templ
 		Exec(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("publish template: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("publish template: %w", err)
+	}
+	if n == 0 {
+		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
 	}
 	return t, nil
 }
@@ -167,19 +177,25 @@ func (r *TemplateRepo) Archive(ctx context.Context, uid uuid.UUID) (*model.Templ
 	if err != nil {
 		return nil, err
 	}
-	if t.State == model.TemplateArchived {
-		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
-	}
 
-	_, err = r.db.NewUpdate().
+	// State check is also in the WHERE clause so two concurrent archive requests
+	// cannot both succeed and so archive cannot race with publish.
+	res, err := r.db.NewUpdate().
 		Model((*model.Template)(nil)).
-		Where("uid = ?", uid).
+		Where("uid = ? AND state != ?", uid, model.TemplateArchived).
 		Set("state = ?", model.TemplateArchived).
 		Set("updated_at = now()").
 		Returning("*").
 		Exec(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("archive template: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("archive template: %w", err)
+	}
+	if n == 0 {
+		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
 	}
 	return t, nil
 }

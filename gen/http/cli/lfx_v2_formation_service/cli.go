@@ -30,7 +30,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Qui dolorem optio aut architecto.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Fugiat nihil sint blanditiis sit.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -403,7 +403,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Qui dolorem optio aut architecto.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Fugiat nihil sint blanditiis sit.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -431,7 +431,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Nulla cupiditate sunt voluptatem.\" --version \"1\" --cursor \"Sed fugiat facere quaerat qui omnis voluptates.\" --item-uid \"cf0ba521-4e51-4307-b1de-452709becc06\" --limit 78 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Incidunt ut eum quaerat earum qui voluptatibus.\" --version \"1\" --cursor \"In nostrum quam optio nihil et.\" --item-uid \"48ffc88a-b291-435e-b3d0-14b184038c52\" --limit 49 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceSetItemStatusUsage() {
@@ -459,7 +459,7 @@ func lfxV2FormationServiceSetItemStatusUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Nesciunt ut dolores et.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }' --project-uid \"Sapiente omnis cupiditate.\" --item-key \"Est id dolor est id.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6374460656584964424")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Est nam neque.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         }\n      ]\n   }' --project-uid \"Deserunt qui laborum.\" --item-key \"Ut dolores et aliquid ut.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6574358137943990413")
 }
 
 func lfxV2FormationServiceAssignItemUsage() {
@@ -487,7 +487,7 @@ func lfxV2FormationServiceAssignItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Quibusdam voluptatem laboriosam dolor voluptatem.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Ut excepturi officia.\" --item-key \"Suscipit perspiciatis qui laudantium.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4496823524171963429")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Dolor unde nisi quas ut temporibus et.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Animi dolor numquam consectetur qui rem.\" --item-key \"Quibusdam voluptatem laboriosam dolor voluptatem.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2749092753392087860")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -515,7 +515,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Facere in odio.\"\n   }' --project-uid \"Ea consequatur nobis.\" --item-key \"Dolorem possimus magni.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1415554611313561234")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Veritatis asperiores ipsa voluptas ad dolores.\"\n   }' --project-uid \"Qui minus enim deserunt harum.\" --item-key \"Rerum aut facere in odio officiis ea.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4916126148814868406")
 }
 
 func lfxV2FormationServiceCreateApplicationUsage() {
@@ -537,7 +537,7 @@ func lfxV2FormationServiceCreateApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Enim nihil ut in.\": \"Voluptatum ab eligendi laboriosam velit.\"\n      },\n      \"submitter_email\": \"agustin@bayer.org\",\n      \"submitter_name\": \"Laborum asperiores aliquam rerum dolorem vitae ducimus.\",\n      \"submitter_username\": \"Excepturi enim in ullam deleniti.\",\n      \"target_parent_uid\": \"Deleniti dolor eos cupiditate aut expedita.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Ab eligendi laboriosam velit maxime aut.\": \"Assumenda distinctio rerum ducimus consectetur.\",\n         \"Cupiditate aut expedita molestiae voluptas enim.\": \"Ut in accusantium.\",\n         \"Eveniet eligendi odit.\": \"Quod deleniti dolor.\"\n      },\n      \"submitter_email\": \"kendrick@buckridge.info\",\n      \"submitter_name\": \"Facilis adipisci excepturi enim in.\",\n      \"submitter_username\": \"Qui minima.\",\n      \"target_parent_uid\": \"Architecto qui mollitia sequi eos.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceReviseApplicationUsage() {
@@ -563,7 +563,7 @@ func lfxV2FormationServiceReviseApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Debitis excepturi velit.\": \"Est rem rerum amet modi quo.\",\n         \"Voluptatem rerum voluptatem consequatur voluptatem tenetur et.\": \"Officiis quia natus ab ut.\"\n      }\n   }' --uid \"74eac510-ec70-4ac2-8fd2-6dcfa075a5d4\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 7828677317887395986")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Beatae deserunt quisquam.\": \"Earum velit et autem.\"\n      }\n   }' --uid \"5919f438-a0e7-417f-a9cd-a93dd89c1cb5\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 497204799144383347")
 }
 
 func lfxV2FormationServiceWithdrawApplicationUsage() {
@@ -587,7 +587,7 @@ func lfxV2FormationServiceWithdrawApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"97676f47-7525-4136-be38-499106d52496\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2181131077012769947")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"ed1d3654-2d0b-4a3e-a97a-9b60ac6d8b50\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 7094120167093504098")
 }
 
 func lfxV2FormationServiceAcceptApplicationUsage() {
@@ -611,7 +611,7 @@ func lfxV2FormationServiceAcceptApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"882cc25b-13a5-44be-95d7-942acaab9c10\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2697259907952095691")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"deba8797-1e46-4b44-a39b-f27e8d87f0ef\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1560923503069449401")
 }
 
 func lfxV2FormationServiceDenyApplicationUsage() {
@@ -635,7 +635,7 @@ func lfxV2FormationServiceDenyApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"82220f84-9c45-43f9-88ab-60bbb5b4902b\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8579494653711497706")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"270f8601-fb4b-42ba-8391-a54665f4c4d9\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8391050693086821867")
 }
 
 func lfxV2FormationServiceDeleteApplicationUsage() {
@@ -659,7 +659,7 @@ func lfxV2FormationServiceDeleteApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"752fa3a0-82cc-4c0b-9f03-e82faf0d2034\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6127443533127919132")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"982ed75d-657d-4662-a899-a4175aee9a6b\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5110246447610289853")
 }
 
 func lfxV2FormationServiceListTemplatesUsage() {
@@ -701,7 +701,7 @@ func lfxV2FormationServiceGetTemplateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-template --uid \"f304d82d-e7b8-4d61-86df-1265d904d1ee\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-template --uid \"85e58d6d-d1fc-42db-b927-8598faaa54da\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceCreateTemplateUsage() {
@@ -723,7 +723,7 @@ func lfxV2FormationServiceCreateTemplateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-template --body '{\n      \"author\": \"Unde ab illo quam sint et.\",\n      \"match\": \"Aspernatur voluptatum in atque.\",\n      \"name\": \"Et at soluta sapiente.\",\n      \"priority\": 8971327207530475861,\n      \"sections\": \"Et ratione impedit.\",\n      \"template_version\": 1849116001840466742\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-template --body '{\n      \"author\": \"Ab illo quam sint et rerum.\",\n      \"match\": \"always\",\n      \"name\": \"At soluta sapiente harum sunt ad.\",\n      \"priority\": 7120091070025726911,\n      \"sections\": \"Rerum et ratione impedit exercitationem.\",\n      \"template_version\": 965865688422236309\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceUpdateTemplateUsage() {
@@ -747,7 +747,7 @@ func lfxV2FormationServiceUpdateTemplateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-template --body '{\n      \"author\": \"Ratione omnis expedita voluptas molestias.\",\n      \"match\": \"Assumenda tempore.\",\n      \"priority\": 3839387370682125327,\n      \"sections\": \"Molestiae magni vel molestiae deleniti.\"\n   }' --uid \"da871233-a7ed-42b5-8886-526d338344e4\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-template --body '{\n      \"author\": \"Ratione omnis expedita voluptas molestias.\",\n      \"match\": \"always\",\n      \"priority\": 3839387370682125327,\n      \"sections\": \"Tempore occaecati molestiae magni vel molestiae deleniti.\"\n   }' --uid \"da871233-a7ed-42b5-8886-526d338344e4\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServicePublishTemplateUsage() {

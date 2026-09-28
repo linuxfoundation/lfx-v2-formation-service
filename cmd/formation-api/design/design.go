@@ -714,7 +714,9 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("priority", dsl.Int, "Selection priority; lower wins.", func() {
 				dsl.Minimum(0)
 			})
-			dsl.Attribute("match", dsl.String, "Match rule. 'always' is the fallback.")
+			dsl.Attribute("match", dsl.String, "Match rule. Currently only 'always' is supported.", func() {
+				dsl.Enum("always")
+			})
 			dsl.Attribute("sections", dsl.Any, "Template sections array.")
 			dsl.Attribute("author", dsl.String)
 			dsl.Required("version", "name", "template_version", "priority", "match", "sections")
@@ -746,7 +748,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
 			dsl.Attribute("priority", dsl.Int, func() { dsl.Minimum(0) })
-			dsl.Attribute("match", dsl.String)
+			dsl.Attribute("match", dsl.String, func() { dsl.Enum("always") })
 			dsl.Attribute("sections", dsl.Any)
 			dsl.Attribute("author", dsl.String)
 			dsl.Required("version", "uid")
