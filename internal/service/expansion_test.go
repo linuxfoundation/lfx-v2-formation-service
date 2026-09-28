@@ -482,12 +482,12 @@ func TestParseDueRule(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.rule, func(t *testing.T) {
-			offset, ok := ParseDueRule(tc.rule)
+			offset, ok := model.ParseDueRule(tc.rule)
 			if ok != tc.ok {
-				t.Fatalf("ParseDueRule(%q) ok = %v, want %v", tc.rule, ok, tc.ok)
+				t.Fatalf("model.ParseDueRule(%q) ok = %v, want %v", tc.rule, ok, tc.ok)
 			}
 			if ok && offset != tc.offset {
-				t.Errorf("ParseDueRule(%q) = %d, want %d", tc.rule, offset, tc.offset)
+				t.Errorf("model.ParseDueRule(%q) = %d, want %d", tc.rule, offset, tc.offset)
 			}
 		})
 	}

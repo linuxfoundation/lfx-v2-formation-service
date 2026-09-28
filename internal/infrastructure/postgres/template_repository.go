@@ -90,8 +90,9 @@ func (r *TemplateRepo) List(ctx context.Context) ([]*model.Template, error) {
 // Create inserts a new draft template. Returns domain.ErrConflict when a
 // template with the same name+version already exists.
 func (r *TemplateRepo) Create(ctx context.Context, t *model.Template) (*model.Template, error) {
-	t.ApplyUpsertDefaults()
 	t.State = model.TemplateDraft // creation always starts as draft
+	t.PublishedAt = nil           // ignore any publication time the caller supplied
+	t.ApplyUpsertDefaults()
 
 	_, err := r.db.NewInsert().
 		Model(t).

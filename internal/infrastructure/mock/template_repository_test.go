@@ -14,9 +14,15 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
-// tickPast sleeps until time.Now() returns a value strictly after t.
-func tickPast(t time.Time) {
-	for !time.Now().After(t) {
+// tickPast sleeps until time.Now() is strictly after past, or the test fails
+// after one second.
+func tickPast(tb testing.TB, past time.Time) {
+	tb.Helper()
+	deadline := time.Now().Add(time.Second)
+	for !time.Now().After(past) {
+		if time.Now().After(deadline) {
+			tb.Fatal("tickPast: time did not advance past the target within 1s")
+		}
 		time.Sleep(time.Millisecond)
 	}
 }
@@ -193,6 +199,25 @@ func TestCreateSetsTimestamps(t *testing.T) {
 	}
 }
 
+func TestCreateIgnoresInputState(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepository()
+	got, err := repo.Create(ctx, &model.Template{
+		Name: "pub-input", Version: 1, Match: "always",
+		State:    model.TemplatePublished,
+		Priority: 5,
+	})
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	if got.State != model.TemplateDraft {
+		t.Errorf("state = %q, want draft — Create must ignore the caller's state", got.State)
+	}
+	if got.PublishedAt != nil {
+		t.Errorf("published_at = %v, want nil — Create must not stamp publication time", got.PublishedAt)
+	}
+}
+
 func TestCreateConflictOnDuplicateNameVersion(t *testing.T) {
 	repo := NewTemplateRepository()
 	newDraft(t, repo, "dup")
@@ -206,7 +231,7 @@ func TestUpdateAppliesPatchFields(t *testing.T) {
 	ctx := context.Background()
 	repo := NewTemplateRepository()
 	draft := newDraft(t, repo, "upd")
-	tickPast(draft.UpdatedAt)
+	tickPast(t, draft.UpdatedAt)
 
 	newPri := 42
 	got, err := repo.Update(ctx, draft.UID, port.TemplatePatch{Priority: &newPri})
@@ -251,7 +276,7 @@ func TestPublishSetsDates(t *testing.T) {
 	ctx := context.Background()
 	repo := NewTemplateRepository()
 	draft := newDraft(t, repo, "pub")
-	tickPast(draft.UpdatedAt)
+	tickPast(t, draft.UpdatedAt)
 
 	got, err := repo.Publish(ctx, draft.UID)
 	if err != nil {

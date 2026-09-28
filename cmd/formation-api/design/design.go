@@ -765,7 +765,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Result(AdminTemplate)
 		dsl.Error("NotFound", TemplateError, "No template with that UID")
 		dsl.Error("Conflict", TemplateError, "Template is not a draft")
-		dsl.Error("BadRequest", TemplateError, "No fields to update")
+		dsl.Error("BadRequest", TemplateError, "No fields to update, or sections is not a valid section array")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
 			dsl.PUT("/templates/{uid}")
@@ -1147,9 +1147,10 @@ var FormationActivityEntry = dsl.Type("FormationActivityEntry", func() {
 })
 
 // TemplateError is the error shape for the template admin routes.
-// Separate from FormationError rather than sharing it: the two have disjoint
-// reason sets (template state transitions vs. item mutations) and merging them
-// would make the reason enum a union that no single route exercises fully.
+// Separate from FormationError rather than sharing it: the two have largely
+// disjoint reason sets (template state transitions vs. item mutations) and
+// merging them would make the reason enum a union that no single route
+// exercises fully.
 var TemplateError = dsl.Type("TemplateError", func() {
 	dsl.ErrorName("name", dsl.String, "Which declared error this is — matches the Error() name (e.g. \"Conflict\"). Transport dispatch only; switch on reason, not this.")
 	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("409") })
@@ -1176,7 +1177,9 @@ var AdminTemplate = dsl.ResultType("application/vnd.formation.admin.template+jso
 		dsl.Enum("draft", "published", "archived")
 	})
 	dsl.Attribute("priority", dsl.Int, "Selection priority; lower value wins when multiple templates match.")
-	dsl.Attribute("match", dsl.String, "Match rule that governs selection; currently only 'always' is supported.")
+	dsl.Attribute("match", dsl.String, "Match rule that governs selection; currently only 'always' is supported.", func() {
+		dsl.Enum("always")
+	})
 	// sections is dsl.Any because the section tree is deep and duplicating
 	// the full nested type hierarchy in the DSL would add substantial noise
 	// with no additional runtime safety — Goa decodes it as interface{} either

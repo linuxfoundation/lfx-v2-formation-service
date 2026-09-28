@@ -396,8 +396,9 @@ func TestUpdateRefusedWhenNotDraft(t *testing.T) {
 
 	newPri := 1
 	_, err := repo.Update(ctx, draft.UID, port.TemplatePatch{Priority: &newPri})
-	if !errors.Is(err, domain.ErrConflict) {
-		t.Fatalf("update published = %v, want domain.ErrConflict", err)
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateNotDraft {
+		t.Fatalf("update published = %v, want ErrConflict[%s]", err, reasonTemplateNotDraft)
 	}
 }
 
@@ -457,8 +458,9 @@ func TestPublishRefusedWhenAlreadyPublished(t *testing.T) {
 		t.Fatalf("first publish: %v", err)
 	}
 	_, err := repo.Publish(ctx, draft.UID)
-	if !errors.Is(err, domain.ErrConflict) {
-		t.Fatalf("re-publish = %v, want domain.ErrConflict", err)
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateNotDraft {
+		t.Fatalf("re-publish = %v, want ErrConflict[%s]", err, reasonTemplateNotDraft)
 	}
 }
 
@@ -491,8 +493,28 @@ func TestArchiveRefusedWhenAlreadyArchived(t *testing.T) {
 		t.Fatalf("first archive: %v", err)
 	}
 	_, err := repo.Archive(ctx, draft.UID)
-	if !errors.Is(err, domain.ErrConflict) {
-		t.Fatalf("re-archive = %v, want domain.ErrConflict", err)
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateAlreadyArchived {
+		t.Fatalf("re-archive = %v, want ErrConflict[%s]", err, reasonTemplateAlreadyArchived)
+	}
+}
+
+func TestCreateIgnoresInputState(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	got, err := repo.Create(ctx, &model.Template{
+		Name: "pub-input", Version: 1, Match: "always",
+		State:    model.TemplatePublished,
+		Priority: 5,
+	})
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	if got.State != model.TemplateDraft {
+		t.Errorf("state = %q, want draft — Create must ignore the caller's state", got.State)
+	}
+	if got.PublishedAt != nil {
+		t.Errorf("published_at = %v, want nil — Create must not stamp publication time", got.PublishedAt)
 	}
 }
 

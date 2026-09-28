@@ -273,6 +273,96 @@ func TestTemplateToWireOmitsEmptyAuthorAndNilPublishedAt(t *testing.T) {
 	}
 }
 
+// --- ListTemplates ---
+
+func TestListTemplatesOrdering(t *testing.T) {
+	ctx := context.Background()
+	s, _ := templateService(t)
+
+	for _, pair := range [][2]any{{"beta", 2}, {"alpha", 1}, {"alpha", 2}, {"beta", 1}} {
+		if _, err := s.CreateTemplate(ctx, &svc.CreateTemplatePayload{
+			Version: "1", Name: pair[0].(string), TemplateVersion: pair[1].(int), Priority: 10, Match: "always", Sections: []any{},
+		}); err != nil {
+			t.Fatalf("create %v v%v: %v", pair[0], pair[1], err)
+		}
+	}
+
+	got, err := s.ListTemplates(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTemplates() = %v", err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("len(ListTemplates()) = %d, want 4", len(got))
+	}
+	want := [][2]any{{"alpha", 1}, {"alpha", 2}, {"beta", 1}, {"beta", 2}}
+	for i, w := range want {
+		if got[i].Name != w[0].(string) || got[i].TemplateVersion != w[1].(int) {
+			t.Errorf("got[%d] = {%s v%d}, want {%s v%d}",
+				i, got[i].Name, got[i].TemplateVersion, w[0], w[1])
+		}
+	}
+}
+
+// --- GetTemplate (happy path) ---
+
+func TestGetTemplateHappyPath(t *testing.T) {
+	ctx := context.Background()
+	s, _ := templateService(t)
+
+	created, err := s.CreateTemplate(ctx, &svc.CreateTemplatePayload{
+		Version: "1", Name: "get-me", TemplateVersion: 3, Priority: 5, Match: "always", Sections: []any{},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	got, err := s.GetTemplate(ctx, &svc.GetTemplatePayload{Version: "1", UID: created.UID})
+	if err != nil {
+		t.Fatalf("GetTemplate() = %v", err)
+	}
+	if got.UID != created.UID {
+		t.Errorf("uid = %q, want %q", got.UID, created.UID)
+	}
+	if got.Name != "get-me" {
+		t.Errorf("name = %q, want get-me", got.Name)
+	}
+	if got.TemplateVersion != 3 {
+		t.Errorf("template_version = %d, want 3", got.TemplateVersion)
+	}
+}
+
+// --- CreateTemplate (populated sections) ---
+
+func TestCreateTemplateWithPopulatedSections(t *testing.T) {
+	ctx := context.Background()
+	s, _ := templateService(t)
+
+	sections := []any{
+		map[string]any{
+			"key":   "legal_and_entity",
+			"title": "Legal and entity",
+			"items": []any{
+				map[string]any{
+					"key":           "charter_agreed",
+					"title":         "Charter agreed",
+					"status_source": "manual",
+				},
+			},
+		},
+	}
+
+	got, err := s.CreateTemplate(ctx, &svc.CreateTemplatePayload{
+		Version: "1", Name: "with-sections", TemplateVersion: 1, Priority: 10, Match: "always",
+		Sections: sections,
+	})
+	if err != nil {
+		t.Fatalf("CreateTemplate() = %v", err)
+	}
+	if got.Sections == nil {
+		t.Fatal("sections is nil")
+	}
+}
+
 // --- withTemplateReason ---
 
 func TestWithTemplateReasonPassesThroughTypedReasonErrors(t *testing.T) {

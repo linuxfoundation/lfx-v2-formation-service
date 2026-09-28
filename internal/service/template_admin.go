@@ -17,8 +17,11 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/constants"
 	"github.com/linuxfoundation/lfx-v2-formation-service/pkg/log"
 )
+
+const maxTemplateSectionsBytes = 512 << 10
 
 const (
 	templateReasonNotFound         = "not_found"
@@ -101,11 +104,14 @@ func (s *Service) CreateTemplate(
 		if errors.Is(err, domain.ErrConflict) {
 			return nil, mapTemplateError(domain.NewReasonError(domain.ErrConflict, templateReasonAlreadyExists))
 		}
-		slog.ErrorContext(ctx, "formationService.create-template", log.ErrKey, err)
+		principal, _ := ctx.Value(constants.PrincipalContextID).(string)
+		slog.ErrorContext(ctx, "formationService.create-template", "principal", principal, log.ErrKey, err)
 		return nil, err
 	}
 
+	principal, _ := ctx.Value(constants.PrincipalContextID).(string)
 	slog.InfoContext(ctx, "formationService.create-template",
+		"principal", principal,
 		"template_uid", created.UID,
 		"name", created.Name,
 		"version", created.Version,
@@ -141,7 +147,8 @@ func (s *Service) UpdateTemplate(
 		return nil, mapTemplateError(withTemplateReason(err))
 	}
 
-	slog.InfoContext(ctx, "formationService.update-template", "template_uid", uid)
+	principal, _ := ctx.Value(constants.PrincipalContextID).(string)
+	slog.InfoContext(ctx, "formationService.update-template", "principal", principal, "template_uid", uid)
 	return templateToWire(updated), nil
 }
 
@@ -159,7 +166,8 @@ func (s *Service) PublishTemplate(
 		return nil, mapTemplateError(withTemplateReason(err))
 	}
 
-	slog.InfoContext(ctx, "formationService.publish-template", "template_uid", uid)
+	principal, _ := ctx.Value(constants.PrincipalContextID).(string)
+	slog.InfoContext(ctx, "formationService.publish-template", "principal", principal, "template_uid", uid)
 	return templateToWire(published), nil
 }
 
@@ -177,7 +185,8 @@ func (s *Service) ArchiveTemplate(
 		return nil, mapTemplateError(withTemplateReason(err))
 	}
 
-	slog.InfoContext(ctx, "formationService.archive-template", "template_uid", uid)
+	principal, _ := ctx.Value(constants.PrincipalContextID).(string)
+	slog.InfoContext(ctx, "formationService.archive-template", "principal", principal, "template_uid", uid)
 	return templateToWire(archived), nil
 }
 
@@ -215,31 +224,17 @@ func parseSections(raw any) ([]model.TemplateSection, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encoding sections: %w", err)
 	}
+	if len(b) > maxTemplateSectionsBytes {
+		return nil, fmt.Errorf("sections payload %d bytes exceeds the %d-byte limit", len(b), maxTemplateSectionsBytes)
+	}
 	var sections []model.TemplateSection
 	if err := json.Unmarshal(b, &sections); err != nil {
 		return nil, fmt.Errorf("sections must be an array of section objects: %w", err)
 	}
-	if err := validateSections(sections); err != nil {
+	if err := model.ValidateSections(sections); err != nil {
 		return nil, err
 	}
 	return sections, nil
-}
-
-// validateSections checks that each section and item carries the non-empty keys
-// that the expander requires. An empty key would silently produce items with
-// no identity, making them unresolvable in downstream checklist reads.
-func validateSections(sections []model.TemplateSection) error {
-	for i, s := range sections {
-		if s.Key == "" {
-			return fmt.Errorf("section[%d]: key is required", i)
-		}
-		for j, item := range s.Items {
-			if item.Key == "" {
-				return fmt.Errorf("section[%d].items[%d]: key is required", i, j)
-			}
-		}
-	}
-	return nil
 }
 
 // withTemplateReason wraps bare domain sentinel errors with a machine-readable

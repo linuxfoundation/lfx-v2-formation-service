@@ -289,7 +289,7 @@ func (c *Client) CreateTemplate(ctx context.Context, p *CreateTemplatePayload) (
 // UpdateTemplate may return the following errors:
 //   - "NotFound" (type *TemplateError): No template with that UID
 //   - "Conflict" (type *TemplateError): Template is not a draft
-//   - "BadRequest" (type *TemplateError): No fields to update
+//   - "BadRequest" (type *TemplateError): No fields to update, or sections is not a valid section array
 //   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
 //   - error: internal error
 func (c *Client) UpdateTemplate(ctx context.Context, p *UpdateTemplatePayload) (res *AdminTemplate, err error) {

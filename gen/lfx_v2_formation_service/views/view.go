@@ -715,6 +715,11 @@ func ValidateAdminTemplateView(result *AdminTemplateView) (err error) {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.state", *result.State, []any{"draft", "published", "archived"}))
 		}
 	}
+	if result.Match != nil {
+		if !(*result.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.match", *result.Match, []any{"always"}))
+		}
+	}
 	if result.CreatedAt != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("result.created_at", *result.CreatedAt, goa.FormatDateTime))
 	}

@@ -128,7 +128,7 @@ func BuildSetItemStatusPayload(lfxV2FormationServiceSetItemStatusBody string, lf
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceSetItemStatusBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Est nam neque.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         },\n         {\n            \"key\": \"Reiciendis ipsum necessitatibus sint eius iusto.\",\n            \"status\": \"done\"\n         }\n      ]\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"At est pariatur ab ducimus autem qui.\",\n      \"status\": \"not_started\",\n      \"sub_items\": [\n         {\n            \"key\": \"Repellat saepe accusamus.\",\n            \"status\": \"not_started\"\n         },\n         {\n            \"key\": \"Repellat saepe accusamus.\",\n            \"status\": \"not_started\"\n         }\n      ]\n   }'")
 		}
 		if body.Status != nil {
 			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
@@ -208,7 +208,7 @@ func BuildAssignItemPayload(lfxV2FormationServiceAssignItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceAssignItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Dolor unde nisi quas ut temporibus et.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Quis et eligendi non sunt non.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -263,7 +263,7 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Veritatis asperiores ipsa voluptas ad dolores.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Facere vel asperiores officiis repellat neque.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -318,7 +318,7 @@ func BuildCreateApplicationPayload(lfxV2FormationServiceCreateApplicationBody st
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceCreateApplicationBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Ab eligendi laboriosam velit maxime aut.\": \"Assumenda distinctio rerum ducimus consectetur.\",\n         \"Cupiditate aut expedita molestiae voluptas enim.\": \"Ut in accusantium.\",\n         \"Eveniet eligendi odit.\": \"Quod deleniti dolor.\"\n      },\n      \"submitter_email\": \"kendrick@buckridge.info\",\n      \"submitter_name\": \"Facilis adipisci excepturi enim in.\",\n      \"submitter_username\": \"Qui minima.\",\n      \"target_parent_uid\": \"Architecto qui mollitia sequi eos.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Odit facilis quod deleniti dolor eos.\": \"Aut expedita molestiae.\",\n         \"Qui in minus magni.\": \"Illo est.\",\n         \"Sit nulla in architecto.\": \"Mollitia sequi eos sed laudantium eveniet.\"\n      },\n      \"submitter_email\": \"briana@weber.com\",\n      \"submitter_name\": \"Molestiae voluptatem.\",\n      \"submitter_username\": \"Magnam itaque libero excepturi ullam.\",\n      \"target_parent_uid\": \"Est et amet quos.\"\n   }'")
 		}
 		if body.Application == nil {
 			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
@@ -372,7 +372,7 @@ func BuildReviseApplicationPayload(lfxV2FormationServiceReviseApplicationBody st
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceReviseApplicationBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Beatae deserunt quisquam.\": \"Earum velit et autem.\"\n      }\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Est facere est beatae.\": \"Quisquam quasi.\",\n         \"Ut illo voluptatem voluptatem rerum.\": \"Consequatur voluptatem tenetur.\",\n         \"Velit et.\": \"Porro vero.\"\n      }\n   }'")
 		}
 		if body.Application == nil {
 			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
@@ -676,7 +676,7 @@ func BuildCreateTemplatePayload(lfxV2FormationServiceCreateTemplateBody string, 
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceCreateTemplateBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Ab illo quam sint et rerum.\",\n      \"match\": \"always\",\n      \"name\": \"At soluta sapiente harum sunt ad.\",\n      \"priority\": 7120091070025726911,\n      \"sections\": \"Rerum et ratione impedit exercitationem.\",\n      \"template_version\": 965865688422236309\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Sunt ad aspernatur voluptatum in atque.\",\n      \"match\": \"always\",\n      \"name\": \"Sit voluptas nihil tempora.\",\n      \"priority\": 6627545437241440200,\n      \"sections\": \"Et at soluta sapiente.\",\n      \"template_version\": 4195446033145011004\n   }'")
 		}
 		if body.Sections == nil {
 			err = goa.MergeErrors(err, goa.MissingFieldError("sections", "body"))
@@ -732,7 +732,7 @@ func BuildUpdateTemplatePayload(lfxV2FormationServiceUpdateTemplateBody string, 
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateTemplateBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Ratione omnis expedita voluptas molestias.\",\n      \"match\": \"always\",\n      \"priority\": 3839387370682125327,\n      \"sections\": \"Tempore occaecati molestiae magni vel molestiae deleniti.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Tempore occaecati molestiae magni vel molestiae deleniti.\",\n      \"match\": \"always\",\n      \"priority\": 1856138796763192435,\n      \"sections\": \"Voluptas rem sunt sed quam ea nesciunt.\"\n   }'")
 		}
 		if body.Priority != nil {
 			if *body.Priority < 0 {

@@ -3924,6 +3924,11 @@ func ValidateAdminTemplateResponse(body *AdminTemplateResponse) (err error) {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.state", *body.State, []any{"draft", "published", "archived"}))
 		}
 	}
+	if body.Match != nil {
+		if !(*body.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.match", *body.Match, []any{"always"}))
+		}
+	}
 	if body.CreatedAt != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("body.created_at", *body.CreatedAt, goa.FormatDateTime))
 	}

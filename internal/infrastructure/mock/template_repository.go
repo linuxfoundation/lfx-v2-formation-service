@@ -18,6 +18,11 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
+const (
+	reasonTemplateNotDraft        = "template_not_draft"
+	reasonTemplateAlreadyArchived = "template_already_archived"
+)
+
 // TemplateRepository is an in-memory port.TemplateRepository double.
 type TemplateRepository struct {
 	Recorder
@@ -133,8 +138,9 @@ func (r *TemplateRepository) Create(_ context.Context, t *model.Template) (*mode
 
 	clone := *t
 	clone.UID = uuid.New()
+	clone.State = model.TemplateDraft // creation always starts as draft
+	clone.PublishedAt = nil           // ignore any publication time the caller supplied
 	clone.ApplyUpsertDefaults()
-	clone.State = model.TemplateDraft
 	now := time.Now().UTC()
 	clone.CreatedAt = now
 	clone.UpdatedAt = now
@@ -154,7 +160,7 @@ func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port
 		return nil, domain.ErrNotFound
 	}
 	if t.State != model.TemplateDraft {
-		return nil, domain.NewReasonError(domain.ErrConflict, "template_not_draft")
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
 	}
 	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
 		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
@@ -190,7 +196,7 @@ func (r *TemplateRepository) Publish(_ context.Context, uid uuid.UUID) (*model.T
 		return nil, domain.ErrNotFound
 	}
 	if t.State != model.TemplateDraft {
-		return nil, domain.NewReasonError(domain.ErrConflict, "template_not_draft")
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
 	}
 
 	clone := *t
@@ -214,7 +220,7 @@ func (r *TemplateRepository) Archive(_ context.Context, uid uuid.UUID) (*model.T
 		return nil, domain.ErrNotFound
 	}
 	if t.State == model.TemplateArchived {
-		return nil, domain.NewReasonError(domain.ErrConflict, "template_already_archived")
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateAlreadyArchived)
 	}
 
 	clone := *t
@@ -249,6 +255,7 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 			}
 			clone := *t
 			clone.UID = uid
+			clone.UpdatedAt = time.Now().UTC()
 			// COALESCE(existing, incoming), matching the repository's ON
 			// CONFLICT clause: the first publication time survives a re-seed,
 			// and a draft re-seeded as published picks one up. Overwriting it
@@ -268,6 +275,7 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 	if clone.UID == uuid.Nil {
 		clone.UID = uuid.New()
 	}
+	clone.UpdatedAt = time.Now().UTC()
 	r.templates[clone.UID] = &clone
 	out := clone
 	return &out, nil
