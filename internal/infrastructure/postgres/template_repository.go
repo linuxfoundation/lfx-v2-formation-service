@@ -74,11 +74,13 @@ func (r *TemplateRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Template,
 	return t, nil
 }
 
-// List returns all templates ordered by name then version.
+// List returns template metadata ordered by name then version. Sections are
+// excluded here; callers that need the full body should use Get.
 func (r *TemplateRepo) List(ctx context.Context) ([]*model.Template, error) {
 	var templates []*model.Template
 	err := r.db.NewSelect().
 		Model(&templates).
+		ExcludeColumn("sections").
 		Order("name ASC", "version ASC").
 		Scan(ctx)
 	if err != nil {
