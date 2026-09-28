@@ -26,7 +26,7 @@ import (
 // These assert the value, not merely that a value is present: "a relation is
 // set" passes just as happily on viewer.
 
-func TestProjectionIsGatedOnAuditorAndNeverOnViewer(t *testing.T) {
+func TestProjectionIsGatedOnAuditorGuardAndNeverOnViewer(t *testing.T) {
 	doc := buildProjection(
 		&model.Formation{ProjectUID: "project-1", Lifecycle: model.LifecycleLive},
 		nil, port.ProjectRef{}, "A Project", "", nil, time.Now(),
