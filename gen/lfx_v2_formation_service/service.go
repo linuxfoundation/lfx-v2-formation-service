@@ -72,6 +72,21 @@ type Service interface {
 	// Delete an application from storage and search, and remove its submitter
 	// grant. The formation-team tuple is retained.
 	DeleteApplication(context.Context, *DeleteApplicationPayload) (err error)
+	// Return all templates in every state. Admin view.
+	ListTemplates(context.Context, *ListTemplatesPayload) (res []*AdminTemplate, err error)
+	// Return one template by UID.
+	GetTemplate(context.Context, *GetTemplatePayload) (res *AdminTemplate, err error)
+	// Create a new draft template.
+	CreateTemplate(context.Context, *CreateTemplatePayload) (res *AdminTemplate, err error)
+	// Update a draft template's mutable fields. Refused for published or archived
+	// templates.
+	UpdateTemplate(context.Context, *UpdateTemplatePayload) (res *AdminTemplate, err error)
+	// Publish a draft template, making it immutable and available for checklist
+	// selection.
+	PublishTemplate(context.Context, *PublishTemplatePayload) (res *AdminTemplate, err error)
+	// Archive a template, removing it from checklist selection. Existing
+	// checklists pinned to it are unaffected.
+	ArchiveTemplate(context.Context, *ArchiveTemplatePayload) (res *AdminTemplate, err error)
 	// Liveness probe.
 	Livez(context.Context) (res []byte, err error)
 	// Readiness probe.
@@ -98,7 +113,7 @@ const ServiceName = "lfx_v2_formation_service"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [13]string{"get_formation", "get_formation_activity", "set_item_status", "assign_item", "update_item", "create_application", "revise_application", "withdraw_application", "accept_application", "deny_application", "delete_application", "livez", "readyz"}
+var MethodNames = [19]string{"get_formation", "get_formation_activity", "set_item_status", "assign_item", "update_item", "create_application", "revise_application", "withdraw_application", "accept_application", "deny_application", "delete_application", "list_templates", "get_template", "create_template", "update_template", "publish_template", "archive_template", "livez", "readyz"}
 
 // AcceptApplicationPayload is the payload type of the lfx_v2_formation_service
 // service accept_application method.
@@ -113,6 +128,22 @@ type AcceptApplicationPayload struct {
 	IfMatch int64
 }
 
+// AdminTemplate is the result type of the lfx_v2_formation_service service
+// get_template method.
+type AdminTemplate struct {
+	UID         string
+	Name        string
+	Version     int
+	State       string
+	Priority    int
+	Match       string
+	Sections    any
+	Author      *string
+	CreatedAt   string
+	UpdatedAt   string
+	PublishedAt *string
+}
+
 type ApplicationError struct {
 	// Which declared error this is — matches the Error() name. Transport dispatch
 	// only; switch on reason, not this.
@@ -123,6 +154,17 @@ type ApplicationError struct {
 	Message string
 	// Machine-readable; switch on this, not on status.
 	Reason string
+}
+
+// ArchiveTemplatePayload is the payload type of the lfx_v2_formation_service
+// service archive_template method.
+type ArchiveTemplatePayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The template's UID.
+	UID string
 }
 
 // AssignItemPayload is the payload type of the lfx_v2_formation_service
@@ -183,6 +225,26 @@ type CreateApplicationPayload struct {
 	// People named for the formation work are email addresses only — they are not
 	// resolved to platform identities, granted anything, or notified.
 	Application map[string]any
+}
+
+// CreateTemplatePayload is the payload type of the lfx_v2_formation_service
+// service create_template method.
+type CreateTemplatePayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// Template name. Combined with template_version for uniqueness.
+	Name string
+	// Version number. name+template_version must be unique.
+	TemplateVersion int
+	// Selection priority; lower wins.
+	Priority int
+	// Match rule. 'always' is the fallback.
+	Match string
+	// Template sections array.
+	Sections any
+	Author   *string
 }
 
 // DeleteApplicationPayload is the payload type of the lfx_v2_formation_service
@@ -384,6 +446,26 @@ type GetFormationPayload struct {
 	ProjectUID string
 }
 
+// GetTemplatePayload is the payload type of the lfx_v2_formation_service
+// service get_template method.
+type GetTemplatePayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The template's UID.
+	UID string
+}
+
+// ListTemplatesPayload is the payload type of the lfx_v2_formation_service
+// service list_templates method.
+type ListTemplatesPayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+}
+
 type NotFoundError struct {
 	// HTTP status code
 	Code string
@@ -420,6 +502,17 @@ type ProjectApplicationMutationResult struct {
 	Application *ProjectApplication
 	// The application's new revision. Send as If-Match on the next write.
 	Etag *string
+}
+
+// PublishTemplatePayload is the payload type of the lfx_v2_formation_service
+// service publish_template method.
+type PublishTemplatePayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The template's UID.
+	UID string
 }
 
 // ReviseApplicationPayload is the payload type of the lfx_v2_formation_service
@@ -487,6 +580,18 @@ type SetItemStatusResult struct {
 	Etag *string
 }
 
+type TemplateError struct {
+	// Which declared error this is. Transport dispatch only; switch on reason, not
+	// this.
+	Name string
+	// HTTP status code
+	Code string
+	// Human-readable message
+	Message string
+	// Machine-readable; switch on this, not on status.
+	Reason string
+}
+
 type UnauthorizedError struct {
 	// HTTP status code
 	Code string
@@ -518,6 +623,21 @@ type UpdateItemResult struct {
 	Item *FormationItem
 	// The item's new version. Send as If-Match on the next write.
 	Etag *string
+}
+
+// UpdateTemplatePayload is the payload type of the lfx_v2_formation_service
+// service update_template method.
+type UpdateTemplatePayload struct {
+	// JWT token issued by Heimdall
+	BearerToken *string
+	// API version. Must be 1.
+	Version string
+	// The template's UID.
+	UID      string
+	Priority *int
+	Match    *string
+	Sections any
+	Author   *string
 }
 
 // WithdrawApplicationPayload is the payload type of the
@@ -602,6 +722,23 @@ func (e *ServiceUnavailableError) GoaErrorName() string {
 }
 
 // Error returns an error description.
+func (e *TemplateError) Error() string {
+	return ""
+}
+
+// ErrorName returns "TemplateError".
+//
+// Deprecated: Use GoaErrorName - https://github.com/goadesign/goa/issues/3105
+func (e *TemplateError) ErrorName() string {
+	return e.GoaErrorName()
+}
+
+// GoaErrorName returns "TemplateError".
+func (e *TemplateError) GoaErrorName() string {
+	return e.Name
+}
+
+// Error returns an error description.
 func (e *UnauthorizedError) Error() string {
 	return ""
 }
@@ -671,6 +808,19 @@ func NewProjectApplicationMutationResult(vres *lfxv2formationserviceviews.Projec
 func NewViewedProjectApplicationMutationResult(res *ProjectApplicationMutationResult, view string) *lfxv2formationserviceviews.ProjectApplicationMutationResult {
 	p := newProjectApplicationMutationResultView(res)
 	return &lfxv2formationserviceviews.ProjectApplicationMutationResult{Projected: p, View: "default"}
+}
+
+// NewAdminTemplate initializes result type AdminTemplate from viewed result
+// type AdminTemplate.
+func NewAdminTemplate(vres *lfxv2formationserviceviews.AdminTemplate) *AdminTemplate {
+	return newAdminTemplate(vres.Projected)
+}
+
+// NewViewedAdminTemplate initializes viewed result type AdminTemplate from
+// result type AdminTemplate using the given view.
+func NewViewedAdminTemplate(res *AdminTemplate, view string) *lfxv2formationserviceviews.AdminTemplate {
+	p := newAdminTemplateView(res)
+	return &lfxv2formationserviceviews.AdminTemplate{Projected: p, View: "default"}
 }
 
 // newFormationChecklist converts projected type FormationChecklist to service
@@ -886,6 +1036,60 @@ func newProjectApplicationMutationResultView(res *ProjectApplicationMutationResu
 	}
 	if res.Application != nil {
 		vres.Application = newProjectApplicationView(res.Application)
+	}
+	return vres
+}
+
+// newAdminTemplate converts projected type AdminTemplate to service type
+// AdminTemplate.
+func newAdminTemplate(vres *lfxv2formationserviceviews.AdminTemplateView) *AdminTemplate {
+	res := &AdminTemplate{
+		Sections:    vres.Sections,
+		Author:      vres.Author,
+		PublishedAt: vres.PublishedAt,
+	}
+	if vres.UID != nil {
+		res.UID = *vres.UID
+	}
+	if vres.Name != nil {
+		res.Name = *vres.Name
+	}
+	if vres.Version != nil {
+		res.Version = *vres.Version
+	}
+	if vres.State != nil {
+		res.State = *vres.State
+	}
+	if vres.Priority != nil {
+		res.Priority = *vres.Priority
+	}
+	if vres.Match != nil {
+		res.Match = *vres.Match
+	}
+	if vres.CreatedAt != nil {
+		res.CreatedAt = *vres.CreatedAt
+	}
+	if vres.UpdatedAt != nil {
+		res.UpdatedAt = *vres.UpdatedAt
+	}
+	return res
+}
+
+// newAdminTemplateView projects result type AdminTemplate to projected type
+// AdminTemplateView using the "default" view.
+func newAdminTemplateView(res *AdminTemplate) *lfxv2formationserviceviews.AdminTemplateView {
+	vres := &lfxv2formationserviceviews.AdminTemplateView{
+		UID:         &res.UID,
+		Name:        &res.Name,
+		Version:     &res.Version,
+		State:       &res.State,
+		Priority:    &res.Priority,
+		Match:       &res.Match,
+		Sections:    res.Sections,
+		Author:      res.Author,
+		CreatedAt:   &res.CreatedAt,
+		UpdatedAt:   &res.UpdatedAt,
+		PublishedAt: res.PublishedAt,
 	}
 	return vres
 }

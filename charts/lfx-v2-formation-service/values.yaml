@@ -244,6 +244,14 @@ app:
   # Team whose members may create project applications.
   # Add the UI service identity to this team before enabling the route.
   applicationIntakeTeamName: "global_project_application_admin"
+  # Team whose members may manage templates via the admin API (create, update,
+  # publish, archive). The object carries no resource — the check is whether the
+  # caller holds platform-wide template-admin standing, not a project grant.
+  #
+  # This team does not exist at chart-ship time and must be created before any
+  # template admin route can be reached. See docs/template-admin-team.md for the
+  # process of creating the team and adding members.
+  templateAdminTeamName: "global_formation_template_admin"
   # jwt is the configuration for JWT authentication
   # audience is the intended audience for the JWT token
   audience: lfx-v2-formation-service

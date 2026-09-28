@@ -128,7 +128,7 @@ func BuildSetItemStatusPayload(lfxV2FormationServiceSetItemStatusBody string, lf
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceSetItemStatusBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Exercitationem ipsam eveniet possimus impedit sed.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"reason\": \"Nesciunt ut dolores et.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }'")
 		}
 		if body.Status != nil {
 			if !(*body.Status == "not_started" || *body.Status == "in_progress" || *body.Status == "blocked" || *body.Status == "done" || *body.Status == "skipped") {
@@ -208,7 +208,7 @@ func BuildAssignItemPayload(lfxV2FormationServiceAssignItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceAssignItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Cum impedit nihil quo reprehenderit perspiciatis tempora.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"assignee\": \"Quibusdam voluptatem laboriosam dolor voluptatem.\",\n      \"due_date\": \"2026-03-31\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -263,7 +263,7 @@ func BuildUpdateItemPayload(lfxV2FormationServiceUpdateItemBody string, lfxV2For
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateItemBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusamus dolorum ad voluptas vero sit.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Facere in odio.\"\n   }'")
 		}
 	}
 	var projectUID string
@@ -318,7 +318,7 @@ func BuildCreateApplicationPayload(lfxV2FormationServiceCreateApplicationBody st
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceCreateApplicationBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Temporibus est repellendus et aspernatur sapiente.\": \"Asperiores iure eveniet.\"\n      },\n      \"submitter_email\": \"ethyl_wuckert@shanahan.com\",\n      \"submitter_name\": \"Velit perferendis assumenda quibusdam.\",\n      \"submitter_username\": \"Expedita rerum aut et eum iure.\",\n      \"target_parent_uid\": \"Dolorem sunt occaecati est ab aliquid inventore.\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Enim nihil ut in.\": \"Voluptatum ab eligendi laboriosam velit.\"\n      },\n      \"submitter_email\": \"agustin@bayer.org\",\n      \"submitter_name\": \"Laborum asperiores aliquam rerum dolorem vitae ducimus.\",\n      \"submitter_username\": \"Excepturi enim in ullam deleniti.\",\n      \"target_parent_uid\": \"Deleniti dolor eos cupiditate aut expedita.\"\n   }'")
 		}
 		if body.Application == nil {
 			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
@@ -372,7 +372,7 @@ func BuildReviseApplicationPayload(lfxV2FormationServiceReviseApplicationBody st
 	{
 		err = json.Unmarshal([]byte(lfxV2FormationServiceReviseApplicationBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Minus fugiat doloribus.\": \"Nulla modi.\",\n         \"Qui voluptatem debitis.\": \"Soluta amet.\",\n         \"Quisquam perferendis sit impedit explicabo et omnis.\": \"Delectus accusantium a eos ab in natus.\"\n      }\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"application\": {\n         \"Debitis excepturi velit.\": \"Est rem rerum amet modi quo.\",\n         \"Voluptatem rerum voluptatem consequatur voluptatem tenetur et.\": \"Officiis quia natus ab ut.\"\n      }\n   }'")
 		}
 		if body.Application == nil {
 			err = goa.MergeErrors(err, goa.MissingFieldError("application", "body"))
@@ -601,6 +601,250 @@ func BuildDeleteApplicationPayload(lfxV2FormationServiceDeleteApplicationUID str
 	v.Version = version
 	v.BearerToken = bearerToken
 	v.IfMatch = ifMatch
+
+	return v, nil
+}
+
+// BuildListTemplatesPayload builds the payload for the
+// lfx_v2_formation_service list_templates endpoint from CLI flags.
+func BuildListTemplatesPayload(lfxV2FormationServiceListTemplatesVersion string, lfxV2FormationServiceListTemplatesBearerToken string) (*lfxv2formationservice.ListTemplatesPayload, error) {
+	var err error
+	var version string
+	{
+		version = lfxV2FormationServiceListTemplatesVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceListTemplatesBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceListTemplatesBearerToken
+		}
+	}
+	v := &lfxv2formationservice.ListTemplatesPayload{}
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildGetTemplatePayload builds the payload for the lfx_v2_formation_service
+// get_template endpoint from CLI flags.
+func BuildGetTemplatePayload(lfxV2FormationServiceGetTemplateUID string, lfxV2FormationServiceGetTemplateVersion string, lfxV2FormationServiceGetTemplateBearerToken string) (*lfxv2formationservice.GetTemplatePayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceGetTemplateUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceGetTemplateVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceGetTemplateBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceGetTemplateBearerToken
+		}
+	}
+	v := &lfxv2formationservice.GetTemplatePayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildCreateTemplatePayload builds the payload for the
+// lfx_v2_formation_service create_template endpoint from CLI flags.
+func BuildCreateTemplatePayload(lfxV2FormationServiceCreateTemplateBody string, lfxV2FormationServiceCreateTemplateVersion string, lfxV2FormationServiceCreateTemplateBearerToken string) (*lfxv2formationservice.CreateTemplatePayload, error) {
+	var err error
+	var body CreateTemplateRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceCreateTemplateBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Unde ab illo quam sint et.\",\n      \"match\": \"Aspernatur voluptatum in atque.\",\n      \"name\": \"Et at soluta sapiente.\",\n      \"priority\": 8971327207530475861,\n      \"sections\": \"Et ratione impedit.\",\n      \"template_version\": 1849116001840466742\n   }'")
+		}
+		if body.Sections == nil {
+			err = goa.MergeErrors(err, goa.MissingFieldError("sections", "body"))
+		}
+		if body.TemplateVersion < 1 {
+			err = goa.MergeErrors(err, goa.InvalidRangeError("body.template_version", body.TemplateVersion, 1, true))
+		}
+		if body.Priority < 0 {
+			err = goa.MergeErrors(err, goa.InvalidRangeError("body.priority", body.Priority, 0, true))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceCreateTemplateVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceCreateTemplateBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceCreateTemplateBearerToken
+		}
+	}
+	v := &lfxv2formationservice.CreateTemplatePayload{
+		Name:            body.Name,
+		TemplateVersion: body.TemplateVersion,
+		Priority:        body.Priority,
+		Match:           body.Match,
+		Sections:        body.Sections,
+		Author:          body.Author,
+	}
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildUpdateTemplatePayload builds the payload for the
+// lfx_v2_formation_service update_template endpoint from CLI flags.
+func BuildUpdateTemplatePayload(lfxV2FormationServiceUpdateTemplateBody string, lfxV2FormationServiceUpdateTemplateUID string, lfxV2FormationServiceUpdateTemplateVersion string, lfxV2FormationServiceUpdateTemplateBearerToken string) (*lfxv2formationservice.UpdateTemplatePayload, error) {
+	var err error
+	var body UpdateTemplateRequestBody
+	{
+		err = json.Unmarshal([]byte(lfxV2FormationServiceUpdateTemplateBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"author\": \"Ratione omnis expedita voluptas molestias.\",\n      \"match\": \"Assumenda tempore.\",\n      \"priority\": 3839387370682125327,\n      \"sections\": \"Molestiae magni vel molestiae deleniti.\"\n   }'")
+		}
+		if body.Priority != nil {
+			if *body.Priority < 0 {
+				err = goa.MergeErrors(err, goa.InvalidRangeError("body.priority", *body.Priority, 0, true))
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var uid string
+	{
+		uid = lfxV2FormationServiceUpdateTemplateUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceUpdateTemplateVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceUpdateTemplateBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceUpdateTemplateBearerToken
+		}
+	}
+	v := &lfxv2formationservice.UpdateTemplatePayload{
+		Priority: body.Priority,
+		Match:    body.Match,
+		Sections: body.Sections,
+		Author:   body.Author,
+	}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildPublishTemplatePayload builds the payload for the
+// lfx_v2_formation_service publish_template endpoint from CLI flags.
+func BuildPublishTemplatePayload(lfxV2FormationServicePublishTemplateUID string, lfxV2FormationServicePublishTemplateVersion string, lfxV2FormationServicePublishTemplateBearerToken string) (*lfxv2formationservice.PublishTemplatePayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServicePublishTemplateUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServicePublishTemplateVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServicePublishTemplateBearerToken != "" {
+			bearerToken = &lfxV2FormationServicePublishTemplateBearerToken
+		}
+	}
+	v := &lfxv2formationservice.PublishTemplatePayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
+
+	return v, nil
+}
+
+// BuildArchiveTemplatePayload builds the payload for the
+// lfx_v2_formation_service archive_template endpoint from CLI flags.
+func BuildArchiveTemplatePayload(lfxV2FormationServiceArchiveTemplateUID string, lfxV2FormationServiceArchiveTemplateVersion string, lfxV2FormationServiceArchiveTemplateBearerToken string) (*lfxv2formationservice.ArchiveTemplatePayload, error) {
+	var err error
+	var uid string
+	{
+		uid = lfxV2FormationServiceArchiveTemplateUID
+		err = goa.MergeErrors(err, goa.ValidateFormat("uid", uid, goa.FormatUUID))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var version string
+	{
+		version = lfxV2FormationServiceArchiveTemplateVersion
+		if !(version == "1") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("version", version, []any{"1"}))
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var bearerToken *string
+	{
+		if lfxV2FormationServiceArchiveTemplateBearerToken != "" {
+			bearerToken = &lfxV2FormationServiceArchiveTemplateBearerToken
+		}
+	}
+	v := &lfxv2formationservice.ArchiveTemplatePayload{}
+	v.UID = uid
+	v.Version = version
+	v.BearerToken = bearerToken
 
 	return v, nil
 }

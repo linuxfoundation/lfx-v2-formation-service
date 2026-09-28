@@ -9,11 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
 // TemplateRepository is an in-memory port.TemplateRepository double.
@@ -86,6 +88,130 @@ func (r *TemplateRepository) Get(_ context.Context, uid uuid.UUID) (*model.Templ
 		return nil, domain.ErrNotFound
 	}
 	out := *t
+	return &out, nil
+}
+
+// List returns all templates regardless of state, ordered by name then version.
+func (r *TemplateRepository) List(_ context.Context) ([]*model.Template, error) {
+	r.record("templates.List")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make([]*model.Template, 0, len(r.templates))
+	for _, t := range r.templates {
+		clone := *t
+		out = append(out, &clone)
+	}
+	// Name then version ascending, mirroring the Postgres query.
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0; j-- {
+			a, b := out[j], out[j-1]
+			if a.Name < b.Name || (a.Name == b.Name && a.Version < b.Version) {
+				out[j], out[j-1] = out[j-1], out[j]
+			} else {
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+// Create inserts a new draft template.
+func (r *TemplateRepository) Create(_ context.Context, t *model.Template) (*model.Template, error) {
+	r.record("templates.Create")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, existing := range r.templates {
+		if existing.Name == t.Name && existing.Version == t.Version {
+			return nil, fmt.Errorf("%w: template %s v%d already exists", domain.ErrConflict, t.Name, t.Version)
+		}
+	}
+
+	clone := *t
+	clone.UID = uuid.New()
+	clone.State = model.TemplateDraft
+	if clone.Sections == nil {
+		clone.Sections = []model.TemplateSection{}
+	}
+	r.templates[clone.UID] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Update applies mutable fields to a draft template.
+func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port.TemplatePatch) (*model.Template, error) {
+	r.record("templates.Update")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State != model.TemplateDraft {
+		return nil, fmt.Errorf("%w: only draft templates may be updated", domain.ErrConflict)
+	}
+
+	clone := *t
+	if patch.Priority != nil {
+		clone.Priority = *patch.Priority
+	}
+	if patch.Match != nil {
+		clone.Match = *patch.Match
+	}
+	if patch.Sections != nil {
+		clone.Sections = *patch.Sections
+	}
+	if patch.Author != nil {
+		clone.Author = *patch.Author
+	}
+	r.templates[uid] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Publish transitions a draft template to published.
+func (r *TemplateRepository) Publish(_ context.Context, uid uuid.UUID) (*model.Template, error) {
+	r.record("templates.Publish")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State != model.TemplateDraft {
+		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
+	}
+
+	clone := *t
+	clone.State = model.TemplatePublished
+	now := time.Now().UTC()
+	clone.PublishedAt = &now
+	r.templates[uid] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Archive transitions a template to archived.
+func (r *TemplateRepository) Archive(_ context.Context, uid uuid.UUID) (*model.Template, error) {
+	r.record("templates.Archive")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State == model.TemplateArchived {
+		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
+	}
+
+	clone := *t
+	clone.State = model.TemplateArchived
+	r.templates[uid] = &clone
+	out := clone
 	return &out, nil
 }
 

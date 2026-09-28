@@ -27,13 +27,19 @@ type Client struct {
 	AcceptApplicationEndpoint    goa.Endpoint
 	DenyApplicationEndpoint      goa.Endpoint
 	DeleteApplicationEndpoint    goa.Endpoint
+	ListTemplatesEndpoint        goa.Endpoint
+	GetTemplateEndpoint          goa.Endpoint
+	CreateTemplateEndpoint       goa.Endpoint
+	UpdateTemplateEndpoint       goa.Endpoint
+	PublishTemplateEndpoint      goa.Endpoint
+	ArchiveTemplateEndpoint      goa.Endpoint
 	LivezEndpoint                goa.Endpoint
 	ReadyzEndpoint               goa.Endpoint
 }
 
 // NewClient initializes a "lfx_v2_formation_service" service client given the
 // endpoints.
-func NewClient(getFormation, getFormationActivity, setItemStatus, assignItem, updateItem, createApplication, reviseApplication, withdrawApplication, acceptApplication, denyApplication, deleteApplication, livez, readyz goa.Endpoint) *Client {
+func NewClient(getFormation, getFormationActivity, setItemStatus, assignItem, updateItem, createApplication, reviseApplication, withdrawApplication, acceptApplication, denyApplication, deleteApplication, listTemplates, getTemplate, createTemplate, updateTemplate, publishTemplate, archiveTemplate, livez, readyz goa.Endpoint) *Client {
 	return &Client{
 		GetFormationEndpoint:         getFormation,
 		GetFormationActivityEndpoint: getFormationActivity,
@@ -46,6 +52,12 @@ func NewClient(getFormation, getFormationActivity, setItemStatus, assignItem, up
 		AcceptApplicationEndpoint:    acceptApplication,
 		DenyApplicationEndpoint:      denyApplication,
 		DeleteApplicationEndpoint:    deleteApplication,
+		ListTemplatesEndpoint:        listTemplates,
+		GetTemplateEndpoint:          getTemplate,
+		CreateTemplateEndpoint:       createTemplate,
+		UpdateTemplateEndpoint:       updateTemplate,
+		PublishTemplateEndpoint:      publishTemplate,
+		ArchiveTemplateEndpoint:      archiveTemplate,
 		LivezEndpoint:                livez,
 		ReadyzEndpoint:               readyz,
 	}
@@ -225,6 +237,100 @@ func (c *Client) DenyApplication(ctx context.Context, p *DenyApplicationPayload)
 func (c *Client) DeleteApplication(ctx context.Context, p *DeleteApplicationPayload) (err error) {
 	_, err = c.DeleteApplicationEndpoint(ctx, p)
 	return
+}
+
+// ListTemplates calls the "list_templates" endpoint of the
+// "lfx_v2_formation_service" service.
+// ListTemplates may return the following errors:
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) ListTemplates(ctx context.Context, p *ListTemplatesPayload) (res []*AdminTemplate, err error) {
+	var ires any
+	ires, err = c.ListTemplatesEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.([]*AdminTemplate), nil
+}
+
+// GetTemplate calls the "get_template" endpoint of the
+// "lfx_v2_formation_service" service.
+// GetTemplate may return the following errors:
+//   - "NotFound" (type *TemplateError): No template with that UID
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) GetTemplate(ctx context.Context, p *GetTemplatePayload) (res *AdminTemplate, err error) {
+	var ires any
+	ires, err = c.GetTemplateEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*AdminTemplate), nil
+}
+
+// CreateTemplate calls the "create_template" endpoint of the
+// "lfx_v2_formation_service" service.
+// CreateTemplate may return the following errors:
+//   - "BadRequest" (type *TemplateError): Invalid payload
+//   - "Conflict" (type *TemplateError): A template with this name and version already exists
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) CreateTemplate(ctx context.Context, p *CreateTemplatePayload) (res *AdminTemplate, err error) {
+	var ires any
+	ires, err = c.CreateTemplateEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*AdminTemplate), nil
+}
+
+// UpdateTemplate calls the "update_template" endpoint of the
+// "lfx_v2_formation_service" service.
+// UpdateTemplate may return the following errors:
+//   - "NotFound" (type *TemplateError): No template with that UID
+//   - "Conflict" (type *TemplateError): Template is not a draft
+//   - "BadRequest" (type *TemplateError): No fields to update
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) UpdateTemplate(ctx context.Context, p *UpdateTemplatePayload) (res *AdminTemplate, err error) {
+	var ires any
+	ires, err = c.UpdateTemplateEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*AdminTemplate), nil
+}
+
+// PublishTemplate calls the "publish_template" endpoint of the
+// "lfx_v2_formation_service" service.
+// PublishTemplate may return the following errors:
+//   - "NotFound" (type *TemplateError): No template with that UID
+//   - "Conflict" (type *TemplateError): Template is not a draft
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) PublishTemplate(ctx context.Context, p *PublishTemplatePayload) (res *AdminTemplate, err error) {
+	var ires any
+	ires, err = c.PublishTemplateEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*AdminTemplate), nil
+}
+
+// ArchiveTemplate calls the "archive_template" endpoint of the
+// "lfx_v2_formation_service" service.
+// ArchiveTemplate may return the following errors:
+//   - "NotFound" (type *TemplateError): No template with that UID
+//   - "Conflict" (type *TemplateError): Template is already archived
+//   - "Unauthorized" (type *UnauthorizedError): Missing, expired, or malformed bearer token
+//   - error: internal error
+func (c *Client) ArchiveTemplate(ctx context.Context, p *ArchiveTemplatePayload) (res *AdminTemplate, err error) {
+	var ires any
+	ires, err = c.ArchiveTemplateEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*AdminTemplate), nil
 }
 
 // Livez calls the "livez" endpoint of the "lfx_v2_formation_service" service.

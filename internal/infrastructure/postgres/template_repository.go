@@ -16,6 +16,7 @@ import (
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
 // TemplateRepo persists and selects checklist templates.
@@ -61,6 +62,124 @@ func (r *TemplateRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Template,
 			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("select template: %w", err)
+	}
+	return t, nil
+}
+
+// List returns all templates ordered by name then version.
+func (r *TemplateRepo) List(ctx context.Context) ([]*model.Template, error) {
+	var templates []*model.Template
+	err := r.db.NewSelect().
+		Model(&templates).
+		Order("name ASC", "version ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list templates: %w", err)
+	}
+	return templates, nil
+}
+
+// Create inserts a new draft template. Returns domain.ErrConflict when a
+// template with the same name+version already exists.
+func (r *TemplateRepo) Create(ctx context.Context, t *model.Template) (*model.Template, error) {
+	t.ApplyUpsertDefaults()
+	t.State = model.TemplateDraft // creation always starts as draft
+
+	_, err := r.db.NewInsert().
+		Model(t).
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("%w: template %s v%d already exists", domain.ErrConflict, t.Name, t.Version)
+		}
+		return nil, fmt.Errorf("create template: %w", err)
+	}
+	return t, nil
+}
+
+// Update applies mutable fields to a draft template.
+func (r *TemplateRepo) Update(ctx context.Context, uid uuid.UUID, patch port.TemplatePatch) (*model.Template, error) {
+	t, err := r.Get(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if t.State != model.TemplateDraft {
+		return nil, fmt.Errorf("%w: only draft templates may be updated", domain.ErrConflict)
+	}
+	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
+		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
+	}
+
+	if patch.Priority != nil {
+		t.Priority = *patch.Priority
+	}
+	if patch.Match != nil {
+		t.Match = *patch.Match
+	}
+	if patch.Sections != nil {
+		t.Sections = *patch.Sections
+	}
+	if patch.Author != nil {
+		t.Author = *patch.Author
+	}
+
+	_, err = r.db.NewUpdate().
+		Model(t).
+		Column("priority", "match", "sections", "author", "updated_at").
+		Where("uid = ?", uid).
+		Set("updated_at = now()").
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("update template: %w", err)
+	}
+	return t, nil
+}
+
+// Publish transitions a draft template to published.
+func (r *TemplateRepo) Publish(ctx context.Context, uid uuid.UUID) (*model.Template, error) {
+	t, err := r.Get(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if t.State != model.TemplateDraft {
+		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
+	}
+
+	_, err = r.db.NewUpdate().
+		Model((*model.Template)(nil)).
+		Where("uid = ?", uid).
+		Set("state = ?", model.TemplatePublished).
+		Set("published_at = now()").
+		Set("updated_at = now()").
+		Returning("*").
+		Exec(ctx, t)
+	if err != nil {
+		return nil, fmt.Errorf("publish template: %w", err)
+	}
+	return t, nil
+}
+
+// Archive transitions a template to archived.
+func (r *TemplateRepo) Archive(ctx context.Context, uid uuid.UUID) (*model.Template, error) {
+	t, err := r.Get(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if t.State == model.TemplateArchived {
+		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
+	}
+
+	_, err = r.db.NewUpdate().
+		Model((*model.Template)(nil)).
+		Where("uid = ?", uid).
+		Set("state = ?", model.TemplateArchived).
+		Set("updated_at = now()").
+		Returning("*").
+		Exec(ctx, t)
+	if err != nil {
+		return nil, fmt.Errorf("archive template: %w", err)
 	}
 	return t, nil
 }

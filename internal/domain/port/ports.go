@@ -141,6 +141,10 @@ type TemplateRepository interface {
 	// depending on row order.
 	ListPublished(ctx context.Context) ([]*model.Template, error)
 
+	// List returns all templates regardless of state, ordered by name then
+	// version. Used by the admin API to show the full template inventory.
+	List(ctx context.Context) ([]*model.Template, error)
+
 	Get(ctx context.Context, uid uuid.UUID) (*model.Template, error)
 
 	// Upsert seeds a template version, or re-seeds one that is not yet
@@ -149,6 +153,32 @@ type TemplateRepository interface {
 	// with domain.ErrConflict: live checklists pin the version they expanded
 	// from, so editing it in place would change what those pins mean.
 	Upsert(ctx context.Context, t *model.Template) (*model.Template, error)
+
+	// Create inserts a new draft template. Name+version must be unique.
+	Create(ctx context.Context, t *model.Template) (*model.Template, error)
+
+	// Update applies mutable fields to a draft template, returning
+	// domain.ErrConflict when the template is not in draft state.
+	Update(ctx context.Context, uid uuid.UUID, patch TemplatePatch) (*model.Template, error)
+
+	// Publish transitions a draft template to published, setting published_at.
+	// Returns domain.ErrConflict when the template is not a draft, or
+	// domain.ErrNotFound when no template has that UID.
+	Publish(ctx context.Context, uid uuid.UUID) (*model.Template, error)
+
+	// Archive transitions a template to archived regardless of its current
+	// state, provided it is not already archived. Returns domain.ErrConflict
+	// when already archived, or domain.ErrNotFound when missing.
+	Archive(ctx context.Context, uid uuid.UUID) (*model.Template, error)
+}
+
+// TemplatePatch carries the mutable fields of a draft template. A nil pointer
+// means leave the field alone.
+type TemplatePatch struct {
+	Priority *int
+	Match    *string
+	Sections *[]model.TemplateSection
+	Author   *string
 }
 
 // ApplicationRepository persists project applications.

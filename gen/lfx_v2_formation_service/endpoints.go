@@ -28,6 +28,12 @@ type Endpoints struct {
 	AcceptApplication    goa.Endpoint
 	DenyApplication      goa.Endpoint
 	DeleteApplication    goa.Endpoint
+	ListTemplates        goa.Endpoint
+	GetTemplate          goa.Endpoint
+	CreateTemplate       goa.Endpoint
+	UpdateTemplate       goa.Endpoint
+	PublishTemplate      goa.Endpoint
+	ArchiveTemplate      goa.Endpoint
 	Livez                goa.Endpoint
 	Readyz               goa.Endpoint
 }
@@ -49,6 +55,12 @@ func NewEndpoints(s Service) *Endpoints {
 		AcceptApplication:    NewAcceptApplicationEndpoint(s, a.JWTAuth),
 		DenyApplication:      NewDenyApplicationEndpoint(s, a.JWTAuth),
 		DeleteApplication:    NewDeleteApplicationEndpoint(s, a.JWTAuth),
+		ListTemplates:        NewListTemplatesEndpoint(s, a.JWTAuth),
+		GetTemplate:          NewGetTemplateEndpoint(s, a.JWTAuth),
+		CreateTemplate:       NewCreateTemplateEndpoint(s, a.JWTAuth),
+		UpdateTemplate:       NewUpdateTemplateEndpoint(s, a.JWTAuth),
+		PublishTemplate:      NewPublishTemplateEndpoint(s, a.JWTAuth),
+		ArchiveTemplate:      NewArchiveTemplateEndpoint(s, a.JWTAuth),
 		Livez:                NewLivezEndpoint(s),
 		Readyz:               NewReadyzEndpoint(s),
 	}
@@ -68,6 +80,12 @@ func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.AcceptApplication = m(e.AcceptApplication)
 	e.DenyApplication = m(e.DenyApplication)
 	e.DeleteApplication = m(e.DeleteApplication)
+	e.ListTemplates = m(e.ListTemplates)
+	e.GetTemplate = m(e.GetTemplate)
+	e.CreateTemplate = m(e.CreateTemplate)
+	e.UpdateTemplate = m(e.UpdateTemplate)
+	e.PublishTemplate = m(e.PublishTemplate)
+	e.ArchiveTemplate = m(e.ArchiveTemplate)
 	e.Livez = m(e.Livez)
 	e.Readyz = m(e.Readyz)
 }
@@ -357,6 +375,169 @@ func NewDeleteApplicationEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa
 			return nil, err
 		}
 		return nil, s.DeleteApplication(ctx, p)
+	}
+}
+
+// NewListTemplatesEndpoint returns an endpoint function that calls the method
+// "list_templates" of service "lfx_v2_formation_service".
+func NewListTemplatesEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*ListTemplatesPayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		return s.ListTemplates(ctx, p)
+	}
+}
+
+// NewGetTemplateEndpoint returns an endpoint function that calls the method
+// "get_template" of service "lfx_v2_formation_service".
+func NewGetTemplateEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*GetTemplatePayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.GetTemplate(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedAdminTemplate(res, "default")
+		return vres, nil
+	}
+}
+
+// NewCreateTemplateEndpoint returns an endpoint function that calls the method
+// "create_template" of service "lfx_v2_formation_service".
+func NewCreateTemplateEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*CreateTemplatePayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.CreateTemplate(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedAdminTemplate(res, "default")
+		return vres, nil
+	}
+}
+
+// NewUpdateTemplateEndpoint returns an endpoint function that calls the method
+// "update_template" of service "lfx_v2_formation_service".
+func NewUpdateTemplateEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*UpdateTemplatePayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.UpdateTemplate(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedAdminTemplate(res, "default")
+		return vres, nil
+	}
+}
+
+// NewPublishTemplateEndpoint returns an endpoint function that calls the
+// method "publish_template" of service "lfx_v2_formation_service".
+func NewPublishTemplateEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*PublishTemplatePayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.PublishTemplate(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedAdminTemplate(res, "default")
+		return vres, nil
+	}
+}
+
+// NewArchiveTemplateEndpoint returns an endpoint function that calls the
+// method "archive_template" of service "lfx_v2_formation_service".
+func NewArchiveTemplateEndpoint(s Service, authJWTFn security.AuthJWTFunc) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*ArchiveTemplatePayload)
+		var err error
+		sc := security.JWTScheme{
+			Name:           "jwt",
+			Scopes:         []string{},
+			RequiredScopes: []string{},
+		}
+		var token string
+		if p.BearerToken != nil {
+			token = *p.BearerToken
+		}
+		ctx, err = authJWTFn(ctx, token, &sc)
+		if err != nil {
+			return nil, err
+		}
+		res, err := s.ArchiveTemplate(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedAdminTemplate(res, "default")
+		return vres, nil
 	}
 }
 

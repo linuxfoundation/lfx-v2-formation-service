@@ -24,13 +24,13 @@ import (
 //	command (subcommand1|subcommand2|...)
 func UsageCommands() []string {
 	return []string{
-		"lfx-v2-formation-service (get-formation|get-formation-activity|set-item-status|assign-item|update-item|create-application|revise-application|withdraw-application|accept-application|deny-application|delete-application|livez|readyz)",
+		"lfx-v2-formation-service (get-formation|get-formation-activity|set-item-status|assign-item|update-item|create-application|revise-application|withdraw-application|accept-application|deny-application|delete-application|list-templates|get-template|create-template|update-template|publish-template|archive-template|livez|readyz)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Fugiat maxime.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
+	return os.Args[0] + " " + "lfx-v2-formation-service get-formation --project-uid \"Qui dolorem optio aut architecto.\" --version \"1\" --bearer-token \"eyJhbGci...\"" + "\n" +
 		""
 }
 
@@ -119,6 +119,36 @@ func ParseEndpoint(
 		lfxV2FormationServiceDeleteApplicationBearerTokenFlag = lfxV2FormationServiceDeleteApplicationFlags.String("bearer-token", "", "")
 		lfxV2FormationServiceDeleteApplicationIfMatchFlag     = lfxV2FormationServiceDeleteApplicationFlags.String("if-match", "REQUIRED", "")
 
+		lfxV2FormationServiceListTemplatesFlags           = flag.NewFlagSet("list-templates", flag.ExitOnError)
+		lfxV2FormationServiceListTemplatesVersionFlag     = lfxV2FormationServiceListTemplatesFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceListTemplatesBearerTokenFlag = lfxV2FormationServiceListTemplatesFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceGetTemplateFlags           = flag.NewFlagSet("get-template", flag.ExitOnError)
+		lfxV2FormationServiceGetTemplateUIDFlag         = lfxV2FormationServiceGetTemplateFlags.String("uid", "REQUIRED", "The template's UID.")
+		lfxV2FormationServiceGetTemplateVersionFlag     = lfxV2FormationServiceGetTemplateFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceGetTemplateBearerTokenFlag = lfxV2FormationServiceGetTemplateFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceCreateTemplateFlags           = flag.NewFlagSet("create-template", flag.ExitOnError)
+		lfxV2FormationServiceCreateTemplateBodyFlag        = lfxV2FormationServiceCreateTemplateFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceCreateTemplateVersionFlag     = lfxV2FormationServiceCreateTemplateFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceCreateTemplateBearerTokenFlag = lfxV2FormationServiceCreateTemplateFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceUpdateTemplateFlags           = flag.NewFlagSet("update-template", flag.ExitOnError)
+		lfxV2FormationServiceUpdateTemplateBodyFlag        = lfxV2FormationServiceUpdateTemplateFlags.String("body", "REQUIRED", "")
+		lfxV2FormationServiceUpdateTemplateUIDFlag         = lfxV2FormationServiceUpdateTemplateFlags.String("uid", "REQUIRED", "The template's UID.")
+		lfxV2FormationServiceUpdateTemplateVersionFlag     = lfxV2FormationServiceUpdateTemplateFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceUpdateTemplateBearerTokenFlag = lfxV2FormationServiceUpdateTemplateFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServicePublishTemplateFlags           = flag.NewFlagSet("publish-template", flag.ExitOnError)
+		lfxV2FormationServicePublishTemplateUIDFlag         = lfxV2FormationServicePublishTemplateFlags.String("uid", "REQUIRED", "The template's UID.")
+		lfxV2FormationServicePublishTemplateVersionFlag     = lfxV2FormationServicePublishTemplateFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServicePublishTemplateBearerTokenFlag = lfxV2FormationServicePublishTemplateFlags.String("bearer-token", "", "")
+
+		lfxV2FormationServiceArchiveTemplateFlags           = flag.NewFlagSet("archive-template", flag.ExitOnError)
+		lfxV2FormationServiceArchiveTemplateUIDFlag         = lfxV2FormationServiceArchiveTemplateFlags.String("uid", "REQUIRED", "The template's UID.")
+		lfxV2FormationServiceArchiveTemplateVersionFlag     = lfxV2FormationServiceArchiveTemplateFlags.String("version", "REQUIRED", "")
+		lfxV2FormationServiceArchiveTemplateBearerTokenFlag = lfxV2FormationServiceArchiveTemplateFlags.String("bearer-token", "", "")
+
 		lfxV2FormationServiceLivezFlags = flag.NewFlagSet("livez", flag.ExitOnError)
 
 		lfxV2FormationServiceReadyzFlags = flag.NewFlagSet("readyz", flag.ExitOnError)
@@ -135,6 +165,12 @@ func ParseEndpoint(
 	lfxV2FormationServiceAcceptApplicationFlags.Usage = lfxV2FormationServiceAcceptApplicationUsage
 	lfxV2FormationServiceDenyApplicationFlags.Usage = lfxV2FormationServiceDenyApplicationUsage
 	lfxV2FormationServiceDeleteApplicationFlags.Usage = lfxV2FormationServiceDeleteApplicationUsage
+	lfxV2FormationServiceListTemplatesFlags.Usage = lfxV2FormationServiceListTemplatesUsage
+	lfxV2FormationServiceGetTemplateFlags.Usage = lfxV2FormationServiceGetTemplateUsage
+	lfxV2FormationServiceCreateTemplateFlags.Usage = lfxV2FormationServiceCreateTemplateUsage
+	lfxV2FormationServiceUpdateTemplateFlags.Usage = lfxV2FormationServiceUpdateTemplateUsage
+	lfxV2FormationServicePublishTemplateFlags.Usage = lfxV2FormationServicePublishTemplateUsage
+	lfxV2FormationServiceArchiveTemplateFlags.Usage = lfxV2FormationServiceArchiveTemplateUsage
 	lfxV2FormationServiceLivezFlags.Usage = lfxV2FormationServiceLivezUsage
 	lfxV2FormationServiceReadyzFlags.Usage = lfxV2FormationServiceReadyzUsage
 
@@ -205,6 +241,24 @@ func ParseEndpoint(
 			case "delete-application":
 				epf = lfxV2FormationServiceDeleteApplicationFlags
 
+			case "list-templates":
+				epf = lfxV2FormationServiceListTemplatesFlags
+
+			case "get-template":
+				epf = lfxV2FormationServiceGetTemplateFlags
+
+			case "create-template":
+				epf = lfxV2FormationServiceCreateTemplateFlags
+
+			case "update-template":
+				epf = lfxV2FormationServiceUpdateTemplateFlags
+
+			case "publish-template":
+				epf = lfxV2FormationServicePublishTemplateFlags
+
+			case "archive-template":
+				epf = lfxV2FormationServiceArchiveTemplateFlags
+
 			case "livez":
 				epf = lfxV2FormationServiceLivezFlags
 
@@ -269,6 +323,24 @@ func ParseEndpoint(
 			case "delete-application":
 				endpoint = c.DeleteApplication()
 				data, err = lfxv2formationservicec.BuildDeleteApplicationPayload(*lfxV2FormationServiceDeleteApplicationUIDFlag, *lfxV2FormationServiceDeleteApplicationVersionFlag, *lfxV2FormationServiceDeleteApplicationBearerTokenFlag, *lfxV2FormationServiceDeleteApplicationIfMatchFlag)
+			case "list-templates":
+				endpoint = c.ListTemplates()
+				data, err = lfxv2formationservicec.BuildListTemplatesPayload(*lfxV2FormationServiceListTemplatesVersionFlag, *lfxV2FormationServiceListTemplatesBearerTokenFlag)
+			case "get-template":
+				endpoint = c.GetTemplate()
+				data, err = lfxv2formationservicec.BuildGetTemplatePayload(*lfxV2FormationServiceGetTemplateUIDFlag, *lfxV2FormationServiceGetTemplateVersionFlag, *lfxV2FormationServiceGetTemplateBearerTokenFlag)
+			case "create-template":
+				endpoint = c.CreateTemplate()
+				data, err = lfxv2formationservicec.BuildCreateTemplatePayload(*lfxV2FormationServiceCreateTemplateBodyFlag, *lfxV2FormationServiceCreateTemplateVersionFlag, *lfxV2FormationServiceCreateTemplateBearerTokenFlag)
+			case "update-template":
+				endpoint = c.UpdateTemplate()
+				data, err = lfxv2formationservicec.BuildUpdateTemplatePayload(*lfxV2FormationServiceUpdateTemplateBodyFlag, *lfxV2FormationServiceUpdateTemplateUIDFlag, *lfxV2FormationServiceUpdateTemplateVersionFlag, *lfxV2FormationServiceUpdateTemplateBearerTokenFlag)
+			case "publish-template":
+				endpoint = c.PublishTemplate()
+				data, err = lfxv2formationservicec.BuildPublishTemplatePayload(*lfxV2FormationServicePublishTemplateUIDFlag, *lfxV2FormationServicePublishTemplateVersionFlag, *lfxV2FormationServicePublishTemplateBearerTokenFlag)
+			case "archive-template":
+				endpoint = c.ArchiveTemplate()
+				data, err = lfxv2formationservicec.BuildArchiveTemplatePayload(*lfxV2FormationServiceArchiveTemplateUIDFlag, *lfxV2FormationServiceArchiveTemplateVersionFlag, *lfxV2FormationServiceArchiveTemplateBearerTokenFlag)
 			case "livez":
 				endpoint = c.Livez()
 			case "readyz":
@@ -300,6 +372,12 @@ func lfxV2FormationServiceUsage() {
 	fmt.Fprintln(os.Stderr, `    accept-application: Accept an application without creating a project.`)
 	fmt.Fprintln(os.Stderr, `    deny-application: Deny an application and retain its record.`)
 	fmt.Fprintln(os.Stderr, `    delete-application: Delete an application from storage and search, and remove its submitter grant. The formation-team tuple is retained.`)
+	fmt.Fprintln(os.Stderr, `    list-templates: Return all templates in every state. Admin view.`)
+	fmt.Fprintln(os.Stderr, `    get-template: Return one template by UID.`)
+	fmt.Fprintln(os.Stderr, `    create-template: Create a new draft template.`)
+	fmt.Fprintln(os.Stderr, `    update-template: Update a draft template's mutable fields. Refused for published or archived templates.`)
+	fmt.Fprintln(os.Stderr, `    publish-template: Publish a draft template, making it immutable and available for checklist selection.`)
+	fmt.Fprintln(os.Stderr, `    archive-template: Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.`)
 	fmt.Fprintln(os.Stderr, `    livez: Liveness probe.`)
 	fmt.Fprintln(os.Stderr, `    readyz: Readiness probe.`)
 	fmt.Fprintln(os.Stderr)
@@ -325,7 +403,7 @@ func lfxV2FormationServiceGetFormationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Fugiat maxime.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation --project-uid \"Qui dolorem optio aut architecto.\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceGetFormationActivityUsage() {
@@ -353,7 +431,7 @@ func lfxV2FormationServiceGetFormationActivityUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Hic quis possimus.\" --version \"1\" --cursor \"Neque quia odio.\" --item-uid \"283fd04b-2419-4b89-ad85-27a2bcc76f4a\" --limit 73 --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-formation-activity --project-uid \"Nulla cupiditate sunt voluptatem.\" --version \"1\" --cursor \"Sed fugiat facere quaerat qui omnis voluptates.\" --item-uid \"cf0ba521-4e51-4307-b1de-452709becc06\" --limit 78 --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceSetItemStatusUsage() {
@@ -381,7 +459,7 @@ func lfxV2FormationServiceSetItemStatusUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Exercitationem ipsam eveniet possimus impedit sed.\",\n      \"status\": \"blocked\",\n      \"sub_items\": [\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Distinctio aspernatur et est amet.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }' --project-uid \"Animi sed qui tempore tempora molestiae culpa.\" --item-key \"Iure velit enim omnis eos quo quaerat.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 7007409453027247288")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service set-item-status --body '{\n      \"reason\": \"Nesciunt ut dolores et.\",\n      \"status\": \"done\",\n      \"sub_items\": [\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         },\n         {\n            \"key\": \"Eveniet quae minus quas voluptatem.\",\n            \"status\": \"blocked\"\n         }\n      ]\n   }' --project-uid \"Sapiente omnis cupiditate.\" --item-key \"Est id dolor est id.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6374460656584964424")
 }
 
 func lfxV2FormationServiceAssignItemUsage() {
@@ -409,7 +487,7 @@ func lfxV2FormationServiceAssignItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Cum impedit nihil quo reprehenderit perspiciatis tempora.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Sed optio et perspiciatis consequuntur et.\" --item-key \"Voluptas impedit labore voluptatum cupiditate.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 3750224575653225403")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service assign-item --body '{\n      \"assignee\": \"Quibusdam voluptatem laboriosam dolor voluptatem.\",\n      \"due_date\": \"2026-03-31\"\n   }' --project-uid \"Ut excepturi officia.\" --item-key \"Suscipit perspiciatis qui laudantium.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4496823524171963429")
 }
 
 func lfxV2FormationServiceUpdateItemUsage() {
@@ -437,7 +515,7 @@ func lfxV2FormationServiceUpdateItemUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Accusamus dolorum ad voluptas vero sit.\"\n   }' --project-uid \"Ipsa natus impedit sed perferendis ut.\" --item-key \"Natus modi itaque sit nobis.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2650899129366168379")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-item --body '{\n      \"evidence_link\": \"https://example.org/bylaws.pdf\",\n      \"note\": \"Facere in odio.\"\n   }' --project-uid \"Ea consequatur nobis.\" --item-key \"Dolorem possimus magni.\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1415554611313561234")
 }
 
 func lfxV2FormationServiceCreateApplicationUsage() {
@@ -459,7 +537,7 @@ func lfxV2FormationServiceCreateApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Temporibus est repellendus et aspernatur sapiente.\": \"Asperiores iure eveniet.\"\n      },\n      \"submitter_email\": \"ethyl_wuckert@shanahan.com\",\n      \"submitter_name\": \"Velit perferendis assumenda quibusdam.\",\n      \"submitter_username\": \"Expedita rerum aut et eum iure.\",\n      \"target_parent_uid\": \"Dolorem sunt occaecati est ab aliquid inventore.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-application --body '{\n      \"application\": {\n         \"Enim nihil ut in.\": \"Voluptatum ab eligendi laboriosam velit.\"\n      },\n      \"submitter_email\": \"agustin@bayer.org\",\n      \"submitter_name\": \"Laborum asperiores aliquam rerum dolorem vitae ducimus.\",\n      \"submitter_username\": \"Excepturi enim in ullam deleniti.\",\n      \"target_parent_uid\": \"Deleniti dolor eos cupiditate aut expedita.\"\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceReviseApplicationUsage() {
@@ -485,7 +563,7 @@ func lfxV2FormationServiceReviseApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Minus fugiat doloribus.\": \"Nulla modi.\",\n         \"Qui voluptatem debitis.\": \"Soluta amet.\",\n         \"Quisquam perferendis sit impedit explicabo et omnis.\": \"Delectus accusantium a eos ab in natus.\"\n      }\n   }' --uid \"a07fb92a-8671-4077-9e0c-0a8766b02f21\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4371918712410206452")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service revise-application --body '{\n      \"application\": {\n         \"Debitis excepturi velit.\": \"Est rem rerum amet modi quo.\",\n         \"Voluptatem rerum voluptatem consequatur voluptatem tenetur et.\": \"Officiis quia natus ab ut.\"\n      }\n   }' --uid \"74eac510-ec70-4ac2-8fd2-6dcfa075a5d4\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 7828677317887395986")
 }
 
 func lfxV2FormationServiceWithdrawApplicationUsage() {
@@ -509,7 +587,7 @@ func lfxV2FormationServiceWithdrawApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"926200aa-ed52-4abd-8ef4-c4f640f21075\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 4197369989738536091")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service withdraw-application --uid \"97676f47-7525-4136-be38-499106d52496\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2181131077012769947")
 }
 
 func lfxV2FormationServiceAcceptApplicationUsage() {
@@ -533,7 +611,7 @@ func lfxV2FormationServiceAcceptApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"c6f28e20-4a11-44cf-8bf3-cecee9b34aeb\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 1254533308960179078")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service accept-application --uid \"882cc25b-13a5-44be-95d7-942acaab9c10\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2697259907952095691")
 }
 
 func lfxV2FormationServiceDenyApplicationUsage() {
@@ -557,7 +635,7 @@ func lfxV2FormationServiceDenyApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"95965ef9-ffe6-4e38-82f7-1bdb50fe44e7\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 5680640692798451540")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service deny-application --uid \"82220f84-9c45-43f9-88ab-60bbb5b4902b\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 8579494653711497706")
 }
 
 func lfxV2FormationServiceDeleteApplicationUsage() {
@@ -581,7 +659,139 @@ func lfxV2FormationServiceDeleteApplicationUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"2bbc53d9-335f-4157-ae67-9924085b42a6\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 2903342341236727817")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service delete-application --uid \"752fa3a0-82cc-4c0b-9f03-e82faf0d2034\" --version \"1\" --bearer-token \"eyJhbGci...\" --if-match 6127443533127919132")
+}
+
+func lfxV2FormationServiceListTemplatesUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service list-templates", os.Args[0])
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Return all templates in every state. Admin view.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service list-templates --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceGetTemplateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service get-template", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Return one template by UID.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The template's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service get-template --uid \"f304d82d-e7b8-4d61-86df-1265d904d1ee\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceCreateTemplateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service create-template", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Create a new draft template.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service create-template --body '{\n      \"author\": \"Unde ab illo quam sint et.\",\n      \"match\": \"Aspernatur voluptatum in atque.\",\n      \"name\": \"Et at soluta sapiente.\",\n      \"priority\": 8971327207530475861,\n      \"sections\": \"Et ratione impedit.\",\n      \"template_version\": 1849116001840466742\n   }' --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceUpdateTemplateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service update-template", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Update a draft template's mutable fields. Refused for published or archived templates.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The template's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service update-template --body '{\n      \"author\": \"Ratione omnis expedita voluptas molestias.\",\n      \"match\": \"Assumenda tempore.\",\n      \"priority\": 3839387370682125327,\n      \"sections\": \"Molestiae magni vel molestiae deleniti.\"\n   }' --uid \"da871233-a7ed-42b5-8886-526d338344e4\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServicePublishTemplateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service publish-template", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Publish a draft template, making it immutable and available for checklist selection.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The template's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service publish-template --uid \"2ee9850c-8d39-44f9-a99f-e83fcfcfcfff\" --version \"1\" --bearer-token \"eyJhbGci...\"")
+}
+
+func lfxV2FormationServiceArchiveTemplateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] lfx-v2-formation-service archive-template", os.Args[0])
+	fmt.Fprint(os.Stderr, " -uid STRING")
+	fmt.Fprint(os.Stderr, " -version STRING")
+	fmt.Fprint(os.Stderr, " -bearer-token STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -uid STRING: The template's UID.`)
+	fmt.Fprintln(os.Stderr, `    -version STRING: `)
+	fmt.Fprintln(os.Stderr, `    -bearer-token STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "lfx-v2-formation-service archive-template --uid \"a694e862-ec8e-40af-b1fd-727def7781ec\" --version \"1\" --bearer-token \"eyJhbGci...\"")
 }
 
 func lfxV2FormationServiceLivezUsage() {
