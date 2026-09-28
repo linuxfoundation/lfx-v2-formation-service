@@ -1417,9 +1417,9 @@ paths:
                                       published_at: "1977-08-31T02:16:07Z"
                                       sections: Autem et quis.
                                       state: draft
+                                      template_version: 3456426267889025605
                                       uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                       updated_at: "2013-07-05T06:12:58Z"
-                                      version: 3456426267889025605
                                     - author: Minima repudiandae tempore harum.
                                       created_at: "2013-11-29T14:53:51Z"
                                       match: Nihil numquam consequatur et rem illum.
@@ -1428,9 +1428,9 @@ paths:
                                       published_at: "1977-08-31T02:16:07Z"
                                       sections: Autem et quis.
                                       state: draft
+                                      template_version: 3456426267889025605
                                       uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                       updated_at: "2013-07-05T06:12:58Z"
-                                      version: 3456426267889025605
                                     - author: Minima repudiandae tempore harum.
                                       created_at: "2013-11-29T14:53:51Z"
                                       match: Nihil numquam consequatur et rem illum.
@@ -1439,9 +1439,9 @@ paths:
                                       published_at: "1977-08-31T02:16:07Z"
                                       sections: Autem et quis.
                                       state: draft
+                                      template_version: 3456426267889025605
                                       uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                       updated_at: "2013-07-05T06:12:58Z"
-                                      version: 3456426267889025605
                                     - author: Minima repudiandae tempore harum.
                                       created_at: "2013-11-29T14:53:51Z"
                                       match: Nihil numquam consequatur et rem illum.
@@ -1450,9 +1450,9 @@ paths:
                                       published_at: "1977-08-31T02:16:07Z"
                                       sections: Autem et quis.
                                       state: draft
+                                      template_version: 3456426267889025605
                                       uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                       updated_at: "2013-07-05T06:12:58Z"
-                                      version: 3456426267889025605
                             example:
                                 - author: Minima repudiandae tempore harum.
                                   created_at: "2013-11-29T14:53:51Z"
@@ -1462,9 +1462,9 @@ paths:
                                   published_at: "1977-08-31T02:16:07Z"
                                   sections: Autem et quis.
                                   state: draft
+                                  template_version: 3456426267889025605
                                   uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                   updated_at: "2013-07-05T06:12:58Z"
-                                  version: 3456426267889025605
                                 - author: Minima repudiandae tempore harum.
                                   created_at: "2013-11-29T14:53:51Z"
                                   match: Nihil numquam consequatur et rem illum.
@@ -1473,9 +1473,9 @@ paths:
                                   published_at: "1977-08-31T02:16:07Z"
                                   sections: Autem et quis.
                                   state: draft
+                                  template_version: 3456426267889025605
                                   uid: Unde possimus nihil explicabo sunt nihil fugiat.
                                   updated_at: "2013-07-05T06:12:58Z"
-                                  version: 3456426267889025605
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1535,9 +1535,9 @@ paths:
                                 published_at: "2010-05-09T02:59:07Z"
                                 sections: Rerum perferendis ducimus est alias rerum.
                                 state: draft
+                                template_version: 7576896988687730774
                                 uid: Voluptatum asperiores quo assumenda ex nam.
                                 updated_at: "2006-02-03T00:33:32Z"
-                                version: 7576896988687730774
                 "400":
                     description: 'BadRequest: Invalid payload'
                     content:
@@ -1548,7 +1548,7 @@ paths:
                                 code: "409"
                                 message: Et libero labore voluptate.
                                 name: Exercitationem perspiciatis dolorem rerum et ad.
-                                reason: template_not_draft
+                                reason: template_already_exists
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1617,9 +1617,9 @@ paths:
                                 published_at: "1978-07-13T04:12:41Z"
                                 sections: Quaerat quo id.
                                 state: archived
+                                template_version: 1658660345417872502
                                 uid: Quod cum minima est magni nam harum.
                                 updated_at: "1985-08-09T11:41:56Z"
-                                version: 1658660345417872502
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1639,7 +1639,7 @@ paths:
                                 code: "409"
                                 message: Itaque qui reiciendis sequi ut dolor sit.
                                 name: Dolorem provident ea voluptatem qui.
-                                reason: not_found
+                                reason: template_already_exists
             security:
                 - jwt_header_Authorization: []
         put:
@@ -1698,9 +1698,9 @@ paths:
                                 published_at: "1991-10-08T14:44:36Z"
                                 sections: Doloribus quis enim tenetur pariatur iste rem.
                                 state: published
+                                template_version: 4594278417705621659
                                 uid: Sapiente qui officia harum repellat voluptatem blanditiis.
                                 updated_at: "1973-10-03T23:26:34Z"
-                                version: 4594278417705621659
                 "400":
                     description: 'BadRequest: No fields to update'
                     content:
@@ -1711,7 +1711,7 @@ paths:
                                 code: "409"
                                 message: Nesciunt voluptatum quia aut earum autem unde.
                                 name: Autem qui quo aliquid et ipsa voluptatem.
-                                reason: no_fields_to_update
+                                reason: template_already_archived
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1731,7 +1731,7 @@ paths:
                                 code: "409"
                                 message: Eos sunt suscipit sit autem.
                                 name: Non velit cumque quia incidunt hic.
-                                reason: template_already_exists
+                                reason: template_already_archived
                 "409":
                     description: 'Conflict: Template is not a draft'
                     content:
@@ -1742,7 +1742,7 @@ paths:
                                 code: "409"
                                 message: Provident sint iusto.
                                 name: Dolores est.
-                                reason: template_not_draft
+                                reason: no_fields_to_update
             security:
                 - jwt_header_Authorization: []
     /templates/{uid}/archive:
@@ -1791,9 +1791,9 @@ paths:
                                 published_at: "1998-02-16T05:14:16Z"
                                 sections: Explicabo temporibus.
                                 state: draft
+                                template_version: 3176629167728166729
                                 uid: Nisi quo id voluptatum dolorem.
                                 updated_at: "1984-01-11T17:16:59Z"
-                                version: 3176629167728166729
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1813,7 +1813,7 @@ paths:
                                 code: "409"
                                 message: Tempora nemo quasi id dolor a at.
                                 name: Ab dignissimos quod sit.
-                                reason: no_fields_to_update
+                                reason: template_already_exists
                 "409":
                     description: 'Conflict: Template is already archived'
                     content:
@@ -1824,7 +1824,7 @@ paths:
                                 code: "409"
                                 message: Dolore deleniti perferendis.
                                 name: Reprehenderit quam architecto et accusantium.
-                                reason: not_found
+                                reason: template_not_draft
             security:
                 - jwt_header_Authorization: []
     /templates/{uid}/publish:
@@ -1873,9 +1873,9 @@ paths:
                                 published_at: "2011-11-08T17:13:33Z"
                                 sections: Id quia est ipsa sint.
                                 state: draft
+                                template_version: 370827730565214096
                                 uid: Eum aliquam libero.
                                 updated_at: "2010-07-17T20:58:35Z"
-                                version: 370827730565214096
                 "401":
                     description: 'Unauthorized: Missing, expired, or malformed bearer token'
                     content:
@@ -1895,7 +1895,7 @@ paths:
                                 code: "409"
                                 message: Omnis quibusdam est itaque impedit itaque vel.
                                 name: Molestiae corrupti.
-                                reason: template_already_exists
+                                reason: template_not_draft
                 "409":
                     description: 'Conflict: Template is not a draft'
                     content:
@@ -1923,12 +1923,14 @@ components:
                     format: date-time
                 match:
                     type: string
+                    description: Match rule that governs selection; currently only 'always' is supported.
                     example: Dolorem alias minus hic qui est.
                 name:
                     type: string
                     example: Quod voluptas deserunt qui.
                 priority:
                     type: integer
+                    description: Selection priority; lower value wins when multiple templates match.
                     example: 8204714921473318229
                     format: int64
                 published_at:
@@ -1936,14 +1938,21 @@ components:
                     example: "2000-04-28T11:35:00Z"
                     format: date-time
                 sections:
+                    description: Array of template sections.
                     example: Sunt qui fugiat voluptate error perspiciatis.
                 state:
                     type: string
+                    description: 'Lifecycle state: draft → published (immutable) or archived.'
                     example: draft
                     enum:
                         - draft
                         - published
                         - archived
+                template_version:
+                    type: integer
+                    description: The template's own version number, distinct from the API version.
+                    example: 3294996144936361830
+                    format: int64
                 uid:
                     type: string
                     example: Qui harum.
@@ -1951,10 +1960,6 @@ components:
                     type: string
                     example: "2014-11-17T01:58:29Z"
                     format: date-time
-                version:
-                    type: integer
-                    example: 3294996144936361830
-                    format: int64
             example:
                 author: Rerum mollitia placeat accusantium sint voluptatum.
                 created_at: "1977-01-21T16:34:55Z"
@@ -1964,13 +1969,13 @@ components:
                 published_at: "1999-10-31T17:01:31Z"
                 sections: Ut consequuntur in et.
                 state: draft
+                template_version: 8800982863191138672
                 uid: Consequatur doloremque.
                 updated_at: "1989-04-13T06:22:53Z"
-                version: 8800982863191138672
             required:
                 - uid
                 - name
-                - version
+                - template_version
                 - state
                 - priority
                 - match
@@ -2093,7 +2098,7 @@ components:
                     format: int64
                     minimum: 0
                 sections:
-                    description: Template sections array.
+                    description: Array of template sections. Must be a JSON array of section objects.
                     example: Quos ut.
                 template_version:
                     type: integer
@@ -3107,18 +3112,19 @@ components:
                     example: Voluptatem soluta nam qui non et.
                 name:
                     type: string
-                    description: Which declared error this is. Transport dispatch only; switch on reason, not this.
+                    description: Which declared error this is — matches the Error() name (e.g. "Conflict"). Transport dispatch only; switch on reason, not this.
                     example: Qui est illo recusandae dignissimos consequatur.
                 reason:
                     type: string
                     description: Machine-readable; switch on this, not on status.
-                    example: not_found
+                    example: template_not_draft
                     enum:
                         - not_found
                         - template_not_draft
                         - template_already_archived
                         - template_already_exists
                         - no_fields_to_update
+                        - invalid_sections
             example:
                 code: "409"
                 message: Placeat ea iste in et illum quibusdam.
@@ -3167,15 +3173,18 @@ components:
                     example: Reiciendis et qui et facere.
                 match:
                     type: string
+                    description: Match rule. Currently only 'always' is supported.
                     example: always
                     enum:
                         - always
                 priority:
                     type: integer
+                    description: Selection priority; lower wins.
                     example: 5083825172856497231
                     format: int64
                     minimum: 0
                 sections:
+                    description: Array of template sections. Must be a JSON array of section objects.
                     example: Voluptas nam rerum consequatur optio.
             example:
                 author: Ipsa ut dignissimos qui sint.

@@ -223,12 +223,17 @@ type ProjectApplicationMutationResultView struct {
 
 // AdminTemplateView is a type that runs validations on a projected type.
 type AdminTemplateView struct {
-	UID         *string
-	Name        *string
-	Version     *int
-	State       *string
-	Priority    *int
-	Match       *string
+	UID  *string
+	Name *string
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string
+	// Array of template sections.
 	Sections    any
 	Author      *string
 	CreatedAt   *string
@@ -289,7 +294,7 @@ var (
 		"default": {
 			"uid",
 			"name",
-			"version",
+			"template_version",
 			"state",
 			"priority",
 			"match",
@@ -684,8 +689,8 @@ func ValidateAdminTemplateView(result *AdminTemplateView) (err error) {
 	if result.Name == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("name", "result"))
 	}
-	if result.Version == nil {
-		err = goa.MergeErrors(err, goa.MissingFieldError("version", "result"))
+	if result.TemplateVersion == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("template_version", "result"))
 	}
 	if result.State == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("state", "result"))

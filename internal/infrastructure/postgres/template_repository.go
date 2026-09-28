@@ -20,6 +20,13 @@ import (
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
+// Typed reason constants used by state-transition methods so the service layer
+// never has to parse adapter prose to decide which conflict occurred.
+const (
+	reasonTemplateNotDraft        = "template_not_draft"
+	reasonTemplateAlreadyArchived = "template_already_archived"
+)
+
 // TemplateRepo persists and selects checklist templates.
 type TemplateRepo struct {
 	db bun.IDB
@@ -106,7 +113,7 @@ func (r *TemplateRepo) Update(ctx context.Context, uid uuid.UUID, patch port.Tem
 		return nil, err
 	}
 	if t.State != model.TemplateDraft {
-		return nil, fmt.Errorf("%w: only draft templates may be updated", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
 	}
 	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
 		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
@@ -166,7 +173,7 @@ func (r *TemplateRepo) Publish(ctx context.Context, uid uuid.UUID) (*model.Templ
 		return nil, fmt.Errorf("publish template: %w", err)
 	}
 	if n == 0 {
-		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
 	}
 	return t, nil
 }
@@ -195,7 +202,7 @@ func (r *TemplateRepo) Archive(ctx context.Context, uid uuid.UUID) (*model.Templ
 		return nil, fmt.Errorf("archive template: %w", err)
 	}
 	if n == 0 {
-		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateAlreadyArchived)
 	}
 	return t, nil
 }

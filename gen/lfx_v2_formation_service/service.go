@@ -131,12 +131,17 @@ type AcceptApplicationPayload struct {
 // AdminTemplate is the result type of the lfx_v2_formation_service service
 // get_template method.
 type AdminTemplate struct {
-	UID         string
-	Name        string
-	Version     int
-	State       string
-	Priority    int
-	Match       string
+	UID  string
+	Name string
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string
+	// Array of template sections.
 	Sections    any
 	Author      *string
 	CreatedAt   string
@@ -242,7 +247,7 @@ type CreateTemplatePayload struct {
 	Priority int
 	// Match rule. Currently only 'always' is supported.
 	Match string
-	// Template sections array.
+	// Array of template sections. Must be a JSON array of section objects.
 	Sections any
 	Author   *string
 }
@@ -581,8 +586,8 @@ type SetItemStatusResult struct {
 }
 
 type TemplateError struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string
 	// HTTP status code
 	Code string
@@ -633,9 +638,12 @@ type UpdateTemplatePayload struct {
 	// API version. Must be 1.
 	Version string
 	// The template's UID.
-	UID      string
+	UID string
+	// Selection priority; lower wins.
 	Priority *int
-	Match    *string
+	// Match rule. Currently only 'always' is supported.
+	Match *string
+	// Array of template sections. Must be a JSON array of section objects.
 	Sections any
 	Author   *string
 }
@@ -1054,8 +1062,8 @@ func newAdminTemplate(vres *lfxv2formationserviceviews.AdminTemplateView) *Admin
 	if vres.Name != nil {
 		res.Name = *vres.Name
 	}
-	if vres.Version != nil {
-		res.Version = *vres.Version
+	if vres.TemplateVersion != nil {
+		res.TemplateVersion = *vres.TemplateVersion
 	}
 	if vres.State != nil {
 		res.State = *vres.State
@@ -1079,17 +1087,17 @@ func newAdminTemplate(vres *lfxv2formationserviceviews.AdminTemplateView) *Admin
 // AdminTemplateView using the "default" view.
 func newAdminTemplateView(res *AdminTemplate) *lfxv2formationserviceviews.AdminTemplateView {
 	vres := &lfxv2formationserviceviews.AdminTemplateView{
-		UID:         &res.UID,
-		Name:        &res.Name,
-		Version:     &res.Version,
-		State:       &res.State,
-		Priority:    &res.Priority,
-		Match:       &res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   &res.CreatedAt,
-		UpdatedAt:   &res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             &res.UID,
+		Name:            &res.Name,
+		TemplateVersion: &res.TemplateVersion,
+		State:           &res.State,
+		Priority:        &res.Priority,
+		Match:           &res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       &res.CreatedAt,
+		UpdatedAt:       &res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return vres
 }

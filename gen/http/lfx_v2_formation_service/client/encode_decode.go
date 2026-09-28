@@ -2855,17 +2855,17 @@ func unmarshalFormationAvailableActionResponseBodyToLfxv2formationserviceFormati
 // *AdminTemplateResponse.
 func unmarshalAdminTemplateResponseToLfxv2formationserviceAdminTemplate(v *AdminTemplateResponse) *lfxv2formationservice.AdminTemplate {
 	res := &lfxv2formationservice.AdminTemplate{
-		UID:         *v.UID,
-		Name:        *v.Name,
-		Version:     *v.Version,
-		State:       *v.State,
-		Priority:    *v.Priority,
-		Match:       *v.Match,
-		Sections:    v.Sections,
-		Author:      v.Author,
-		CreatedAt:   *v.CreatedAt,
-		UpdatedAt:   *v.UpdatedAt,
-		PublishedAt: v.PublishedAt,
+		UID:             *v.UID,
+		Name:            *v.Name,
+		TemplateVersion: *v.TemplateVersion,
+		State:           *v.State,
+		Priority:        *v.Priority,
+		Match:           *v.Match,
+		Sections:        v.Sections,
+		Author:          v.Author,
+		CreatedAt:       *v.CreatedAt,
+		UpdatedAt:       *v.UpdatedAt,
+		PublishedAt:     v.PublishedAt,
 	}
 
 	return res

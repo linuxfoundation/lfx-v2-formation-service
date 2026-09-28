@@ -91,6 +91,14 @@ func (r *TemplateRepository) Get(_ context.Context, uid uuid.UUID) (*model.Templ
 	return &out, nil
 }
 
+// lessByNameThenVersion mirrors the repository's ORDER BY name ASC, version ASC.
+func lessByNameThenVersion(a, b *model.Template) bool {
+	if a.Name != b.Name {
+		return a.Name < b.Name
+	}
+	return a.Version < b.Version
+}
+
 // List returns all templates regardless of state, ordered by name then version.
 func (r *TemplateRepository) List(_ context.Context) ([]*model.Template, error) {
 	r.record("templates.List")
@@ -104,13 +112,8 @@ func (r *TemplateRepository) List(_ context.Context) ([]*model.Template, error) 
 	}
 	// Name then version ascending, mirroring the Postgres query.
 	for i := 1; i < len(out); i++ {
-		for j := i; j > 0; j-- {
-			a, b := out[j], out[j-1]
-			if a.Name < b.Name || (a.Name == b.Name && a.Version < b.Version) {
-				out[j], out[j-1] = out[j-1], out[j]
-			} else {
-				break
-			}
+		for j := i; j > 0 && lessByNameThenVersion(out[j], out[j-1]); j-- {
+			out[j], out[j-1] = out[j-1], out[j]
 		}
 	}
 	return out, nil
@@ -130,10 +133,11 @@ func (r *TemplateRepository) Create(_ context.Context, t *model.Template) (*mode
 
 	clone := *t
 	clone.UID = uuid.New()
+	clone.ApplyUpsertDefaults()
 	clone.State = model.TemplateDraft
-	if clone.Sections == nil {
-		clone.Sections = []model.TemplateSection{}
-	}
+	now := time.Now().UTC()
+	clone.CreatedAt = now
+	clone.UpdatedAt = now
 	r.templates[clone.UID] = &clone
 	out := clone
 	return &out, nil
@@ -150,7 +154,7 @@ func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port
 		return nil, domain.ErrNotFound
 	}
 	if t.State != model.TemplateDraft {
-		return nil, fmt.Errorf("%w: only draft templates may be updated", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, "template_not_draft")
 	}
 	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
 		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
@@ -169,6 +173,7 @@ func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port
 	if patch.Author != nil {
 		clone.Author = *patch.Author
 	}
+	clone.UpdatedAt = time.Now().UTC()
 	r.templates[uid] = &clone
 	out := clone
 	return &out, nil
@@ -185,13 +190,14 @@ func (r *TemplateRepository) Publish(_ context.Context, uid uuid.UUID) (*model.T
 		return nil, domain.ErrNotFound
 	}
 	if t.State != model.TemplateDraft {
-		return nil, fmt.Errorf("%w: only draft templates may be published", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, "template_not_draft")
 	}
 
 	clone := *t
 	clone.State = model.TemplatePublished
 	now := time.Now().UTC()
 	clone.PublishedAt = &now
+	clone.UpdatedAt = now
 	r.templates[uid] = &clone
 	out := clone
 	return &out, nil
@@ -208,11 +214,12 @@ func (r *TemplateRepository) Archive(_ context.Context, uid uuid.UUID) (*model.T
 		return nil, domain.ErrNotFound
 	}
 	if t.State == model.TemplateArchived {
-		return nil, fmt.Errorf("%w: template is already archived", domain.ErrConflict)
+		return nil, domain.NewReasonError(domain.ErrConflict, "template_already_archived")
 	}
 
 	clone := *t
 	clone.State = model.TemplateArchived
+	clone.UpdatedAt = time.Now().UTC()
 	r.templates[uid] = &clone
 	out := clone
 	return &out, nil

@@ -103,7 +103,7 @@ type CreateTemplateRequestBody struct {
 	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
 	// Match rule. Currently only 'always' is supported.
 	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
-	// Template sections array.
+	// Array of template sections. Must be a JSON array of section objects.
 	Sections any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
 	Author   *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 }
@@ -111,8 +111,11 @@ type CreateTemplateRequestBody struct {
 // UpdateTemplateRequestBody is the type of the "lfx_v2_formation_service"
 // service "update_template" endpoint HTTP request body.
 type UpdateTemplateRequestBody struct {
-	Priority *int    `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
-	Match    *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Selection priority; lower wins.
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty" xml:"priority,omitempty"`
+	// Match rule. Currently only 'always' is supported.
+	Match *string `form:"match,omitempty" json:"match,omitempty" xml:"match,omitempty"`
+	// Array of template sections. Must be a JSON array of section objects.
 	Sections any     `form:"sections,omitempty" json:"sections,omitempty" xml:"sections,omitempty"`
 	Author   *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 }
@@ -200,12 +203,17 @@ type ListTemplatesResponseBody []*AdminTemplateResponse
 // GetTemplateResponseBody is the type of the "lfx_v2_formation_service"
 // service "get_template" endpoint HTTP response body.
 type GetTemplateResponseBody struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -216,12 +224,17 @@ type GetTemplateResponseBody struct {
 // CreateTemplateResponseBody is the type of the "lfx_v2_formation_service"
 // service "create_template" endpoint HTTP response body.
 type CreateTemplateResponseBody struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -232,12 +245,17 @@ type CreateTemplateResponseBody struct {
 // UpdateTemplateResponseBody is the type of the "lfx_v2_formation_service"
 // service "update_template" endpoint HTTP response body.
 type UpdateTemplateResponseBody struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -248,12 +266,17 @@ type UpdateTemplateResponseBody struct {
 // PublishTemplateResponseBody is the type of the "lfx_v2_formation_service"
 // service "publish_template" endpoint HTTP response body.
 type PublishTemplateResponseBody struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -264,12 +287,17 @@ type PublishTemplateResponseBody struct {
 // ArchiveTemplateResponseBody is the type of the "lfx_v2_formation_service"
 // service "archive_template" endpoint HTTP response body.
 type ArchiveTemplateResponseBody struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -777,8 +805,8 @@ type ListTemplatesUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "get_template" endpoint HTTP response
 // body for the "NotFound" error.
 type GetTemplateNotFoundResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -802,8 +830,8 @@ type GetTemplateUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "create_template" endpoint HTTP response
 // body for the "BadRequest" error.
 type CreateTemplateBadRequestResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -817,8 +845,8 @@ type CreateTemplateBadRequestResponseBody struct {
 // "lfx_v2_formation_service" service "create_template" endpoint HTTP response
 // body for the "Conflict" error.
 type CreateTemplateConflictResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -842,8 +870,8 @@ type CreateTemplateUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "update_template" endpoint HTTP response
 // body for the "NotFound" error.
 type UpdateTemplateNotFoundResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -857,8 +885,8 @@ type UpdateTemplateNotFoundResponseBody struct {
 // "lfx_v2_formation_service" service "update_template" endpoint HTTP response
 // body for the "Conflict" error.
 type UpdateTemplateConflictResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -872,8 +900,8 @@ type UpdateTemplateConflictResponseBody struct {
 // "lfx_v2_formation_service" service "update_template" endpoint HTTP response
 // body for the "BadRequest" error.
 type UpdateTemplateBadRequestResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -897,8 +925,8 @@ type UpdateTemplateUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "publish_template" endpoint HTTP response
 // body for the "NotFound" error.
 type PublishTemplateNotFoundResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -912,8 +940,8 @@ type PublishTemplateNotFoundResponseBody struct {
 // "lfx_v2_formation_service" service "publish_template" endpoint HTTP response
 // body for the "Conflict" error.
 type PublishTemplateConflictResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -937,8 +965,8 @@ type PublishTemplateUnauthorizedResponseBody struct {
 // "lfx_v2_formation_service" service "archive_template" endpoint HTTP response
 // body for the "NotFound" error.
 type ArchiveTemplateNotFoundResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -952,8 +980,8 @@ type ArchiveTemplateNotFoundResponseBody struct {
 // "lfx_v2_formation_service" service "archive_template" endpoint HTTP response
 // body for the "Conflict" error.
 type ArchiveTemplateConflictResponseBody struct {
-	// Which declared error this is. Transport dispatch only; switch on reason, not
-	// this.
+	// Which declared error this is — matches the Error() name (e.g. "Conflict").
+	// Transport dispatch only; switch on reason, not this.
 	Name string `form:"name" json:"name" xml:"name"`
 	// HTTP status code
 	Code string `form:"code" json:"code" xml:"code"`
@@ -1123,12 +1151,17 @@ type ProjectApplicationResponseBody struct {
 
 // AdminTemplateResponse is used to define fields on response body types.
 type AdminTemplateResponse struct {
-	UID         string  `form:"uid" json:"uid" xml:"uid"`
-	Name        string  `form:"name" json:"name" xml:"name"`
-	Version     int     `form:"version" json:"version" xml:"version"`
-	State       string  `form:"state" json:"state" xml:"state"`
-	Priority    int     `form:"priority" json:"priority" xml:"priority"`
-	Match       string  `form:"match" json:"match" xml:"match"`
+	UID  string `form:"uid" json:"uid" xml:"uid"`
+	Name string `form:"name" json:"name" xml:"name"`
+	// The template's own version number, distinct from the API version.
+	TemplateVersion int `form:"template_version" json:"template_version" xml:"template_version"`
+	// Lifecycle state: draft → published (immutable) or archived.
+	State string `form:"state" json:"state" xml:"state"`
+	// Selection priority; lower value wins when multiple templates match.
+	Priority int `form:"priority" json:"priority" xml:"priority"`
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match string `form:"match" json:"match" xml:"match"`
+	// Array of template sections.
 	Sections    any     `form:"sections" json:"sections" xml:"sections"`
 	Author      *string `form:"author,omitempty" json:"author,omitempty" xml:"author,omitempty"`
 	CreatedAt   string  `form:"created_at" json:"created_at" xml:"created_at"`
@@ -1517,17 +1550,17 @@ func NewListTemplatesResponseBody(res []*lfxv2formationservice.AdminTemplate) Li
 // the "get_template" endpoint of the "lfx_v2_formation_service" service.
 func NewGetTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateView) *GetTemplateResponseBody {
 	body := &GetTemplateResponseBody{
-		UID:         *res.UID,
-		Name:        *res.Name,
-		Version:     *res.Version,
-		State:       *res.State,
-		Priority:    *res.Priority,
-		Match:       *res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   *res.CreatedAt,
-		UpdatedAt:   *res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             *res.UID,
+		Name:            *res.Name,
+		TemplateVersion: *res.TemplateVersion,
+		State:           *res.State,
+		Priority:        *res.Priority,
+		Match:           *res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       *res.CreatedAt,
+		UpdatedAt:       *res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return body
 }
@@ -1536,17 +1569,17 @@ func NewGetTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateVie
 // of the "create_template" endpoint of the "lfx_v2_formation_service" service.
 func NewCreateTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateView) *CreateTemplateResponseBody {
 	body := &CreateTemplateResponseBody{
-		UID:         *res.UID,
-		Name:        *res.Name,
-		Version:     *res.Version,
-		State:       *res.State,
-		Priority:    *res.Priority,
-		Match:       *res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   *res.CreatedAt,
-		UpdatedAt:   *res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             *res.UID,
+		Name:            *res.Name,
+		TemplateVersion: *res.TemplateVersion,
+		State:           *res.State,
+		Priority:        *res.Priority,
+		Match:           *res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       *res.CreatedAt,
+		UpdatedAt:       *res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return body
 }
@@ -1555,17 +1588,17 @@ func NewCreateTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplate
 // of the "update_template" endpoint of the "lfx_v2_formation_service" service.
 func NewUpdateTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateView) *UpdateTemplateResponseBody {
 	body := &UpdateTemplateResponseBody{
-		UID:         *res.UID,
-		Name:        *res.Name,
-		Version:     *res.Version,
-		State:       *res.State,
-		Priority:    *res.Priority,
-		Match:       *res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   *res.CreatedAt,
-		UpdatedAt:   *res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             *res.UID,
+		Name:            *res.Name,
+		TemplateVersion: *res.TemplateVersion,
+		State:           *res.State,
+		Priority:        *res.Priority,
+		Match:           *res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       *res.CreatedAt,
+		UpdatedAt:       *res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return body
 }
@@ -1574,17 +1607,17 @@ func NewUpdateTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplate
 // of the "publish_template" endpoint of the "lfx_v2_formation_service" service.
 func NewPublishTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateView) *PublishTemplateResponseBody {
 	body := &PublishTemplateResponseBody{
-		UID:         *res.UID,
-		Name:        *res.Name,
-		Version:     *res.Version,
-		State:       *res.State,
-		Priority:    *res.Priority,
-		Match:       *res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   *res.CreatedAt,
-		UpdatedAt:   *res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             *res.UID,
+		Name:            *res.Name,
+		TemplateVersion: *res.TemplateVersion,
+		State:           *res.State,
+		Priority:        *res.Priority,
+		Match:           *res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       *res.CreatedAt,
+		UpdatedAt:       *res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return body
 }
@@ -1593,17 +1626,17 @@ func NewPublishTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplat
 // of the "archive_template" endpoint of the "lfx_v2_formation_service" service.
 func NewArchiveTemplateResponseBody(res *lfxv2formationserviceviews.AdminTemplateView) *ArchiveTemplateResponseBody {
 	body := &ArchiveTemplateResponseBody{
-		UID:         *res.UID,
-		Name:        *res.Name,
-		Version:     *res.Version,
-		State:       *res.State,
-		Priority:    *res.Priority,
-		Match:       *res.Match,
-		Sections:    res.Sections,
-		Author:      res.Author,
-		CreatedAt:   *res.CreatedAt,
-		UpdatedAt:   *res.UpdatedAt,
-		PublishedAt: res.PublishedAt,
+		UID:             *res.UID,
+		Name:            *res.Name,
+		TemplateVersion: *res.TemplateVersion,
+		State:           *res.State,
+		Priority:        *res.Priority,
+		Match:           *res.Match,
+		Sections:        res.Sections,
+		Author:          res.Author,
+		CreatedAt:       *res.CreatedAt,
+		UpdatedAt:       *res.UpdatedAt,
+		PublishedAt:     res.PublishedAt,
 	}
 	return body
 }

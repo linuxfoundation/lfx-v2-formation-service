@@ -717,7 +717,8 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("match", dsl.String, "Match rule. Currently only 'always' is supported.", func() {
 				dsl.Enum("always")
 			})
-			dsl.Attribute("sections", dsl.Any, "Template sections array.")
+			// sections is dsl.Any — see AdminTemplate for the rationale.
+			dsl.Attribute("sections", dsl.Any, "Array of template sections. Must be a JSON array of section objects.")
 			dsl.Attribute("author", dsl.String)
 			dsl.Required("version", "name", "template_version", "priority", "match", "sections")
 		})
@@ -736,6 +737,13 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		})
 	})
 
+	// update_template, publish_template and archive_template carry no If-Match,
+	// unlike every other write route in this service. This is deliberate:
+	// template drafts are managed by a small admin group (not end users), so the
+	// concurrent-edit window is narrow. The atomic state predicates on Publish
+	// and Archive handle the critical safety property (no state regression), and
+	// a last-write-wins policy on draft fields is acceptable at this call volume.
+	// Add If-Match if the admin group grows or tooling enables concurrent editing.
 	dsl.Method("update_template", func() {
 		dsl.Description("Update a draft template's mutable fields. Refused for published or archived templates.")
 
@@ -747,9 +755,10 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 			dsl.Attribute("uid", dsl.String, "The template's UID.", func() {
 				dsl.Format(dsl.FormatUUID)
 			})
-			dsl.Attribute("priority", dsl.Int, func() { dsl.Minimum(0) })
-			dsl.Attribute("match", dsl.String, func() { dsl.Enum("always") })
-			dsl.Attribute("sections", dsl.Any)
+			dsl.Attribute("priority", dsl.Int, "Selection priority; lower wins.", func() { dsl.Minimum(0) })
+			dsl.Attribute("match", dsl.String, "Match rule. Currently only 'always' is supported.", func() { dsl.Enum("always") })
+			// sections is dsl.Any — see AdminTemplate for the rationale.
+			dsl.Attribute("sections", dsl.Any, "Array of template sections. Must be a JSON array of section objects.")
 			dsl.Attribute("author", dsl.String)
 			dsl.Required("version", "uid")
 		})
@@ -1138,8 +1147,11 @@ var FormationActivityEntry = dsl.Type("FormationActivityEntry", func() {
 })
 
 // TemplateError is the error shape for the template admin routes.
+// Separate from FormationError rather than sharing it: the two have disjoint
+// reason sets (template state transitions vs. item mutations) and merging them
+// would make the reason enum a union that no single route exercises fully.
 var TemplateError = dsl.Type("TemplateError", func() {
-	dsl.ErrorName("name", dsl.String, "Which declared error this is. Transport dispatch only; switch on reason, not this.")
+	dsl.ErrorName("name", dsl.String, "Which declared error this is — matches the Error() name (e.g. \"Conflict\"). Transport dispatch only; switch on reason, not this.")
 	dsl.Attribute("code", dsl.String, "HTTP status code", func() { dsl.Example("409") })
 	dsl.Attribute("message", dsl.String, "Human-readable message")
 	dsl.Attribute("reason", dsl.String, "Machine-readable; switch on this, not on status.", func() {
@@ -1149,6 +1161,7 @@ var TemplateError = dsl.Type("TemplateError", func() {
 			"template_already_archived",
 			"template_already_exists",
 			"no_fields_to_update",
+			"invalid_sections",
 		)
 	})
 	dsl.Required("name", "code", "message", "reason")
@@ -1158,16 +1171,22 @@ var TemplateError = dsl.Type("TemplateError", func() {
 var AdminTemplate = dsl.ResultType("application/vnd.formation.admin.template+json", "AdminTemplate", func() {
 	dsl.Attribute("uid", dsl.String)
 	dsl.Attribute("name", dsl.String)
-	dsl.Attribute("version", dsl.Int)
-	dsl.Attribute("state", dsl.String, func() { dsl.Enum("draft", "published", "archived") })
-	dsl.Attribute("priority", dsl.Int)
-	dsl.Attribute("match", dsl.String)
-	dsl.Attribute("sections", dsl.Any)
+	dsl.Attribute("template_version", dsl.Int, "The template's own version number, distinct from the API version.")
+	dsl.Attribute("state", dsl.String, "Lifecycle state: draft → published (immutable) or archived.", func() {
+		dsl.Enum("draft", "published", "archived")
+	})
+	dsl.Attribute("priority", dsl.Int, "Selection priority; lower value wins when multiple templates match.")
+	dsl.Attribute("match", dsl.String, "Match rule that governs selection; currently only 'always' is supported.")
+	// sections is dsl.Any because the section tree is deep and duplicating
+	// the full nested type hierarchy in the DSL would add substantial noise
+	// with no additional runtime safety — Goa decodes it as interface{} either
+	// way, and parseSections handles the typed conversion.
+	dsl.Attribute("sections", dsl.Any, "Array of template sections.")
 	dsl.Attribute("author", dsl.String)
 	dsl.Attribute("created_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
 	dsl.Attribute("updated_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
 	dsl.Attribute("published_at", dsl.String, func() { dsl.Format(dsl.FormatDateTime) })
-	dsl.Required("uid", "name", "version", "state", "priority", "match", "sections", "created_at", "updated_at")
+	dsl.Required("uid", "name", "template_version", "state", "priority", "match", "sections", "created_at", "updated_at")
 })
 
 // FormationActivityPage is the response body for

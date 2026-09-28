@@ -1274,12 +1274,14 @@ definitions:
                 format: date-time
             match:
                 type: string
+                description: Match rule that governs selection; currently only 'always' is supported.
                 example: Rerum praesentium saepe ipsum ipsam dolor est.
             name:
                 type: string
                 example: Voluptas sequi et praesentium ut.
             priority:
                 type: integer
+                description: Selection priority; lower value wins when multiple templates match.
                 example: 4593527010414942089
                 format: int64
             published_at:
@@ -1287,14 +1289,21 @@ definitions:
                 example: "1982-12-04T23:04:50Z"
                 format: date-time
             sections:
+                description: Array of template sections.
                 example: Esse quia rerum atque exercitationem in.
             state:
                 type: string
+                description: 'Lifecycle state: draft → published (immutable) or archived.'
                 example: published
                 enum:
                     - draft
                     - published
                     - archived
+            template_version:
+                type: integer
+                description: The template's own version number, distinct from the API version.
+                example: 4909242391311792926
+                format: int64
             uid:
                 type: string
                 example: Et explicabo.
@@ -1302,10 +1311,6 @@ definitions:
                 type: string
                 example: "2010-07-15T12:51:03Z"
                 format: date-time
-            version:
-                type: integer
-                example: 4909242391311792926
-                format: int64
         description: AdminTemplateResponse result type (default view)
         example:
             author: Et rerum repudiandae error commodi repudiandae architecto.
@@ -1316,13 +1321,13 @@ definitions:
             published_at: "2003-02-18T13:32:15Z"
             sections: Maxime quam.
             state: draft
+            template_version: 2532131083372354190
             uid: Voluptatum et.
             updated_at: "1992-03-31T12:59:42Z"
-            version: 2532131083372354190
         required:
             - uid
             - name
-            - version
+            - template_version
             - state
             - priority
             - match
@@ -2238,7 +2243,7 @@ definitions:
                 format: int64
                 minimum: 0
             sections:
-                description: Template sections array.
+                description: Array of template sections. Must be a JSON array of section objects.
                 example: Non aut corporis voluptate excepturi sunt ipsum.
             template_version:
                 type: integer
@@ -2352,15 +2357,18 @@ definitions:
                 example: Et ex delectus laudantium sit.
             match:
                 type: string
+                description: Match rule. Currently only 'always' is supported.
                 example: always
                 enum:
                     - always
             priority:
                 type: integer
+                description: Selection priority; lower wins.
                 example: 3544595054771650392
                 format: int64
                 minimum: 0
             sections:
+                description: Array of template sections. Must be a JSON array of section objects.
                 example: Itaque quisquam est.
         example:
             author: Et voluptas aut.
@@ -2471,24 +2479,25 @@ definitions:
                 example: Sequi iusto magnam sit.
             name:
                 type: string
-                description: Which declared error this is. Transport dispatch only; switch on reason, not this.
+                description: Which declared error this is — matches the Error() name (e.g. "Conflict"). Transport dispatch only; switch on reason, not this.
                 example: Accusamus quidem dicta libero tempore.
             reason:
                 type: string
                 description: Machine-readable; switch on this, not on status.
-                example: template_already_archived
+                example: template_already_exists
                 enum:
                     - not_found
                     - template_not_draft
                     - template_already_archived
                     - template_already_exists
                     - no_fields_to_update
+                    - invalid_sections
         description: No template with that UID
         example:
             code: "409"
             message: Consequatur in qui delectus.
             name: Porro modi aliquid excepturi molestiae assumenda.
-            reason: not_found
+            reason: no_fields_to_update
         required:
             - name
             - code

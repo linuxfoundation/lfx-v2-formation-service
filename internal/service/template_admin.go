@@ -68,7 +68,7 @@ func (s *Service) GetTemplate(
 		if errors.Is(err, domain.ErrNotFound) {
 			return nil, mapTemplateError(domain.NewReasonError(domain.ErrNotFound, templateReasonNotFound))
 		}
-		slog.ErrorContext(ctx, "formationService.get-template", log.ErrKey, err, "uid", p.UID)
+		slog.ErrorContext(ctx, "formationService.get-template", "template_uid", p.UID, log.ErrKey, err)
 		return nil, err
 	}
 	return templateToWire(t), nil
@@ -184,15 +184,15 @@ func (s *Service) ArchiveTemplate(
 // templateToWire converts a model.Template to the wire type.
 func templateToWire(t *model.Template) *svc.AdminTemplate {
 	w := &svc.AdminTemplate{
-		UID:       t.UID.String(),
-		Name:      t.Name,
-		Version:   t.Version,
-		State:     string(t.State),
-		Priority:  t.Priority,
-		Match:     t.Match,
-		Sections:  t.Sections,
-		CreatedAt: t.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: t.UpdatedAt.UTC().Format(time.RFC3339),
+		UID:             t.UID.String(),
+		Name:            t.Name,
+		TemplateVersion: t.Version,
+		State:           string(t.State),
+		Priority:        t.Priority,
+		Match:           t.Match,
+		Sections:        t.Sections,
+		CreatedAt:       t.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:       t.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 	if t.Author != "" {
 		w.Author = &t.Author
@@ -224,41 +224,25 @@ func parseSections(raw any) ([]model.TemplateSection, error) {
 
 // withTemplateReason wraps bare domain sentinel errors with a machine-readable
 // reason so mapTemplateError can pick the right HTTP status and reason code.
+// Adapters that return domain.NewReasonError pass straight through; bare
+// sentinels get a default reason added.
 func withTemplateReason(err error) error {
 	if err == nil {
 		return nil
 	}
 	var re *domain.ReasonError
 	if errors.As(err, &re) {
-		return err // already wrapped
+		return err // already carries a typed reason from the adapter
 	}
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return domain.NewReasonError(domain.ErrNotFound, templateReasonNotFound)
 	case errors.Is(err, domain.ErrConflict):
-		// Conflict could be not-draft or already-archived; inspect the message.
-		msg := err.Error()
-		if containsAny(msg, "already archived") {
-			return domain.NewReasonError(domain.ErrConflict, templateReasonAlreadyArchived)
-		}
 		return domain.NewReasonError(domain.ErrConflict, templateReasonNotDraft)
 	case errors.Is(err, domain.ErrInvalidRequest):
 		return domain.NewReasonError(domain.ErrInvalidRequest, templateReasonNoFieldsToUpdate)
 	}
 	return err
-}
-
-func containsAny(s string, sub ...string) bool {
-	for _, t := range sub {
-		if len(t) > 0 && len(s) >= len(t) {
-			for i := 0; i <= len(s)-len(t); i++ {
-				if s[i:i+len(t)] == t {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 // mapTemplateError converts a domain refusal into the declared TemplateError.

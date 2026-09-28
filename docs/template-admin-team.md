@@ -1,6 +1,7 @@
 # Template Admin Team
 
-The template admin API routes (`GET/POST /templates`, `PUT/POST /templates/{uid}`,
+The template admin API routes (`GET /templates`, `POST /templates`,
+`GET /templates/{uid}`, `PUT /templates/{uid}`,
 `POST /templates/{uid}/publish`, `POST /templates/{uid}/archive`) are guarded at the
 gateway by membership of a global OpenFGA team.
 
