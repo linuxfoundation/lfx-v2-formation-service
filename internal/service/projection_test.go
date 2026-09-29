@@ -209,8 +209,8 @@ func TestAConfidentialProjectIsPublishedLikeAnyOther(t *testing.T) {
 	if doc.SubStage != model.StageFormationConfidential {
 		t.Errorf("sub_stage = %q, want the confidential stage carried through", doc.SubStage)
 	}
-	if doc.AccessRelation != "auditor" {
-		t.Errorf("access relation = %q, want auditor — this is what withholds the row", doc.AccessRelation)
+	if doc.AccessRelation != "auditor_guard" {
+		t.Errorf("access relation = %q, want auditor_guard — this is what withholds the row", doc.AccessRelation)
 	}
 }
 
