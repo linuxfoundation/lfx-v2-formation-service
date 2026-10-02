@@ -460,6 +460,352 @@ paths:
                 - http
             security:
                 - jwt_header_Authorization: []
+    /formations/templates:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: list_templates lfx_v2_formation_service
+            description: Return all templates in every state. Admin view.
+            operationId: lfx_v2_formation_service#list_templates
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        type: array
+                        items:
+                            $ref: '#/definitions/AdminTemplate'
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: create_template lfx_v2_formation_service
+            description: Create a new draft template.
+            operationId: lfx_v2_formation_service#create_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+                - name: create_template_request_body
+                  in: body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/LfxV2FormationServiceCreateTemplateRequestBody'
+                    required:
+                        - name
+                        - template_version
+                        - priority
+                        - match
+                        - sections
+            responses:
+                "201":
+                    description: Created response.
+                    schema:
+                        $ref: '#/definitions/AdminTemplate'
+                "400":
+                    description: Bad Request response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+                "409":
+                    description: Conflict response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: get_template lfx_v2_formation_service
+            description: Return one template by UID.
+            operationId: lfx_v2_formation_service#get_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  type: string
+                  format: uuid
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/AdminTemplate'
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+        put:
+            tags:
+                - lfx_v2_formation_service
+            summary: update_template lfx_v2_formation_service
+            description: Update a draft template's mutable fields. Refused for published or archived templates.
+            operationId: lfx_v2_formation_service#update_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  type: string
+                  format: uuid
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+                - name: update_template_request_body
+                  in: body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/LfxV2FormationServiceUpdateTemplateRequestBody'
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/AdminTemplate'
+                "400":
+                    description: Bad Request response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+                "409":
+                    description: Conflict response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}/archive:
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: archive_template lfx_v2_formation_service
+            description: Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.
+            operationId: lfx_v2_formation_service#archive_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  type: string
+                  format: uuid
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/AdminTemplate'
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+                "409":
+                    description: Conflict response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}/publish:
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: publish_template lfx_v2_formation_service
+            description: Publish a draft template, making it immutable and available for checklist selection.
+            operationId: lfx_v2_formation_service#publish_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  required: true
+                  type: string
+                  enum:
+                    - "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  type: string
+                  format: uuid
+                - name: Authorization
+                  in: header
+                  description: JWT token issued by Heimdall
+                  required: false
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/AdminTemplate'
+                "401":
+                    description: Unauthorized response.
+                    schema:
+                        $ref: '#/definitions/UnauthorizedError'
+                        required:
+                            - code
+                            - message
+                "404":
+                    description: Not Found response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+                "409":
+                    description: Conflict response.
+                    schema:
+                        $ref: '#/definitions/TemplateError'
+                        required:
+                            - name
+                            - code
+                            - message
+                            - reason
+            schemes:
+                - http
+            security:
+                - jwt_header_Authorization: []
     /project-applications:
         post:
             tags:
@@ -905,352 +1251,6 @@ paths:
                     description: Precondition Failed response.
                     schema:
                         $ref: '#/definitions/ApplicationError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-    /templates:
-        get:
-            tags:
-                - lfx_v2_formation_service
-            summary: list_templates lfx_v2_formation_service
-            description: Return all templates in every state. Admin view.
-            operationId: lfx_v2_formation_service#list_templates
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        type: array
-                        items:
-                            $ref: '#/definitions/AdminTemplate'
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: create_template lfx_v2_formation_service
-            description: Create a new draft template.
-            operationId: lfx_v2_formation_service#create_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-                - name: create_template_request_body
-                  in: body
-                  required: true
-                  schema:
-                    $ref: '#/definitions/LfxV2FormationServiceCreateTemplateRequestBody'
-                    required:
-                        - name
-                        - template_version
-                        - priority
-                        - match
-                        - sections
-            responses:
-                "201":
-                    description: Created response.
-                    schema:
-                        $ref: '#/definitions/AdminTemplate'
-                "400":
-                    description: Bad Request response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "409":
-                    description: Conflict response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}:
-        get:
-            tags:
-                - lfx_v2_formation_service
-            summary: get_template lfx_v2_formation_service
-            description: Return one template by UID.
-            operationId: lfx_v2_formation_service#get_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  type: string
-                  format: uuid
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        $ref: '#/definitions/AdminTemplate'
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "404":
-                    description: Not Found response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-        put:
-            tags:
-                - lfx_v2_formation_service
-            summary: update_template lfx_v2_formation_service
-            description: Update a draft template's mutable fields. Refused for published or archived templates.
-            operationId: lfx_v2_formation_service#update_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  type: string
-                  format: uuid
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-                - name: update_template_request_body
-                  in: body
-                  required: true
-                  schema:
-                    $ref: '#/definitions/LfxV2FormationServiceUpdateTemplateRequestBody'
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        $ref: '#/definitions/AdminTemplate'
-                "400":
-                    description: Bad Request response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "404":
-                    description: Not Found response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "409":
-                    description: Conflict response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}/archive:
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: archive_template lfx_v2_formation_service
-            description: Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.
-            operationId: lfx_v2_formation_service#archive_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  type: string
-                  format: uuid
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        $ref: '#/definitions/AdminTemplate'
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "404":
-                    description: Not Found response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "409":
-                    description: Conflict response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-            schemes:
-                - http
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}/publish:
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: publish_template lfx_v2_formation_service
-            description: Publish a draft template, making it immutable and available for checklist selection.
-            operationId: lfx_v2_formation_service#publish_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  required: true
-                  type: string
-                  enum:
-                    - "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  type: string
-                  format: uuid
-                - name: Authorization
-                  in: header
-                  description: JWT token issued by Heimdall
-                  required: false
-                  type: string
-            responses:
-                "200":
-                    description: OK response.
-                    schema:
-                        $ref: '#/definitions/AdminTemplate'
-                "401":
-                    description: Unauthorized response.
-                    schema:
-                        $ref: '#/definitions/UnauthorizedError'
-                        required:
-                            - code
-                            - message
-                "404":
-                    description: Not Found response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
-                        required:
-                            - name
-                            - code
-                            - message
-                            - reason
-                "409":
-                    description: Conflict response.
-                    schema:
-                        $ref: '#/definitions/TemplateError'
                         required:
                             - name
                             - code

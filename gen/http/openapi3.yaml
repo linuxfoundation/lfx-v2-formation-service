@@ -836,6 +836,514 @@ paths:
                                 reason: no_fields_to_update
             security:
                 - jwt_header_Authorization: []
+    /formations/templates:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: list_templates lfx_v2_formation_service
+            description: Return all templates in every state. Admin view.
+            operationId: lfx_v2_formation_service#list_templates
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/AdminTemplate'
+                                example:
+                                    - author: Illum velit autem et quis.
+                                      created_at: "2006-08-11T01:09:02Z"
+                                      match: always
+                                      name: Dolore et sint aperiam non sint aut.
+                                      priority: 7310695671456270644
+                                      published_at: "2002-09-04T10:50:15Z"
+                                      sections: Numquam consequatur et.
+                                      state: draft
+                                      template_version: 3456426267889025605
+                                      uid: Unde possimus nihil explicabo sunt nihil fugiat.
+                                      updated_at: "1992-05-30T16:40:57Z"
+                                    - author: Illum velit autem et quis.
+                                      created_at: "2006-08-11T01:09:02Z"
+                                      match: always
+                                      name: Dolore et sint aperiam non sint aut.
+                                      priority: 7310695671456270644
+                                      published_at: "2002-09-04T10:50:15Z"
+                                      sections: Numquam consequatur et.
+                                      state: draft
+                                      template_version: 3456426267889025605
+                                      uid: Unde possimus nihil explicabo sunt nihil fugiat.
+                                      updated_at: "1992-05-30T16:40:57Z"
+                            example:
+                                - author: Illum velit autem et quis.
+                                  created_at: "2006-08-11T01:09:02Z"
+                                  match: always
+                                  name: Dolore et sint aperiam non sint aut.
+                                  priority: 7310695671456270644
+                                  published_at: "2002-09-04T10:50:15Z"
+                                  sections: Numquam consequatur et.
+                                  state: draft
+                                  template_version: 3456426267889025605
+                                  uid: Unde possimus nihil explicabo sunt nihil fugiat.
+                                  updated_at: "1992-05-30T16:40:57Z"
+                                - author: Illum velit autem et quis.
+                                  created_at: "2006-08-11T01:09:02Z"
+                                  match: always
+                                  name: Dolore et sint aperiam non sint aut.
+                                  priority: 7310695671456270644
+                                  published_at: "2002-09-04T10:50:15Z"
+                                  sections: Numquam consequatur et.
+                                  state: draft
+                                  template_version: 3456426267889025605
+                                  uid: Unde possimus nihil explicabo sunt nihil fugiat.
+                                  updated_at: "1992-05-30T16:40:57Z"
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Nesciunt officiis officia sit.
+            security:
+                - jwt_header_Authorization: []
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: create_template lfx_v2_formation_service
+            description: Create a new draft template.
+            operationId: lfx_v2_formation_service#create_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateTemplateRequestBody'
+                        example:
+                            author: Sunt ad aspernatur voluptatum in atque.
+                            match: always
+                            name: Sit voluptas nihil tempora.
+                            priority: 6627545437241440200
+                            sections: Et at soluta sapiente.
+                            template_version: 4195446033145011004
+            responses:
+                "201":
+                    description: Created response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminTemplate'
+                            example:
+                                author: Id delectus.
+                                created_at: "2010-10-28T15:30:38Z"
+                                match: always
+                                name: Unde ab illo quam sint et.
+                                priority: 5568070221835101814
+                                published_at: "1979-08-07T10:03:50Z"
+                                sections: Assumenda ex.
+                                state: published
+                                template_version: 7448154021846346175
+                                uid: Et ratione impedit.
+                                updated_at: "1972-04-18T12:27:44Z"
+                "400":
+                    description: 'BadRequest: Invalid payload'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Cumque quaerat labore fugit sit et voluptas.
+                                name: Nesciunt nobis animi nihil ea consectetur et.
+                                reason: template_already_archived
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Cupiditate dignissimos ullam et dolorum quis.
+                "409":
+                    description: 'Conflict: A template with this name and version already exists'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Et libero labore voluptate.
+                                name: Exercitationem perspiciatis dolorem rerum et ad.
+                                reason: template_already_exists
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}:
+        get:
+            tags:
+                - lfx_v2_formation_service
+            summary: get_template lfx_v2_formation_service
+            description: Return one template by UID.
+            operationId: lfx_v2_formation_service#get_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  schema:
+                    type: string
+                    description: The template's UID.
+                    example: 242ee2d1-a924-4f3a-bfc5-4b0d3c359b60
+                    format: uuid
+                  example: 5a0e6957-995a-4833-947a-73f780f4d03f
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminTemplate'
+                            example:
+                                author: Voluptatem sunt quaerat quo id qui quidem.
+                                created_at: "1993-06-11T05:00:31Z"
+                                match: always
+                                name: Magni nam harum et recusandae veniam neque.
+                                priority: 4883761983375901221
+                                published_at: "2004-04-18T18:03:03Z"
+                                sections: Doloribus est.
+                                state: published
+                                template_version: 7545862371516759368
+                                uid: Rerum corrupti nobis quod cum minima.
+                                updated_at: "1980-01-03T16:01:50Z"
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Qui reiciendis sequi ut.
+                "404":
+                    description: 'NotFound: No template with that UID'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Dolorem provident ea voluptatem qui.
+                                name: Placeat harum sint aspernatur reprehenderit eos.
+                                reason: template_not_draft
+            security:
+                - jwt_header_Authorization: []
+        put:
+            tags:
+                - lfx_v2_formation_service
+            summary: update_template lfx_v2_formation_service
+            description: Update a draft template's mutable fields. Refused for published or archived templates.
+            operationId: lfx_v2_formation_service#update_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  schema:
+                    type: string
+                    description: The template's UID.
+                    example: f64e9f5b-358e-47df-9c7c-864651174bcd
+                    format: uuid
+                  example: ba2584a3-366d-4c82-870d-c2ae4c9b175c
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateTemplateRequestBody'
+                        example:
+                            author: Tempore occaecati molestiae magni vel molestiae deleniti.
+                            match: always
+                            priority: 1856138796763192435
+                            sections: Voluptas rem sunt sed quam ea nesciunt.
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminTemplate'
+                            example:
+                                author: Minus fuga id et totam natus ad.
+                                created_at: "2005-01-23T23:11:44Z"
+                                match: always
+                                name: Rerum suscipit inventore sapiente qui officia.
+                                priority: 7069270468703972619
+                                published_at: "1990-04-25T05:30:56Z"
+                                sections: Aliquam dicta et aut.
+                                state: archived
+                                template_version: 7753757750429222051
+                                uid: Et voluptas.
+                                updated_at: "2006-09-02T03:45:39Z"
+                "400":
+                    description: 'BadRequest: No fields to update, or sections is not a valid section array'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Provident sint iusto.
+                                name: Id ducimus dolores est.
+                                reason: no_fields_to_update
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Autem qui quo aliquid et ipsa voluptatem.
+                "404":
+                    description: 'NotFound: No template with that UID'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Velit et qui fugiat eum sed.
+                                name: Et velit quibusdam.
+                                reason: template_already_archived
+                "409":
+                    description: 'Conflict: Template is not a draft'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Quia eos sunt suscipit.
+                                name: Dignissimos consequuntur non velit cumque quia incidunt.
+                                reason: template_not_draft
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}/archive:
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: archive_template lfx_v2_formation_service
+            description: Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.
+            operationId: lfx_v2_formation_service#archive_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  schema:
+                    type: string
+                    description: The template's UID.
+                    example: 41485f46-8a0e-4353-a8e0-68ea5d811e63
+                    format: uuid
+                  example: 9b0b609c-6c08-4d5e-a5ec-c8ea6917fbcd
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminTemplate'
+                            example:
+                                author: Provident itaque dolorem.
+                                created_at: "2005-07-17T14:07:44Z"
+                                match: always
+                                name: Eum deserunt asperiores sunt.
+                                priority: 9077775165849568764
+                                published_at: "1971-03-02T18:38:35Z"
+                                sections: Vero corporis.
+                                state: published
+                                template_version: 3393967700756492415
+                                uid: Molestiae occaecati aut voluptatem laboriosam.
+                                updated_at: "1988-07-25T22:51:27Z"
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Iusto sit eos aut.
+                "404":
+                    description: 'NotFound: No template with that UID'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Est rerum.
+                                name: Consequatur accusamus perspiciatis aut unde.
+                                reason: template_already_archived
+                "409":
+                    description: 'Conflict: Template is already archived'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Similique et delectus labore nobis modi.
+                                name: Quae quae.
+                                reason: no_fields_to_update
+            security:
+                - jwt_header_Authorization: []
+    /formations/templates/{uid}/publish:
+        post:
+            tags:
+                - lfx_v2_formation_service
+            summary: publish_template lfx_v2_formation_service
+            description: Publish a draft template, making it immutable and available for checklist selection.
+            operationId: lfx_v2_formation_service#publish_template
+            parameters:
+                - name: v
+                  in: query
+                  description: API version. Must be 1.
+                  allowEmptyValue: true
+                  required: true
+                  schema:
+                    type: string
+                    description: API version. Must be 1.
+                    example: "1"
+                    enum:
+                        - "1"
+                  example: "1"
+                - name: uid
+                  in: path
+                  description: The template's UID.
+                  required: true
+                  schema:
+                    type: string
+                    description: The template's UID.
+                    example: 9a35ea06-2429-4727-a5ff-b5cc54189333
+                    format: uuid
+                  example: bf852313-cdc3-4fd1-942f-c67f3f8f7879
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminTemplate'
+                            example:
+                                author: Dicta non numquam.
+                                created_at: "1999-10-25T21:58:01Z"
+                                match: always
+                                name: Illo quis quia a.
+                                priority: 7926800401399376577
+                                published_at: "1994-08-15T07:42:51Z"
+                                sections: Quas sunt cupiditate amet nemo tempora.
+                                state: published
+                                template_version: 8457092120665116623
+                                uid: Nisi incidunt fugiat sit voluptate totam voluptas.
+                                updated_at: "2004-10-17T05:31:15Z"
+                "401":
+                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                            example:
+                                code: "401"
+                                message: Corrupti magni omnis quibusdam est itaque.
+                "404":
+                    description: 'NotFound: No template with that UID'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Architecto enim ex consectetur.
+                                name: Qui possimus.
+                                reason: template_already_exists
+                "409":
+                    description: 'Conflict: Template is not a draft'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TemplateError'
+                            example:
+                                code: "409"
+                                message: Eaque aspernatur et blanditiis accusamus.
+                                name: Quam aut sunt possimus vel similique.
+                                reason: template_already_archived
+            security:
+                - jwt_header_Authorization: []
     /project-applications:
         post:
             tags:
@@ -1420,514 +1928,6 @@ paths:
                                 message: Alias quia et.
                                 name: Velit veniam aut exercitationem.
                                 reason: not_found
-            security:
-                - jwt_header_Authorization: []
-    /templates:
-        get:
-            tags:
-                - lfx_v2_formation_service
-            summary: list_templates lfx_v2_formation_service
-            description: Return all templates in every state. Admin view.
-            operationId: lfx_v2_formation_service#list_templates
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-            responses:
-                "200":
-                    description: OK response.
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items:
-                                    $ref: '#/components/schemas/AdminTemplate'
-                                example:
-                                    - author: Illum velit autem et quis.
-                                      created_at: "2006-08-11T01:09:02Z"
-                                      match: always
-                                      name: Dolore et sint aperiam non sint aut.
-                                      priority: 7310695671456270644
-                                      published_at: "2002-09-04T10:50:15Z"
-                                      sections: Numquam consequatur et.
-                                      state: draft
-                                      template_version: 3456426267889025605
-                                      uid: Unde possimus nihil explicabo sunt nihil fugiat.
-                                      updated_at: "1992-05-30T16:40:57Z"
-                                    - author: Illum velit autem et quis.
-                                      created_at: "2006-08-11T01:09:02Z"
-                                      match: always
-                                      name: Dolore et sint aperiam non sint aut.
-                                      priority: 7310695671456270644
-                                      published_at: "2002-09-04T10:50:15Z"
-                                      sections: Numquam consequatur et.
-                                      state: draft
-                                      template_version: 3456426267889025605
-                                      uid: Unde possimus nihil explicabo sunt nihil fugiat.
-                                      updated_at: "1992-05-30T16:40:57Z"
-                            example:
-                                - author: Illum velit autem et quis.
-                                  created_at: "2006-08-11T01:09:02Z"
-                                  match: always
-                                  name: Dolore et sint aperiam non sint aut.
-                                  priority: 7310695671456270644
-                                  published_at: "2002-09-04T10:50:15Z"
-                                  sections: Numquam consequatur et.
-                                  state: draft
-                                  template_version: 3456426267889025605
-                                  uid: Unde possimus nihil explicabo sunt nihil fugiat.
-                                  updated_at: "1992-05-30T16:40:57Z"
-                                - author: Illum velit autem et quis.
-                                  created_at: "2006-08-11T01:09:02Z"
-                                  match: always
-                                  name: Dolore et sint aperiam non sint aut.
-                                  priority: 7310695671456270644
-                                  published_at: "2002-09-04T10:50:15Z"
-                                  sections: Numquam consequatur et.
-                                  state: draft
-                                  template_version: 3456426267889025605
-                                  uid: Unde possimus nihil explicabo sunt nihil fugiat.
-                                  updated_at: "1992-05-30T16:40:57Z"
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Nesciunt officiis officia sit.
-            security:
-                - jwt_header_Authorization: []
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: create_template lfx_v2_formation_service
-            description: Create a new draft template.
-            operationId: lfx_v2_formation_service#create_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-            requestBody:
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/CreateTemplateRequestBody'
-                        example:
-                            author: Sunt ad aspernatur voluptatum in atque.
-                            match: always
-                            name: Sit voluptas nihil tempora.
-                            priority: 6627545437241440200
-                            sections: Et at soluta sapiente.
-                            template_version: 4195446033145011004
-            responses:
-                "201":
-                    description: Created response.
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/AdminTemplate'
-                            example:
-                                author: Id delectus.
-                                created_at: "2010-10-28T15:30:38Z"
-                                match: always
-                                name: Unde ab illo quam sint et.
-                                priority: 5568070221835101814
-                                published_at: "1979-08-07T10:03:50Z"
-                                sections: Assumenda ex.
-                                state: published
-                                template_version: 7448154021846346175
-                                uid: Et ratione impedit.
-                                updated_at: "1972-04-18T12:27:44Z"
-                "400":
-                    description: 'BadRequest: Invalid payload'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Cumque quaerat labore fugit sit et voluptas.
-                                name: Nesciunt nobis animi nihil ea consectetur et.
-                                reason: template_already_archived
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Cupiditate dignissimos ullam et dolorum quis.
-                "409":
-                    description: 'Conflict: A template with this name and version already exists'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Et libero labore voluptate.
-                                name: Exercitationem perspiciatis dolorem rerum et ad.
-                                reason: template_already_exists
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}:
-        get:
-            tags:
-                - lfx_v2_formation_service
-            summary: get_template lfx_v2_formation_service
-            description: Return one template by UID.
-            operationId: lfx_v2_formation_service#get_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  schema:
-                    type: string
-                    description: The template's UID.
-                    example: 242ee2d1-a924-4f3a-bfc5-4b0d3c359b60
-                    format: uuid
-                  example: 5a0e6957-995a-4833-947a-73f780f4d03f
-            responses:
-                "200":
-                    description: OK response.
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/AdminTemplate'
-                            example:
-                                author: Voluptatem sunt quaerat quo id qui quidem.
-                                created_at: "1993-06-11T05:00:31Z"
-                                match: always
-                                name: Magni nam harum et recusandae veniam neque.
-                                priority: 4883761983375901221
-                                published_at: "2004-04-18T18:03:03Z"
-                                sections: Doloribus est.
-                                state: published
-                                template_version: 7545862371516759368
-                                uid: Rerum corrupti nobis quod cum minima.
-                                updated_at: "1980-01-03T16:01:50Z"
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Qui reiciendis sequi ut.
-                "404":
-                    description: 'NotFound: No template with that UID'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Dolorem provident ea voluptatem qui.
-                                name: Placeat harum sint aspernatur reprehenderit eos.
-                                reason: template_not_draft
-            security:
-                - jwt_header_Authorization: []
-        put:
-            tags:
-                - lfx_v2_formation_service
-            summary: update_template lfx_v2_formation_service
-            description: Update a draft template's mutable fields. Refused for published or archived templates.
-            operationId: lfx_v2_formation_service#update_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  schema:
-                    type: string
-                    description: The template's UID.
-                    example: f64e9f5b-358e-47df-9c7c-864651174bcd
-                    format: uuid
-                  example: ba2584a3-366d-4c82-870d-c2ae4c9b175c
-            requestBody:
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/UpdateTemplateRequestBody'
-                        example:
-                            author: Tempore occaecati molestiae magni vel molestiae deleniti.
-                            match: always
-                            priority: 1856138796763192435
-                            sections: Voluptas rem sunt sed quam ea nesciunt.
-            responses:
-                "200":
-                    description: OK response.
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/AdminTemplate'
-                            example:
-                                author: Minus fuga id et totam natus ad.
-                                created_at: "2005-01-23T23:11:44Z"
-                                match: always
-                                name: Rerum suscipit inventore sapiente qui officia.
-                                priority: 7069270468703972619
-                                published_at: "1990-04-25T05:30:56Z"
-                                sections: Aliquam dicta et aut.
-                                state: archived
-                                template_version: 7753757750429222051
-                                uid: Et voluptas.
-                                updated_at: "2006-09-02T03:45:39Z"
-                "400":
-                    description: 'BadRequest: No fields to update, or sections is not a valid section array'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Provident sint iusto.
-                                name: Id ducimus dolores est.
-                                reason: no_fields_to_update
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Autem qui quo aliquid et ipsa voluptatem.
-                "404":
-                    description: 'NotFound: No template with that UID'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Velit et qui fugiat eum sed.
-                                name: Et velit quibusdam.
-                                reason: template_already_archived
-                "409":
-                    description: 'Conflict: Template is not a draft'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Quia eos sunt suscipit.
-                                name: Dignissimos consequuntur non velit cumque quia incidunt.
-                                reason: template_not_draft
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}/archive:
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: archive_template lfx_v2_formation_service
-            description: Archive a template, removing it from checklist selection. Existing checklists pinned to it are unaffected.
-            operationId: lfx_v2_formation_service#archive_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  schema:
-                    type: string
-                    description: The template's UID.
-                    example: 41485f46-8a0e-4353-a8e0-68ea5d811e63
-                    format: uuid
-                  example: 9b0b609c-6c08-4d5e-a5ec-c8ea6917fbcd
-            responses:
-                "200":
-                    description: OK response.
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/AdminTemplate'
-                            example:
-                                author: Provident itaque dolorem.
-                                created_at: "2005-07-17T14:07:44Z"
-                                match: always
-                                name: Eum deserunt asperiores sunt.
-                                priority: 9077775165849568764
-                                published_at: "1971-03-02T18:38:35Z"
-                                sections: Vero corporis.
-                                state: published
-                                template_version: 3393967700756492415
-                                uid: Molestiae occaecati aut voluptatem laboriosam.
-                                updated_at: "1988-07-25T22:51:27Z"
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Iusto sit eos aut.
-                "404":
-                    description: 'NotFound: No template with that UID'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Est rerum.
-                                name: Consequatur accusamus perspiciatis aut unde.
-                                reason: template_already_archived
-                "409":
-                    description: 'Conflict: Template is already archived'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Similique et delectus labore nobis modi.
-                                name: Quae quae.
-                                reason: no_fields_to_update
-            security:
-                - jwt_header_Authorization: []
-    /templates/{uid}/publish:
-        post:
-            tags:
-                - lfx_v2_formation_service
-            summary: publish_template lfx_v2_formation_service
-            description: Publish a draft template, making it immutable and available for checklist selection.
-            operationId: lfx_v2_formation_service#publish_template
-            parameters:
-                - name: v
-                  in: query
-                  description: API version. Must be 1.
-                  allowEmptyValue: true
-                  required: true
-                  schema:
-                    type: string
-                    description: API version. Must be 1.
-                    example: "1"
-                    enum:
-                        - "1"
-                  example: "1"
-                - name: uid
-                  in: path
-                  description: The template's UID.
-                  required: true
-                  schema:
-                    type: string
-                    description: The template's UID.
-                    example: 9a35ea06-2429-4727-a5ff-b5cc54189333
-                    format: uuid
-                  example: bf852313-cdc3-4fd1-942f-c67f3f8f7879
-            responses:
-                "200":
-                    description: OK response.
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/AdminTemplate'
-                            example:
-                                author: Dicta non numquam.
-                                created_at: "1999-10-25T21:58:01Z"
-                                match: always
-                                name: Illo quis quia a.
-                                priority: 7926800401399376577
-                                published_at: "1994-08-15T07:42:51Z"
-                                sections: Quas sunt cupiditate amet nemo tempora.
-                                state: published
-                                template_version: 8457092120665116623
-                                uid: Nisi incidunt fugiat sit voluptate totam voluptas.
-                                updated_at: "2004-10-17T05:31:15Z"
-                "401":
-                    description: 'Unauthorized: Missing, expired, or malformed bearer token'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/UnauthorizedError'
-                            example:
-                                code: "401"
-                                message: Corrupti magni omnis quibusdam est itaque.
-                "404":
-                    description: 'NotFound: No template with that UID'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Architecto enim ex consectetur.
-                                name: Qui possimus.
-                                reason: template_already_exists
-                "409":
-                    description: 'Conflict: Template is not a draft'
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TemplateError'
-                            example:
-                                code: "409"
-                                message: Eaque aspernatur et blanditiis accusamus.
-                                name: Quam aut sunt possimus vel similique.
-                                reason: template_already_archived
             security:
                 - jwt_header_Authorization: []
 components:

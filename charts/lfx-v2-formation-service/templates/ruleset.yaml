@@ -481,7 +481,7 @@ spec:
         methods:
           - GET
         routes:
-          - path: /templates
+          - path: /formations/templates
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
@@ -508,7 +508,7 @@ spec:
         methods:
           - GET
         routes:
-          - path: /templates/:uid
+          - path: /formations/templates/:uid
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
@@ -535,7 +535,7 @@ spec:
         methods:
           - POST
         routes:
-          - path: /templates
+          - path: /formations/templates
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
@@ -562,7 +562,7 @@ spec:
         methods:
           - PUT
         routes:
-          - path: /templates/:uid
+          - path: /formations/templates/:uid
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
@@ -589,7 +589,7 @@ spec:
         methods:
           - POST
         routes:
-          - path: /templates/:uid/publish
+          - path: /formations/templates/:uid/publish
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator
@@ -616,7 +616,7 @@ spec:
         methods:
           - POST
         routes:
-          - path: /templates/:uid/archive
+          - path: /formations/templates/:uid/archive
       execute:
         - authenticator: oidc
         - authenticator: anonymous_authenticator

@@ -79,12 +79,12 @@ func New(
 			{"AcceptApplication", "POST", "/project-applications/{uid}/accept"},
 			{"DenyApplication", "POST", "/project-applications/{uid}/deny"},
 			{"DeleteApplication", "DELETE", "/project-applications/{uid}"},
-			{"ListTemplates", "GET", "/templates"},
-			{"GetTemplate", "GET", "/templates/{uid}"},
-			{"CreateTemplate", "POST", "/templates"},
-			{"UpdateTemplate", "PUT", "/templates/{uid}"},
-			{"PublishTemplate", "POST", "/templates/{uid}/publish"},
-			{"ArchiveTemplate", "POST", "/templates/{uid}/archive"},
+			{"ListTemplates", "GET", "/formations/templates"},
+			{"GetTemplate", "GET", "/formations/templates/{uid}"},
+			{"CreateTemplate", "POST", "/formations/templates"},
+			{"UpdateTemplate", "PUT", "/formations/templates/{uid}"},
+			{"PublishTemplate", "POST", "/formations/templates/{uid}/publish"},
+			{"ArchiveTemplate", "POST", "/formations/templates/{uid}/archive"},
 			{"Livez", "GET", "/livez"},
 			{"Readyz", "GET", "/readyz"},
 		},
@@ -766,7 +766,7 @@ func MountListTemplatesHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("GET", "/templates", f)
+	mux.Handle("GET", "/formations/templates", f)
 }
 
 // NewListTemplatesHandler creates a HTTP handler which loads the HTTP request
@@ -819,7 +819,7 @@ func MountGetTemplateHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("GET", "/templates/{uid}", f)
+	mux.Handle("GET", "/formations/templates/{uid}", f)
 }
 
 // NewGetTemplateHandler creates a HTTP handler which loads the HTTP request
@@ -872,7 +872,7 @@ func MountCreateTemplateHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("POST", "/templates", f)
+	mux.Handle("POST", "/formations/templates", f)
 }
 
 // NewCreateTemplateHandler creates a HTTP handler which loads the HTTP request
@@ -925,7 +925,7 @@ func MountUpdateTemplateHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("PUT", "/templates/{uid}", f)
+	mux.Handle("PUT", "/formations/templates/{uid}", f)
 }
 
 // NewUpdateTemplateHandler creates a HTTP handler which loads the HTTP request
@@ -978,7 +978,7 @@ func MountPublishTemplateHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("POST", "/templates/{uid}/publish", f)
+	mux.Handle("POST", "/formations/templates/{uid}/publish", f)
 }
 
 // NewPublishTemplateHandler creates a HTTP handler which loads the HTTP
@@ -1032,7 +1032,7 @@ func MountArchiveTemplateHandler(mux goahttp.Muxer, h http.Handler) {
 			h.ServeHTTP(w, r)
 		}
 	}
-	mux.Handle("POST", "/templates/{uid}/archive", f)
+	mux.Handle("POST", "/formations/templates/{uid}/archive", f)
 }
 
 // NewArchiveTemplateHandler creates a HTTP handler which loads the HTTP
