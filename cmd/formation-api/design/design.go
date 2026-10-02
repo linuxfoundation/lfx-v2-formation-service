@@ -665,7 +665,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Result(dsl.ArrayOf(AdminTemplate))
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.GET("/templates")
+			dsl.GET("/formations/templates")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
@@ -690,7 +690,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("NotFound", TemplateError, "No template with that UID")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.GET("/templates/{uid}")
+			dsl.GET("/formations/templates/{uid}")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
@@ -727,7 +727,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("Conflict", TemplateError, "A template with this name and version already exists")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.POST("/templates")
+			dsl.POST("/formations/templates")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusCreated)
@@ -768,7 +768,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("BadRequest", TemplateError, "No fields to update, or sections is not a valid section array")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.PUT("/templates/{uid}")
+			dsl.PUT("/formations/templates/{uid}")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
@@ -797,7 +797,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("Conflict", TemplateError, "Template is not a draft")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.POST("/templates/{uid}/publish")
+			dsl.POST("/formations/templates/{uid}/publish")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)
@@ -825,7 +825,7 @@ var _ = dsl.Service("lfx_v2_formation_service", func() {
 		dsl.Error("Conflict", TemplateError, "Template is already archived")
 		dsl.Error("Unauthorized", UnauthorizedError, "Missing, expired, or malformed bearer token")
 		dsl.HTTP(func() {
-			dsl.POST("/templates/{uid}/archive")
+			dsl.POST("/formations/templates/{uid}/archive")
 			dsl.Param("version:v")
 			dsl.Header("bearer_token:Authorization")
 			dsl.Response(dsl.StatusOK)

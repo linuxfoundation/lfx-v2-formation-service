@@ -69,32 +69,32 @@ func DeleteApplicationLfxV2FormationServicePath(uid string) string {
 
 // ListTemplatesLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service list_templates HTTP endpoint.
 func ListTemplatesLfxV2FormationServicePath() string {
-	return "/templates"
+	return "/formations/templates"
 }
 
 // GetTemplateLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service get_template HTTP endpoint.
 func GetTemplateLfxV2FormationServicePath(uid string) string {
-	return fmt.Sprintf("/templates/%v", uid)
+	return fmt.Sprintf("/formations/templates/%v", uid)
 }
 
 // CreateTemplateLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service create_template HTTP endpoint.
 func CreateTemplateLfxV2FormationServicePath() string {
-	return "/templates"
+	return "/formations/templates"
 }
 
 // UpdateTemplateLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service update_template HTTP endpoint.
 func UpdateTemplateLfxV2FormationServicePath(uid string) string {
-	return fmt.Sprintf("/templates/%v", uid)
+	return fmt.Sprintf("/formations/templates/%v", uid)
 }
 
 // PublishTemplateLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service publish_template HTTP endpoint.
 func PublishTemplateLfxV2FormationServicePath(uid string) string {
-	return fmt.Sprintf("/templates/%v/publish", uid)
+	return fmt.Sprintf("/formations/templates/%v/publish", uid)
 }
 
 // ArchiveTemplateLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service archive_template HTTP endpoint.
 func ArchiveTemplateLfxV2FormationServicePath(uid string) string {
-	return fmt.Sprintf("/templates/%v/archive", uid)
+	return fmt.Sprintf("/formations/templates/%v/archive", uid)
 }
 
 // LivezLfxV2FormationServicePath returns the URL path to the lfx_v2_formation_service service livez HTTP endpoint.
