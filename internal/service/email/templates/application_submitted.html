@@ -1,0 +1,73 @@
+<!-- Copyright The Linux Foundation and each contributor to LFX. -->
+<!-- SPDX-License-Identifier: MIT -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application received</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #ffffff; font-family: Inter, Arial, sans-serif; color: #111827; }
+        .wrapper { max-width: 600px; margin: 0 auto; padding: 32px 40px; }
+        .logo { margin-bottom: 24px; }
+        .logo img { height: 32px; width: auto; display: block; }
+        hr { border: none; border-top: 1px solid #e5e7eb; margin: 0 0 32px 0; }
+        p { font-size: 16px; color: #374151; line-height: 1.6; margin: 0 0 16px 0; }
+        .greeting { font-size: 15px; color: #374151; margin: 0 0 8px 0; }
+        .detail-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e5e7eb; border-radius: 8px; margin: 0 0 24px 0; }
+        .detail-table td { background-color: #f9fafb; }
+        .detail-table tr:first-child td:first-child { border-radius: 8px 0 0 0; }
+        .detail-table tr:first-child td:last-child  { border-radius: 0 8px 0 0; }
+        .detail-table tr:last-child  td:first-child { border-radius: 0 0 0 8px; }
+        .detail-table tr:last-child  td:last-child  { border-radius: 0 0 8px 0; }
+        .detail-label { font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; vertical-align: top; padding: 16px 12px 16px 20px; }
+        .detail-value { font-size: 15px; color: #111827; vertical-align: top; padding: 16px 20px 16px 0; }
+        .detail-sep td { border-top: 1px solid #e5e7eb; padding-top: 12px; padding-bottom: 12px; }
+        .btn { display: inline-block; background-color: #009AFF; color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin-bottom: 12px; }
+        .btn-note { font-size: 13px; color: #6b7280; margin: 0 0 28px 0; }
+        .btn-note a { color: #0077CC; text-decoration: none; }
+        .signoff { font-size: 15px; color: #374151; margin: 0 0 32px 0; line-height: 1.7; }
+        .footer-hr { border: none; border-top: 1px solid #e5e7eb; margin: 0 0 24px 0; }
+        .footer { font-size: 12px; color: #9ca3af; line-height: 1.6; margin: 0; }
+        .footer a { color: #9ca3af; }
+        @media only screen and (max-width: 620px) {
+            .wrapper { padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <div class="logo">
+        <img src="https://itx-project-logos-png-prod.s3.us-west-2.amazonaws.com/lfx-logo-color.png" alt="LFX" width="120" height="32">
+    </div>
+    <hr>
+
+    <p class="greeting">Hi{{if .RecipientName}} {{.RecipientName}}{{end}},</p>
+
+    <p>We have received your application to start <strong>{{.ProjectName}}</strong> on LFX. The formation team will review it and you will receive an email when a decision has been made.</p>
+
+    <table class="detail-table" role="presentation">
+      <tr>
+        <td class="detail-label">Project</td>
+        <td class="detail-value"><strong>{{.ProjectName}}</strong></td>
+      </tr>
+      <tr class="detail-sep">
+        <td class="detail-label">Status</td>
+        <td class="detail-value">Received</td>
+      </tr>
+    </table>
+
+    <!-- djlint:off H021 --><a href="{{.ApplicationURL}}" class="btn" style="color:#ffffff!important;">View application</a><!-- djlint:on H021 -->
+    <p class="btn-note">If the button above doesn't work, paste this into your browser: <a href="{{.ApplicationURL}}">{{.ApplicationURL}}</a></p>
+
+    {{if .FormationEmail}}<p>If you have questions, contact the formation team at <a href="mailto:{{.FormationEmail}}">{{.FormationEmail}}</a>.</p>{{end}}
+
+    <p class="signoff">Thank you,<br><strong>The LFX Team</strong></p>
+
+    <hr class="footer-hr">
+    <p class="footer">You are receiving this email because you submitted a project application on LFX. If you believe this was sent in error or would like to stop receiving these notifications, please contact <a href="mailto:support@lfx.dev">support@lfx.dev</a>.<br><br>Copyright &copy; 2026 The Linux Foundation &reg;. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our <a href="https://www.linuxfoundation.org/trademark-usage">Trademark Usage</a> page. Linux is a registered trademark of Linus Torvalds.</p>
+
+</div>
+</body>
+</html>

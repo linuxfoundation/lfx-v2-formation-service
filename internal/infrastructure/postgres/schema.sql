@@ -145,6 +145,13 @@ CREATE TABLE IF NOT EXISTS project_applications (
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Notification timestamps for application status emails.
+-- A non-NULL value means the email was sent; the conditional UPDATE in
+-- MarkApplicationNotified prevents duplicate sends across replicas.
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS notified_submitted_at TIMESTAMPTZ;
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS notified_accepted_at  TIMESTAMPTZ;
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS notified_denied_at    TIMESTAMPTZ;
+
 -- PII-free markers make a lost application cleanup recoverable without
 -- retaining the deleted intake answers or applicant identity.
 CREATE TABLE IF NOT EXISTS project_application_deletions (
