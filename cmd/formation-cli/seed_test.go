@@ -246,8 +246,8 @@ func TestValidateSectionsRefusals(t *testing.T) {
 			if err := json.Unmarshal([]byte(tc.json), &sections); err != nil {
 				t.Fatalf("test fixture does not parse: %v", err)
 			}
-			if err := validateSections(sections); err == nil {
-				t.Error("validateSections() = nil, want an error")
+			if err := model.ValidateSections(sections); err == nil {
+				t.Error("model.ValidateSections() = nil, want an error")
 			}
 		})
 	}
@@ -330,12 +330,12 @@ func TestValidateSectionsRefusesBadDisplayValues(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateSections(tc.sections)
+			err := model.ValidateSections(tc.sections)
 			if tc.wantErr && err == nil {
-				t.Error("validateSections() = nil, want an error")
+				t.Error("model.ValidateSections() = nil, want an error")
 			}
 			if !tc.wantErr && err != nil {
-				t.Errorf("validateSections() = %v, want no error", err)
+				t.Errorf("model.ValidateSections() = %v, want no error", err)
 			}
 		})
 	}

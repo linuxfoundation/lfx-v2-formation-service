@@ -48,6 +48,14 @@ type ProjectApplicationMutationResult struct {
 	View string
 }
 
+// AdminTemplate is the viewed result type that is projected based on a view.
+type AdminTemplate struct {
+	// Type to project
+	Projected *AdminTemplateView
+	// View to render
+	View string
+}
+
 // FormationChecklistView is a type that runs validations on a projected type.
 type FormationChecklistView struct {
 	ProjectUID      *string
@@ -213,6 +221,26 @@ type ProjectApplicationMutationResultView struct {
 	Etag *string
 }
 
+// AdminTemplateView is a type that runs validations on a projected type.
+type AdminTemplateView struct {
+	UID  *string
+	Name *string
+	// The template's own version number, distinct from the API version.
+	TemplateVersion *int
+	// Lifecycle state: draft → published (immutable) or archived.
+	State *string
+	// Selection priority; lower value wins when multiple templates match.
+	Priority *int
+	// Match rule that governs selection; currently only 'always' is supported.
+	Match *string
+	// Array of template sections.
+	Sections    any
+	Author      *string
+	CreatedAt   *string
+	UpdatedAt   *string
+	PublishedAt *string
+}
+
 var (
 	// FormationChecklistMap is a map indexing the attribute names of
 	// FormationChecklist by view name.
@@ -260,6 +288,23 @@ var (
 			"etag",
 		},
 	}
+	// AdminTemplateMap is a map indexing the attribute names of AdminTemplate by
+	// view name.
+	AdminTemplateMap = map[string][]string{
+		"default": {
+			"uid",
+			"name",
+			"template_version",
+			"state",
+			"priority",
+			"match",
+			"sections",
+			"author",
+			"created_at",
+			"updated_at",
+			"published_at",
+		},
+	}
 )
 
 // ValidateFormationChecklist runs the validations defined on the viewed result
@@ -304,6 +349,18 @@ func ValidateProjectApplicationMutationResult(result *ProjectApplicationMutation
 	switch result.View {
 	case "default", "":
 		err = ValidateProjectApplicationMutationResultView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateAdminTemplate runs the validations defined on the viewed result type
+// AdminTemplate.
+func ValidateAdminTemplate(result *AdminTemplate) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateAdminTemplateView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -619,6 +676,58 @@ func ValidateProjectApplicationMutationResultView(result *ProjectApplicationMuta
 		if err2 := ValidateProjectApplicationView(result.Application); err2 != nil {
 			err = goa.MergeErrors(err, err2)
 		}
+	}
+	return
+}
+
+// ValidateAdminTemplateView runs the validations defined on AdminTemplateView
+// using the "default" view.
+func ValidateAdminTemplateView(result *AdminTemplateView) (err error) {
+	if result.UID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("uid", "result"))
+	}
+	if result.Name == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("name", "result"))
+	}
+	if result.TemplateVersion == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("template_version", "result"))
+	}
+	if result.State == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("state", "result"))
+	}
+	if result.Priority == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("priority", "result"))
+	}
+	if result.Match == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("match", "result"))
+	}
+	if result.Sections == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("sections", "result"))
+	}
+	if result.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "result"))
+	}
+	if result.UpdatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("updated_at", "result"))
+	}
+	if result.State != nil {
+		if !(*result.State == "draft" || *result.State == "published" || *result.State == "archived") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.state", *result.State, []any{"draft", "published", "archived"}))
+		}
+	}
+	if result.Match != nil {
+		if !(*result.Match == "always") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("result.match", *result.Match, []any{"always"}))
+		}
+	}
+	if result.CreatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.created_at", *result.CreatedAt, goa.FormatDateTime))
+	}
+	if result.UpdatedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.updated_at", *result.UpdatedAt, goa.FormatDateTime))
+	}
+	if result.PublishedAt != nil {
+		err = goa.MergeErrors(err, goa.ValidateFormat("result.published_at", *result.PublishedAt, goa.FormatDateTime))
 	}
 	return
 }

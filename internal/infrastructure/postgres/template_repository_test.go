@@ -11,6 +11,7 @@ import (
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
 
 func oneSection(title string) []model.TemplateSection {
@@ -319,5 +320,225 @@ func TestPublishedContentStaysProtectedAfterTheStateMovesOn(t *testing.T) {
 	}
 	if got := after.Sections[0].Items[0].Title; got != "Entity formed" {
 		t.Errorf("stored title = %q, want the published content untouched", got)
+	}
+}
+
+// --- Admin API methods (Create, Update, Publish, Archive, List) ---
+
+func adminDraft(t *testing.T, repo *TemplateRepo, name string, version int) *model.Template {
+	t.Helper()
+	got, err := repo.Create(context.Background(), &model.Template{
+		Name: name, Version: version, Priority: 10, Match: "always",
+		Sections: oneSection("Legal and entity"),
+	})
+	if err != nil {
+		t.Fatalf("Create(%s v%d): %v", name, version, err)
+	}
+	return got
+}
+
+// Update must actually persist the patched fields. This is the database-side
+// assertion for the Bun Column+Set interaction that was invisible without a
+// round-trip check.
+func TestUpdatePersistsAllPatchFields(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "persist-test", 1)
+
+	newPri := 77
+	newMatch := "always"
+	newAuthor := "alice"
+	newSections := []model.TemplateSection{{
+		Key:   "updated",
+		Title: "Updated section",
+		Items: []model.TemplateItem{{Key: "item1", Title: "Item one", StatusSource: model.SourceManual}},
+	}}
+	updated, err := repo.Update(ctx, draft.UID, port.TemplatePatch{
+		Priority: &newPri,
+		Match:    &newMatch,
+		Author:   &newAuthor,
+		Sections: &newSections,
+	})
+	if err != nil {
+		t.Fatalf("Update() = %v", err)
+	}
+
+	if updated.Priority != 77 {
+		t.Errorf("priority = %d, want 77", updated.Priority)
+	}
+	if updated.Author != "alice" {
+		t.Errorf("author = %q, want alice", updated.Author)
+	}
+	if len(updated.Sections) == 0 || updated.Sections[0].Key != "updated" {
+		t.Errorf("sections not persisted; got %+v", updated.Sections)
+	}
+
+	// Re-fetch to confirm the database reflects the change.
+	reloaded, err := repo.Get(ctx, draft.UID)
+	if err != nil {
+		t.Fatalf("Get after Update: %v", err)
+	}
+	if reloaded.Priority != 77 {
+		t.Errorf("reloaded priority = %d, want 77 — Update did not actually write to the database", reloaded.Priority)
+	}
+	if reloaded.Author != "alice" {
+		t.Errorf("reloaded author = %q, want alice", reloaded.Author)
+	}
+}
+
+func TestUpdateRefusedWhenNotDraft(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "upd-pub", 1)
+	if _, err := repo.Publish(ctx, draft.UID); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	newPri := 1
+	_, err := repo.Update(ctx, draft.UID, port.TemplatePatch{Priority: &newPri})
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateNotDraft {
+		t.Fatalf("update published = %v, want ErrConflict[%s]", err, reasonTemplateNotDraft)
+	}
+}
+
+func TestUpdateEmptyPatchReturnsInvalidRequest(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "empty-patch", 1)
+
+	_, err := repo.Update(ctx, draft.UID, port.TemplatePatch{})
+	if !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("empty patch = %v, want domain.ErrInvalidRequest", err)
+	}
+}
+
+func TestCreateConflictOnDuplicateNameVersion(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	adminDraft(t, repo, "dup", 1)
+
+	_, err := repo.Create(ctx, &model.Template{Name: "dup", Version: 1, Match: "always"})
+	if !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("duplicate create = %v, want domain.ErrConflict", err)
+	}
+}
+
+func TestPublishSetsPublishedAtAndLeavesArchiveAlone(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "pub-test", 1)
+
+	published, err := repo.Publish(ctx, draft.UID)
+	if err != nil {
+		t.Fatalf("Publish() = %v", err)
+	}
+	if published.State != model.TemplatePublished {
+		t.Errorf("state = %q, want published", published.State)
+	}
+	if published.PublishedAt == nil {
+		t.Error("published_at is nil after Publish")
+	}
+
+	// Archive must not touch published_at.
+	archived, err := repo.Archive(ctx, draft.UID)
+	if err != nil {
+		t.Fatalf("Archive after Publish: %v", err)
+	}
+	if archived.PublishedAt == nil || !archived.PublishedAt.Equal(*published.PublishedAt) {
+		t.Errorf("published_at changed by Archive: %v → %v", published.PublishedAt, archived.PublishedAt)
+	}
+}
+
+func TestPublishRefusedWhenAlreadyPublished(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "pub2", 1)
+	if _, err := repo.Publish(ctx, draft.UID); err != nil {
+		t.Fatalf("first publish: %v", err)
+	}
+	_, err := repo.Publish(ctx, draft.UID)
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateNotDraft {
+		t.Fatalf("re-publish = %v, want ErrConflict[%s]", err, reasonTemplateNotDraft)
+	}
+}
+
+func TestArchiveAllowedFromDraftAndPublished(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+
+	for _, name := range []string{"arc-draft", "arc-pub"} {
+		draft := adminDraft(t, repo, name, 1)
+		if name == "arc-pub" {
+			if _, err := repo.Publish(ctx, draft.UID); err != nil {
+				t.Fatalf("publish %s: %v", name, err)
+			}
+		}
+		got, err := repo.Archive(ctx, draft.UID)
+		if err != nil {
+			t.Fatalf("Archive(%s) = %v", name, err)
+		}
+		if got.State != model.TemplateArchived {
+			t.Errorf("%s: state = %q, want archived", name, got.State)
+		}
+	}
+}
+
+func TestArchiveRefusedWhenAlreadyArchived(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	draft := adminDraft(t, repo, "arc2", 1)
+	if _, err := repo.Archive(ctx, draft.UID); err != nil {
+		t.Fatalf("first archive: %v", err)
+	}
+	_, err := repo.Archive(ctx, draft.UID)
+	var re *domain.ReasonError
+	if !errors.As(err, &re) || re.Reason != reasonTemplateAlreadyArchived {
+		t.Fatalf("re-archive = %v, want ErrConflict[%s]", err, reasonTemplateAlreadyArchived)
+	}
+}
+
+func TestCreateIgnoresInputState(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+	got, err := repo.Create(ctx, &model.Template{
+		Name: "pub-input", Version: 1, Match: "always",
+		State:    model.TemplatePublished,
+		Priority: 5,
+	})
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	if got.State != model.TemplateDraft {
+		t.Errorf("state = %q, want draft — Create must ignore the caller's state", got.State)
+	}
+	if got.PublishedAt != nil {
+		t.Errorf("published_at = %v, want nil — Create must not stamp publication time", got.PublishedAt)
+	}
+}
+
+func TestListOrdersByNameThenVersion(t *testing.T) {
+	ctx := context.Background()
+	repo := NewTemplateRepo(testDB(t))
+
+	for _, pair := range [][2]any{{"beta", 2}, {"alpha", 1}, {"alpha", 2}, {"beta", 1}} {
+		if _, err := repo.Create(ctx, &model.Template{
+			Name: pair[0].(string), Version: pair[1].(int), Match: "always",
+		}); err != nil {
+			t.Fatalf("create %v v%v: %v", pair[0], pair[1], err)
+		}
+	}
+
+	got, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List() = %v", err)
+	}
+	want := [][2]any{{"alpha", 1}, {"alpha", 2}, {"beta", 1}, {"beta", 2}}
+	for i, w := range want {
+		if got[i].Name != w[0].(string) || got[i].Version != w[1].(int) {
+			t.Errorf("List()[%d] = {%s v%d}, want {%s v%d}",
+				i, got[i].Name, got[i].Version, w[0], w[1])
+		}
 	}
 }

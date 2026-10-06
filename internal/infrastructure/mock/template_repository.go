@@ -9,11 +9,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+)
+
+const (
+	reasonTemplateNotDraft        = "template_not_draft"
+	reasonTemplateAlreadyArchived = "template_already_archived"
 )
 
 // TemplateRepository is an in-memory port.TemplateRepository double.
@@ -89,6 +96,141 @@ func (r *TemplateRepository) Get(_ context.Context, uid uuid.UUID) (*model.Templ
 	return &out, nil
 }
 
+// lessByNameThenVersion mirrors the repository's ORDER BY name ASC, version ASC.
+func lessByNameThenVersion(a, b *model.Template) bool {
+	if a.Name != b.Name {
+		return a.Name < b.Name
+	}
+	return a.Version < b.Version
+}
+
+// List returns all templates regardless of state, ordered by name then version.
+func (r *TemplateRepository) List(_ context.Context) ([]*model.Template, error) {
+	r.record("templates.List")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make([]*model.Template, 0, len(r.templates))
+	for _, t := range r.templates {
+		clone := *t
+		out = append(out, &clone)
+	}
+	// Name then version ascending, mirroring the Postgres query.
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && lessByNameThenVersion(out[j], out[j-1]); j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out, nil
+}
+
+// Create inserts a new draft template.
+func (r *TemplateRepository) Create(_ context.Context, t *model.Template) (*model.Template, error) {
+	r.record("templates.Create")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, existing := range r.templates {
+		if existing.Name == t.Name && existing.Version == t.Version {
+			return nil, fmt.Errorf("%w: template %s v%d already exists", domain.ErrConflict, t.Name, t.Version)
+		}
+	}
+
+	clone := *t
+	clone.UID = uuid.New()
+	clone.State = model.TemplateDraft // creation always starts as draft
+	clone.PublishedAt = nil           // ignore any publication time the caller supplied
+	clone.ApplyUpsertDefaults()
+	now := time.Now().UTC()
+	clone.CreatedAt = now
+	clone.UpdatedAt = now
+	r.templates[clone.UID] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Update applies mutable fields to a draft template.
+func (r *TemplateRepository) Update(_ context.Context, uid uuid.UUID, patch port.TemplatePatch) (*model.Template, error) {
+	r.record("templates.Update")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State != model.TemplateDraft {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
+	}
+	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
+		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
+	}
+
+	clone := *t
+	if patch.Priority != nil {
+		clone.Priority = *patch.Priority
+	}
+	if patch.Match != nil {
+		clone.Match = *patch.Match
+	}
+	if patch.Sections != nil {
+		clone.Sections = *patch.Sections
+	}
+	if patch.Author != nil {
+		clone.Author = *patch.Author
+	}
+	clone.UpdatedAt = time.Now().UTC()
+	r.templates[uid] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Publish transitions a draft template to published.
+func (r *TemplateRepository) Publish(_ context.Context, uid uuid.UUID) (*model.Template, error) {
+	r.record("templates.Publish")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State != model.TemplateDraft {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
+	}
+
+	clone := *t
+	clone.State = model.TemplatePublished
+	now := time.Now().UTC()
+	clone.PublishedAt = &now
+	clone.UpdatedAt = now
+	r.templates[uid] = &clone
+	out := clone
+	return &out, nil
+}
+
+// Archive transitions a template to archived.
+func (r *TemplateRepository) Archive(_ context.Context, uid uuid.UUID) (*model.Template, error) {
+	r.record("templates.Archive")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	t, ok := r.templates[uid]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if t.State == model.TemplateArchived {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateAlreadyArchived)
+	}
+
+	clone := *t
+	clone.State = model.TemplateArchived
+	clone.UpdatedAt = time.Now().UTC()
+	r.templates[uid] = &clone
+	out := clone
+	return &out, nil
+}
+
 // Upsert seeds a template, keyed on name and version so re-running the seed job
 // is a no-op. Editing the content of an already-published version is refused
 // with domain.ErrConflict, mirroring the repository — a double that allowed it
@@ -113,6 +255,7 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 			}
 			clone := *t
 			clone.UID = uid
+			clone.UpdatedAt = time.Now().UTC()
 			// COALESCE(existing, incoming), matching the repository's ON
 			// CONFLICT clause: the first publication time survives a re-seed,
 			// and a draft re-seeded as published picks one up. Overwriting it
@@ -132,6 +275,7 @@ func (r *TemplateRepository) Upsert(_ context.Context, t *model.Template) (*mode
 	if clone.UID == uuid.Nil {
 		clone.UID = uuid.New()
 	}
+	clone.UpdatedAt = time.Now().UTC()
 	r.templates[clone.UID] = &clone
 	out := clone
 	return &out, nil

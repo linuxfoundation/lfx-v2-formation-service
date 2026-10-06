@@ -10,12 +10,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
+)
+
+// Typed reason constants used by state-transition methods so the service layer
+// never has to parse adapter prose to decide which conflict occurred.
+const (
+	reasonTemplateNotDraft        = "template_not_draft"
+	reasonTemplateAlreadyArchived = "template_already_archived"
 )
 
 // TemplateRepo persists and selects checklist templates.
@@ -63,6 +72,140 @@ func (r *TemplateRepo) Get(ctx context.Context, uid uuid.UUID) (*model.Template,
 		return nil, fmt.Errorf("select template: %w", err)
 	}
 	return t, nil
+}
+
+// List returns template metadata ordered by name then version. Sections are
+// excluded here; callers that need the full body should use Get.
+func (r *TemplateRepo) List(ctx context.Context) ([]*model.Template, error) {
+	var templates []*model.Template
+	err := r.db.NewSelect().
+		Model(&templates).
+		ExcludeColumn("sections").
+		Order("name ASC", "version ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list templates: %w", err)
+	}
+	return templates, nil
+}
+
+// Create inserts a new draft template. Returns domain.ErrConflict when a
+// template with the same name+version already exists.
+func (r *TemplateRepo) Create(ctx context.Context, t *model.Template) (*model.Template, error) {
+	t.State = model.TemplateDraft // creation always starts as draft
+	t.PublishedAt = nil           // ignore any publication time the caller supplied
+	t.ApplyUpsertDefaults()
+
+	_, err := r.db.NewInsert().
+		Model(t).
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("%w: template %s v%d already exists", domain.ErrConflict, t.Name, t.Version)
+		}
+		return nil, fmt.Errorf("create template: %w", err)
+	}
+	return t, nil
+}
+
+// Update applies mutable fields to a draft template.
+func (r *TemplateRepo) Update(ctx context.Context, uid uuid.UUID, patch port.TemplatePatch) (*model.Template, error) {
+	// Get populates the current field values so the partial patch can be merged
+	// in before the UPDATE. The state check in the WHERE clause below makes the
+	// transition atomic: a concurrent publish that wins between Get and here
+	// leaves RowsAffected at 0, which we detect and report.
+	t, err := r.Get(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if patch.Priority == nil && patch.Match == nil && patch.Sections == nil && patch.Author == nil {
+		return nil, fmt.Errorf("%w: no fields to update", domain.ErrInvalidRequest)
+	}
+	if patch.Priority != nil {
+		t.Priority = *patch.Priority
+	}
+	if patch.Match != nil {
+		t.Match = *patch.Match
+	}
+	if patch.Sections != nil {
+		t.Sections = *patch.Sections
+	}
+	if patch.Author != nil {
+		t.Author = *patch.Author
+	}
+	t.UpdatedAt = time.Now().UTC()
+
+	// Do NOT combine Column and Set on the same UpdateQuery: Bun's mustAppendSet
+	// takes an early return when len(q.set) > 0, silently ignoring Column. Stamp
+	// updated_at on the model so Column alone drives the full SET clause.
+	res, err := r.db.NewUpdate().
+		Model(t).
+		Column("priority", "match", "sections", "author", "updated_at").
+		Where("uid = ? AND state = ?", uid, model.TemplateDraft).
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("update template: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("update template: %w", err)
+	}
+	if n == 0 {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
+	}
+	return t, nil
+}
+
+// Publish transitions a draft template to published.
+func (r *TemplateRepo) Publish(ctx context.Context, uid uuid.UUID) (*model.Template, error) {
+	// The WHERE predicate is the atomic guard: a concurrent archive between a
+	// prior Get and this UPDATE cannot slip through because the state check
+	// lives in the same statement. We do not pass a scan destination here
+	// because Bun returns sql.ErrNoRows when RETURNING yields no rows (state
+	// predicate not matched), which would shadow the meaningful conflict error.
+	res, err := r.db.NewUpdate().
+		Model((*model.Template)(nil)).
+		Where("uid = ? AND state = ?", uid, model.TemplateDraft).
+		Set("state = ?", model.TemplatePublished).
+		Set("published_at = now()").
+		Set("updated_at = now()").
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("publish template: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("publish template: %w", err)
+	}
+	if n == 0 {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateNotDraft)
+	}
+	return r.Get(ctx, uid)
+}
+
+// Archive transitions a template to archived.
+func (r *TemplateRepo) Archive(ctx context.Context, uid uuid.UUID) (*model.Template, error) {
+	// Same pattern as Publish: the WHERE predicate is the atomic guard, and
+	// we skip the scan destination to avoid Bun returning sql.ErrNoRows when
+	// the predicate matches nothing (already-archived row).
+	res, err := r.db.NewUpdate().
+		Model((*model.Template)(nil)).
+		Where("uid = ? AND state != ?", uid, model.TemplateArchived).
+		Set("state = ?", model.TemplateArchived).
+		Set("updated_at = now()").
+		Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("archive template: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("archive template: %w", err)
+	}
+	if n == 0 {
+		return nil, domain.NewReasonError(domain.ErrConflict, reasonTemplateAlreadyArchived)
+	}
+	return r.Get(ctx, uid)
 }
 
 // Upsert seeds a template version, keyed on UNIQUE (name, version), so

@@ -32,9 +32,9 @@ import (
 	// resource.Default() uses internally: resource.Merge refuses to merge
 	// resources whose schema URLs disagree, and that merge failure is fatal
 	// in main before the server binds, so this has to track whatever
-	// otel/sdk (currently v1.44.0) embeds rather than an independently
+	// otel/sdk (currently v1.45.0) embeds rather than an independently
 	// chosen version.
-	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // OTel protocol and exporter identifiers.

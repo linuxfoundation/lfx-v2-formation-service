@@ -62,6 +62,30 @@ type Client struct {
 	// delete_application endpoint.
 	DeleteApplicationDoer goahttp.Doer
 
+	// ListTemplates Doer is the HTTP client used to make requests to the
+	// list_templates endpoint.
+	ListTemplatesDoer goahttp.Doer
+
+	// GetTemplate Doer is the HTTP client used to make requests to the
+	// get_template endpoint.
+	GetTemplateDoer goahttp.Doer
+
+	// CreateTemplate Doer is the HTTP client used to make requests to the
+	// create_template endpoint.
+	CreateTemplateDoer goahttp.Doer
+
+	// UpdateTemplate Doer is the HTTP client used to make requests to the
+	// update_template endpoint.
+	UpdateTemplateDoer goahttp.Doer
+
+	// PublishTemplate Doer is the HTTP client used to make requests to the
+	// publish_template endpoint.
+	PublishTemplateDoer goahttp.Doer
+
+	// ArchiveTemplate Doer is the HTTP client used to make requests to the
+	// archive_template endpoint.
+	ArchiveTemplateDoer goahttp.Doer
+
 	// Livez Doer is the HTTP client used to make requests to the livez endpoint.
 	LivezDoer goahttp.Doer
 
@@ -100,6 +124,12 @@ func NewClient(
 		AcceptApplicationDoer:    doer,
 		DenyApplicationDoer:      doer,
 		DeleteApplicationDoer:    doer,
+		ListTemplatesDoer:        doer,
+		GetTemplateDoer:          doer,
+		CreateTemplateDoer:       doer,
+		UpdateTemplateDoer:       doer,
+		PublishTemplateDoer:      doer,
+		ArchiveTemplateDoer:      doer,
 		LivezDoer:                doer,
 		ReadyzDoer:               doer,
 		RestoreResponseBody:      restoreBody,
@@ -369,6 +399,150 @@ func (c *Client) DeleteApplication() goa.Endpoint {
 		resp, err := c.DeleteApplicationDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "delete_application", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// ListTemplates returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service list_templates server.
+func (c *Client) ListTemplates() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeListTemplatesRequest(c.encoder)
+		decodeResponse = DecodeListTemplatesResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildListTemplatesRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.ListTemplatesDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "list_templates", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// GetTemplate returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service get_template server.
+func (c *Client) GetTemplate() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeGetTemplateRequest(c.encoder)
+		decodeResponse = DecodeGetTemplateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildGetTemplateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.GetTemplateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "get_template", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// CreateTemplate returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service create_template server.
+func (c *Client) CreateTemplate() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeCreateTemplateRequest(c.encoder)
+		decodeResponse = DecodeCreateTemplateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildCreateTemplateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.CreateTemplateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "create_template", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// UpdateTemplate returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service update_template server.
+func (c *Client) UpdateTemplate() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeUpdateTemplateRequest(c.encoder)
+		decodeResponse = DecodeUpdateTemplateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildUpdateTemplateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.UpdateTemplateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "update_template", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// PublishTemplate returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service publish_template server.
+func (c *Client) PublishTemplate() goa.Endpoint {
+	var (
+		encodeRequest  = EncodePublishTemplateRequest(c.encoder)
+		decodeResponse = DecodePublishTemplateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildPublishTemplateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.PublishTemplateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "publish_template", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// ArchiveTemplate returns an endpoint that makes HTTP requests to the
+// lfx_v2_formation_service service archive_template server.
+func (c *Client) ArchiveTemplate() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeArchiveTemplateRequest(c.encoder)
+		decodeResponse = DecodeArchiveTemplateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildArchiveTemplateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.ArchiveTemplateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("lfx_v2_formation_service", "archive_template", err)
 		}
 		return decodeResponse(resp)
 	}

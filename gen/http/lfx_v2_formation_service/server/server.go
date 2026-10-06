@@ -31,6 +31,12 @@ type Server struct {
 	AcceptApplication    http.Handler
 	DenyApplication      http.Handler
 	DeleteApplication    http.Handler
+	ListTemplates        http.Handler
+	GetTemplate          http.Handler
+	CreateTemplate       http.Handler
+	UpdateTemplate       http.Handler
+	PublishTemplate      http.Handler
+	ArchiveTemplate      http.Handler
 	Livez                http.Handler
 	Readyz               http.Handler
 }
@@ -73,6 +79,12 @@ func New(
 			{"AcceptApplication", "POST", "/project-applications/{uid}/accept"},
 			{"DenyApplication", "POST", "/project-applications/{uid}/deny"},
 			{"DeleteApplication", "DELETE", "/project-applications/{uid}"},
+			{"ListTemplates", "GET", "/formations/templates"},
+			{"GetTemplate", "GET", "/formations/templates/{uid}"},
+			{"CreateTemplate", "POST", "/formations/templates"},
+			{"UpdateTemplate", "PUT", "/formations/templates/{uid}"},
+			{"PublishTemplate", "POST", "/formations/templates/{uid}/publish"},
+			{"ArchiveTemplate", "POST", "/formations/templates/{uid}/archive"},
 			{"Livez", "GET", "/livez"},
 			{"Readyz", "GET", "/readyz"},
 		},
@@ -87,6 +99,12 @@ func New(
 		AcceptApplication:    NewAcceptApplicationHandler(e.AcceptApplication, mux, decoder, encoder, errhandler, formatter),
 		DenyApplication:      NewDenyApplicationHandler(e.DenyApplication, mux, decoder, encoder, errhandler, formatter),
 		DeleteApplication:    NewDeleteApplicationHandler(e.DeleteApplication, mux, decoder, encoder, errhandler, formatter),
+		ListTemplates:        NewListTemplatesHandler(e.ListTemplates, mux, decoder, encoder, errhandler, formatter),
+		GetTemplate:          NewGetTemplateHandler(e.GetTemplate, mux, decoder, encoder, errhandler, formatter),
+		CreateTemplate:       NewCreateTemplateHandler(e.CreateTemplate, mux, decoder, encoder, errhandler, formatter),
+		UpdateTemplate:       NewUpdateTemplateHandler(e.UpdateTemplate, mux, decoder, encoder, errhandler, formatter),
+		PublishTemplate:      NewPublishTemplateHandler(e.PublishTemplate, mux, decoder, encoder, errhandler, formatter),
+		ArchiveTemplate:      NewArchiveTemplateHandler(e.ArchiveTemplate, mux, decoder, encoder, errhandler, formatter),
 		Livez:                NewLivezHandler(e.Livez, mux, decoder, encoder, errhandler, formatter),
 		Readyz:               NewReadyzHandler(e.Readyz, mux, decoder, encoder, errhandler, formatter),
 	}
@@ -108,6 +126,12 @@ func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.AcceptApplication = m(s.AcceptApplication)
 	s.DenyApplication = m(s.DenyApplication)
 	s.DeleteApplication = m(s.DeleteApplication)
+	s.ListTemplates = m(s.ListTemplates)
+	s.GetTemplate = m(s.GetTemplate)
+	s.CreateTemplate = m(s.CreateTemplate)
+	s.UpdateTemplate = m(s.UpdateTemplate)
+	s.PublishTemplate = m(s.PublishTemplate)
+	s.ArchiveTemplate = m(s.ArchiveTemplate)
 	s.Livez = m(s.Livez)
 	s.Readyz = m(s.Readyz)
 }
@@ -128,6 +152,12 @@ func Mount(mux goahttp.Muxer, h *Server) {
 	MountAcceptApplicationHandler(mux, h.AcceptApplication)
 	MountDenyApplicationHandler(mux, h.DenyApplication)
 	MountDeleteApplicationHandler(mux, h.DeleteApplication)
+	MountListTemplatesHandler(mux, h.ListTemplates)
+	MountGetTemplateHandler(mux, h.GetTemplate)
+	MountCreateTemplateHandler(mux, h.CreateTemplate)
+	MountUpdateTemplateHandler(mux, h.UpdateTemplate)
+	MountPublishTemplateHandler(mux, h.PublishTemplate)
+	MountArchiveTemplateHandler(mux, h.ArchiveTemplate)
 	MountLivezHandler(mux, h.Livez)
 	MountReadyzHandler(mux, h.Readyz)
 }
@@ -704,6 +734,326 @@ func NewDeleteApplicationHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
 		ctx = context.WithValue(ctx, goa.MethodKey, "delete_application")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountListTemplatesHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "list_templates" endpoint.
+func MountListTemplatesHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/formations/templates", f)
+}
+
+// NewListTemplatesHandler creates a HTTP handler which loads the HTTP request
+// and calls the "lfx_v2_formation_service" service "list_templates" endpoint.
+func NewListTemplatesHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeListTemplatesRequest(mux, decoder)
+		encodeResponse = EncodeListTemplatesResponse(encoder)
+		encodeError    = EncodeListTemplatesError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "list_templates")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountGetTemplateHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "get_template" endpoint.
+func MountGetTemplateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/formations/templates/{uid}", f)
+}
+
+// NewGetTemplateHandler creates a HTTP handler which loads the HTTP request
+// and calls the "lfx_v2_formation_service" service "get_template" endpoint.
+func NewGetTemplateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeGetTemplateRequest(mux, decoder)
+		encodeResponse = EncodeGetTemplateResponse(encoder)
+		encodeError    = EncodeGetTemplateError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "get_template")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountCreateTemplateHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "create_template" endpoint.
+func MountCreateTemplateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/formations/templates", f)
+}
+
+// NewCreateTemplateHandler creates a HTTP handler which loads the HTTP request
+// and calls the "lfx_v2_formation_service" service "create_template" endpoint.
+func NewCreateTemplateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeCreateTemplateRequest(mux, decoder)
+		encodeResponse = EncodeCreateTemplateResponse(encoder)
+		encodeError    = EncodeCreateTemplateError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "create_template")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountUpdateTemplateHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "update_template" endpoint.
+func MountUpdateTemplateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("PUT", "/formations/templates/{uid}", f)
+}
+
+// NewUpdateTemplateHandler creates a HTTP handler which loads the HTTP request
+// and calls the "lfx_v2_formation_service" service "update_template" endpoint.
+func NewUpdateTemplateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeUpdateTemplateRequest(mux, decoder)
+		encodeResponse = EncodeUpdateTemplateResponse(encoder)
+		encodeError    = EncodeUpdateTemplateError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "update_template")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountPublishTemplateHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "publish_template" endpoint.
+func MountPublishTemplateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/formations/templates/{uid}/publish", f)
+}
+
+// NewPublishTemplateHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service "publish_template"
+// endpoint.
+func NewPublishTemplateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodePublishTemplateRequest(mux, decoder)
+		encodeResponse = EncodePublishTemplateResponse(encoder)
+		encodeError    = EncodePublishTemplateError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "publish_template")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountArchiveTemplateHandler configures the mux to serve the
+// "lfx_v2_formation_service" service "archive_template" endpoint.
+func MountArchiveTemplateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/formations/templates/{uid}/archive", f)
+}
+
+// NewArchiveTemplateHandler creates a HTTP handler which loads the HTTP
+// request and calls the "lfx_v2_formation_service" service "archive_template"
+// endpoint.
+func NewArchiveTemplateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeArchiveTemplateRequest(mux, decoder)
+		encodeResponse = EncodeArchiveTemplateResponse(encoder)
+		encodeError    = EncodeArchiveTemplateError(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "archive_template")
 		ctx = context.WithValue(ctx, goa.ServiceKey, "lfx_v2_formation_service")
 		payload, err := decodeRequest(r)
 		if err != nil {
