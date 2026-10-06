@@ -478,10 +478,10 @@ func TestItemProjectionNeverGainsADrawerOnlyField(t *testing.T) {
 	}
 }
 
-// AccessRelation is auditor for every item, unconditionally — regardless of
-// status, gate, or any other content. There is no code path that produces
+// AccessRelation is auditor_guard for every item, unconditionally — regardless
+// of status, gate, or any other content. There is no code path that produces
 // viewer or an empty value.
-func TestBuildItemProjectionsAccessRelationIsAlwaysAuditor(t *testing.T) {
+func TestBuildItemProjectionsAccessRelationIsAlwaysAuditorGuard(t *testing.T) {
 	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
 	items := []*model.Item{
 		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusNotStarted, Gate: false},

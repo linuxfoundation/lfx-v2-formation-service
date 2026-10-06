@@ -100,8 +100,9 @@ mutation response returns the next token as `ETag`, so no re-read is needed to k
 > **Access:** identical to the checklist document's own guard, applied at item grain rather than
 > project grain — `auditor_guard` on `project:{uid}`, never `viewer` (`viewer` on a project document
 > includes `[user:*]`, and a formation item is not public). `auditor_guard` is `auditor or
-> global_auditor`, so it admits the named global audit team alongside the project's own auditors and
-> nobody else. No new OpenFGA type, relation, or grant exists for this document.
+> global_writer or global_auditor`, so it admits the named global writer and audit teams alongside
+> the project's own auditors and nobody else. No new OpenFGA type, relation, or grant exists for
+> this document.
 
 ### Search Behavior
 

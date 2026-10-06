@@ -363,9 +363,10 @@ func (p *Projector) ancestorChain(ctx context.Context, project port.ProjectRef) 
 // projects that may be confidential. Declaring against viewer would publish all
 // of that to anyone holding an account.
 //
-// The guard does not weaken that. It is defined as `auditor or global_auditor`,
-// and neither side carries a `user:*` grant, so widening from the bare relation
-// admits the named global audit team and nobody else. Staff reach a checklist
+// The guard does not weaken that. It is defined as
+// `auditor or global_writer or global_auditor`, and none of them carries a
+// `user:*` grant, so widening from the bare relation admits the named global
+// writer and audit teams and nobody else. Staff reach a checklist
 // today only because the platform root grants them auditor on every project, and
 // that root grant is being withdrawn; without the guard here they would lose the
 // queue when it goes.
