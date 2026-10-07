@@ -209,8 +209,8 @@ func TestAConfidentialProjectIsPublishedLikeAnyOther(t *testing.T) {
 	if doc.SubStage != model.StageFormationConfidential {
 		t.Errorf("sub_stage = %q, want the confidential stage carried through", doc.SubStage)
 	}
-	if doc.AccessRelation != "auditor" {
-		t.Errorf("access relation = %q, want auditor — this is what withholds the row", doc.AccessRelation)
+	if doc.AccessRelation != "auditor_guard" {
+		t.Errorf("access relation = %q, want auditor_guard — this is what withholds the row", doc.AccessRelation)
 	}
 }
 
@@ -478,10 +478,10 @@ func TestItemProjectionNeverGainsADrawerOnlyField(t *testing.T) {
 	}
 }
 
-// AccessRelation is auditor for every item, unconditionally — regardless of
-// status, gate, or any other content. There is no code path that produces
+// AccessRelation is auditor_guard for every item, unconditionally — regardless
+// of status, gate, or any other content. There is no code path that produces
 // viewer or an empty value.
-func TestBuildItemProjectionsAccessRelationIsAlwaysAuditor(t *testing.T) {
+func TestBuildItemProjectionsAccessRelationIsAlwaysAuditorGuard(t *testing.T) {
 	formation := &model.Formation{UID: uuid.New(), ProjectUID: "project-1"}
 	items := []*model.Item{
 		{UID: uuid.New(), FormationUID: formation.UID, Status: model.StatusNotStarted, Gate: false},
