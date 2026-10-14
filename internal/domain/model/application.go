@@ -91,6 +91,15 @@ type Application struct {
 	// as a URL value like every other answer.
 	Payload map[string]any `bun:"payload,type:jsonb,notnull"`
 
+	// NotifiedSubmittedAt, NotifiedAcceptedAt, and NotifiedDeniedAt are set by
+	// MarkApplicationNotified when the corresponding email is dispatched. A
+	// non-nil value means the send was attempted; nil means it has not been
+	// attempted yet. The columns are written with a conditional UPDATE so only
+	// the first replica to claim the column actually sends the email.
+	NotifiedSubmittedAt *time.Time `bun:"notified_submitted_at"`
+	NotifiedAcceptedAt  *time.Time `bun:"notified_accepted_at"`
+	NotifiedDeniedAt    *time.Time `bun:"notified_denied_at"`
+
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:now()"`
 	UpdatedAt time.Time `bun:"updated_at,nullzero,notnull,default:now()"`
 }

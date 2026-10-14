@@ -124,6 +124,17 @@ func (s *Service) CreateApplication(
 	)
 
 	_ = s.publishApplication(ctx, created)
+	if s.emailDispatchWG != nil {
+		s.emailDispatchWG.Add(1)
+	}
+	go func(a *model.Application) {
+		if s.emailDispatchWG != nil {
+			defer s.emailDispatchWG.Done()
+		}
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emailDispatchTimeout)
+		defer cancel()
+		s.dispatchApplicationSubmittedEmails(dctx, a)
+	}(created)
 
 	return applicationToWire(created), nil
 }

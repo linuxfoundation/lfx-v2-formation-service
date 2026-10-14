@@ -1,0 +1,25 @@
+{{- /* Copyright The Linux Foundation and each contributor to LFX. SPDX-License-Identifier: MIT */ -}}
+Hi{{if .RecipientName}} {{.RecipientName}}{{end}},
+
+We have received your application to start {{.ProjectName}} on LFX. The formation
+team will review it and you will receive an email when a decision has been made.
+
+────────────────────────────────────────────────────────────
+  Project:  {{.ProjectName}}
+  Status:   Received
+────────────────────────────────────────────────────────────
+
+View your application:
+{{.ApplicationURL}}
+{{if .FormationEmail}}
+If you have questions, contact the formation team at {{.FormationEmail}}.
+{{end}}
+Thank you,
+The LFX Team
+
+────────────────────────────────────────────────────────────
+You are receiving this email because you submitted a project application on LFX.
+If you believe this was sent in error or would like to stop receiving these
+notifications, please contact support@lfx.dev.
+
+Copyright © 2026 The Linux Foundation®. All rights reserved.
