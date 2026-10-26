@@ -122,8 +122,9 @@ database:
   # DATABASE_URL — the ExternalSecret that provisions it is declared in
   # lfx-v2-argocd (custom-resources/lfx-v2-formation-service).
   external:
-    # secretName is the K8s Secret the five PG* env vars read from. Matches
-    # the ExternalSecret's target name, which defaults to the chart name.
+    # secretName is the K8s Secret the five PG* env vars read from (default:
+    # the chart name). It must match the target name of the ExternalSecret
+    # declared in lfx-v2-argocd; changing one does not change the other.
     secretName: ""
     shape: "fields"
     # keys maps each DSN field to a secret key. Defaults match the live
