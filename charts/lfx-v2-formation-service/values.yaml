@@ -119,8 +119,8 @@ database:
   # external configures an existing PostgreSQL connection (mode: external
   # only). shape is always "fields" here: the provisioned secret carries
   # host/port/username/password/dbname as five separate keys, not a single
-  # DATABASE_URL — see externalsecret.yaml and the ArgoCD values that
-  # populate externalSecretsOperator.externalSecret.data.
+  # DATABASE_URL — the ExternalSecret that provisions it is declared in
+  # lfx-v2-argocd (custom-resources/lfx-v2-formation-service).
   external:
     # secretName is the K8s Secret the five PG* env vars read from. Matches
     # the ExternalSecret's target name, which defaults to the chart name.
@@ -135,22 +135,6 @@ database:
       username: username
       password: password
       dbname: dbname
-
-# externalSecretsOperator pulls the RDS credential JSON from AWS Secrets
-# Manager and splits it into individual keys. Disabled by default; the
-# ArgoCD values for dev/staging/prod enable it and supply the five-entry
-# data list against /cloudops/rds-managed/lfx-v2/formation.
-externalSecretsOperator:
-  enabled: false
-  externalSecret:
-    refreshInterval: "1h"
-    # data is a list of { secretKey, remoteRef: { key, property? } } entries.
-    data: []
-
-# global is the umbrella-chart scope. awsRegion gates ExternalSecret /
-# SecretStore rendering and is normally set by the parent chart.
-global:
-  awsRegion: ""
 
 # networkPolicy controls the Kubernetes NetworkPolicy for this workload.
 # Allows egress to DNS, NATS (service-to-service request/reply, including

@@ -54,7 +54,7 @@ spec:
           {{- end }}
           {{- if eq .Values.database.mode "external" }}
           # External Postgres referenced by a multi-key Secret (the
-          # ExternalSecret in templates/externalsecret.yaml, which pulls
+          # ExternalSecret declared in lfx-v2-argocd, which pulls
           # /cloudops/rds-managed/lfx-v2/formation from AWS Secrets Manager
           # and exposes each JSON field as its own Secret key). The app
           # composes the DSN in process, so no PG* value is ever passed as

@@ -79,7 +79,7 @@ spec:
             - seed
           # PGPASSWORD is read from the Secret rather than set as a plain value
           # so it stays out of `kubectl describe pod`, matching the Deployment.
-          # The Secret is materialised by the chart's ExternalSecret from
+          # The Secret is materialised by the ExternalSecret declared in lfx-v2-argocd from
           # /cloudops/rds-managed/lfx-v2/formation.
           env:
             - name: PGHOST
