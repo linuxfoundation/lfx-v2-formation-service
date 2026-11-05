@@ -191,6 +191,136 @@ func TestInsertLeavesAnUnassignedItemNull(t *testing.T) {
 	}
 }
 
+// The requires_writer correction is an operator write across every live
+// checklist, so what it must not touch is only observable against real
+// columns: revision and updated_at are set by the database on every other item
+// write, and a statement that bumped them would fail a concurrent editor's
+// precondition for a change they never made.
+func TestRequiresWriterCorrectionTouchesOnlyTheFlagOnLiveChecklists(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+
+	template, err := NewTemplateRepo(db).Upsert(ctx, &model.Template{
+		Name:     "requires-writer-template",
+		Version:  1,
+		State:    model.TemplatePublished,
+		Priority: 100,
+		Match:    "always",
+		Sections: []model.TemplateSection{},
+	})
+	if err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+
+	formationRepo := NewFormationRepo(db)
+	itemRepo := NewItemRepo(db)
+	due := "2026-12-01"
+	checklist := func(project string, lifecycle model.Lifecycle) uuid.UUID {
+		t.Helper()
+		formation, createErr := formationRepo.Create(ctx, &model.Formation{
+			ProjectUID:      project,
+			TemplateUID:     template.UID,
+			TemplateVersion: template.Version,
+		})
+		if createErr != nil {
+			t.Fatalf("seed formation %s: %v", project, createErr)
+		}
+		for i, key := range []string{"mailing_lists", "comms"} {
+			item := &model.Item{
+				FormationUID:   formation.UID,
+				ItemKey:        key,
+				SectionKey:     "community_and_launch",
+				Position:       i,
+				Title:          key,
+				RequiresWriter: true,
+			}
+			item.ApplyInsertDefaults()
+			if _, insertErr := itemRepo.InsertMany(ctx, []*model.Item{item}); insertErr != nil {
+				t.Fatalf("seed item %s/%s: %v", project, key, insertErr)
+			}
+			note, evidence, assignee := "note", "https://example.org/e", "someone"
+			status := model.StatusInProgress
+			if _, updateErr := itemRepo.Update(ctx, item.UID, item.Revision, port.ItemPatch{
+				Status: &status, Note: &note, EvidenceLink: &evidence, Assignee: &assignee, DueDate: &due,
+			}); updateErr != nil {
+				t.Fatalf("seed work state %s/%s: %v", project, key, updateErr)
+			}
+		}
+		if lifecycle != model.LifecycleLive {
+			if _, lcErr := formationRepo.UpdateLifecycle(ctx, formation.UID, lifecycle, formation.Revision); lcErr != nil {
+				t.Fatalf("move %s to %s: %v", project, lifecycle, lcErr)
+			}
+		}
+		return formation.UID
+	}
+	live := checklist("rw-live", model.LifecycleLive)
+	completed := checklist("rw-completed", model.LifecycleCompleted)
+	frozen := checklist("rw-frozen", model.LifecycleFrozen)
+
+	counts, err := itemRepo.CountLiveRequiresWriter(ctx)
+	if err != nil {
+		t.Fatalf("CountLiveRequiresWriter() = %v", err)
+	}
+	if len(counts) != 2 {
+		t.Fatalf("counts = %+v, want one row per key, live only", counts)
+	}
+	for _, c := range counts {
+		if !c.RequiresWriter || c.Count != 1 {
+			t.Errorf("count %+v, want 1 live item still true", c)
+		}
+	}
+
+	before, err := itemRepo.ListByFormation(ctx, live)
+	if err != nil {
+		t.Fatalf("list live items: %v", err)
+	}
+
+	changed, err := itemRepo.SetLiveRequiresWriter(ctx, "comms", false)
+	if err != nil {
+		t.Fatalf("SetLiveRequiresWriter() = %v", err)
+	}
+	if changed != 1 {
+		t.Errorf("changed = %d, want 1 — the live checklist's row only", changed)
+	}
+	again, err := itemRepo.SetLiveRequiresWriter(ctx, "comms", false)
+	if err != nil {
+		t.Fatalf("second SetLiveRequiresWriter() = %v", err)
+	}
+	if again != 0 {
+		t.Errorf("second call changed = %d, want 0", again)
+	}
+
+	after, err := itemRepo.ListByFormation(ctx, live)
+	if err != nil {
+		t.Fatalf("list live items after: %v", err)
+	}
+	for i, item := range after {
+		b := before[i]
+		wantFlag := item.ItemKey != "comms"
+		if item.RequiresWriter != wantFlag {
+			t.Errorf("live %s requires_writer = %v, want %v", item.ItemKey, item.RequiresWriter, wantFlag)
+		}
+		if item.Revision != b.Revision || !item.UpdatedAt.Equal(b.UpdatedAt) ||
+			item.Status != b.Status || item.StatusSource != b.StatusSource ||
+			item.Assignee != b.Assignee || item.Note != b.Note || item.EvidenceLink != b.EvidenceLink ||
+			!item.DueDate.Equal(*b.DueDate) {
+			t.Errorf("live %s changed beyond requires_writer:\n before %+v\n after  %+v", item.ItemKey, b, item)
+		}
+	}
+
+	for name, uid := range map[string]uuid.UUID{"completed": completed, "frozen": frozen} {
+		items, listErr := itemRepo.ListByFormation(ctx, uid)
+		if listErr != nil {
+			t.Fatalf("list %s items: %v", name, listErr)
+		}
+		for _, item := range items {
+			if !item.RequiresWriter {
+				t.Errorf("%s checklist %s was rewritten; only live checklists are corrected", name, item.ItemKey)
+			}
+		}
+	}
+}
+
 // InsertMany's return value is the audit trail's source of truth for what an
 // upgrade added, so it has to name the rows this statement actually wrote. A
 // conflicting row was written by somebody else, and a caller that recorded its

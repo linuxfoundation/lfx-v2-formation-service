@@ -28,6 +28,9 @@ type ItemRepository struct {
 	Recorder
 	mu    sync.Mutex
 	items map[uuid.UUID]*model.Item
+	// formations answers which checklists are live, which the Postgres
+	// repository reads by joining formations. NewUnitOfWork wires it.
+	formations *FormationRepository
 }
 
 // NewItemRepository constructs an empty double.
@@ -178,4 +181,68 @@ func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64
 
 	out := *item
 	return &out, nil
+}
+
+// CountLiveRequiresWriter counts live checklists' items by key and flag,
+// ordered the way the real repository orders them.
+func (r *ItemRepository) CountLiveRequiresWriter(_ context.Context) ([]port.RequiresWriterCount, error) {
+	r.record("items.CountLiveRequiresWriter")
+	live, err := r.liveFormations()
+	if err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	type group struct {
+		key   string
+		value bool
+	}
+	byGroup := make(map[group]int)
+	for _, item := range r.items {
+		if live[item.FormationUID] {
+			byGroup[group{item.ItemKey, item.RequiresWriter}]++
+		}
+	}
+	out := make([]port.RequiresWriterCount, 0, len(byGroup))
+	for g, n := range byGroup {
+		out = append(out, port.RequiresWriterCount{ItemKey: g.key, RequiresWriter: g.value, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ItemKey != out[j].ItemKey {
+			return out[i].ItemKey < out[j].ItemKey
+		}
+		return !out[i].RequiresWriter && out[j].RequiresWriter
+	})
+	return out, nil
+}
+
+// SetLiveRequiresWriter sets the flag on live checklists' items with itemKey,
+// leaving the revision alone as the real repository does.
+func (r *ItemRepository) SetLiveRequiresWriter(_ context.Context, itemKey string, value bool) (int64, error) {
+	r.record("items.SetLiveRequiresWriter")
+	live, err := r.liveFormations()
+	if err != nil {
+		return 0, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var changed int64
+	for _, item := range r.items {
+		if item.ItemKey == itemKey && live[item.FormationUID] && item.RequiresWriter != value {
+			item.RequiresWriter = value
+			changed++
+		}
+	}
+	return changed, nil
+}
+
+// liveFormations is read before r.mu is taken, so the two repositories' locks
+// are never held together.
+func (r *ItemRepository) liveFormations() (map[uuid.UUID]bool, error) {
+	if r.formations == nil {
+		return nil, fmt.Errorf("mock item repository: no formation repository wired; build it through NewUnitOfWork")
+	}
+	return r.formations.liveUIDs(), nil
 }

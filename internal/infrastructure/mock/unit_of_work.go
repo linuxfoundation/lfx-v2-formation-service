@@ -31,6 +31,9 @@ func NewUnitOfWork(
 	templates *TemplateRepository,
 	applications *ApplicationRepository,
 ) *UnitOfWork {
+	if items != nil {
+		items.formations = formations
+	}
 	return &UnitOfWork{tx: tx{
 		formations:   formations,
 		items:        items,

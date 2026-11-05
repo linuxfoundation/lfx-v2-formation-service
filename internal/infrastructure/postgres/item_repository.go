@@ -209,3 +209,42 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 	}
 	return item, nil
 }
+
+// CountLiveRequiresWriter counts live checklists' items by key and flag.
+func (r *ItemRepo) CountLiveRequiresWriter(ctx context.Context) ([]port.RequiresWriterCount, error) {
+	var counts []port.RequiresWriterCount
+	err := r.db.NewSelect().
+		Model((*model.Item)(nil)).
+		Join("JOIN formations AS f ON f.uid = i.formation_uid").
+		ColumnExpr("i.item_key AS item_key").
+		ColumnExpr("i.requires_writer AS requires_writer").
+		ColumnExpr("count(*) AS count").
+		Where("f.lifecycle = ?", model.LifecycleLive).
+		GroupExpr("i.item_key, i.requires_writer").
+		OrderExpr("i.item_key ASC, i.requires_writer ASC").
+		Scan(ctx, &counts)
+	if err != nil {
+		return nil, fmt.Errorf("count live requires_writer: %w", err)
+	}
+	return counts, nil
+}
+
+// SetLiveRequiresWriter corrects requires_writer for one key across live
+// checklists. revision and updated_at are deliberately not set: see the port.
+func (r *ItemRepo) SetLiveRequiresWriter(ctx context.Context, itemKey string, value bool) (int64, error) {
+	res, err := r.db.NewUpdate().
+		Model((*model.Item)(nil)).
+		Set("requires_writer = ?", value).
+		Where("item_key = ?", itemKey).
+		Where("requires_writer <> ?", value).
+		Where("formation_uid IN (SELECT uid FROM formations WHERE lifecycle = ?)", model.LifecycleLive).
+		Exec(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("set live requires_writer for %q: %w", itemKey, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	return n, nil
+}

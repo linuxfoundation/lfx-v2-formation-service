@@ -101,6 +101,21 @@ func (r *FormationRepository) GetByProjectForUpdate(_ context.Context, projectUI
 	return &out, nil
 }
 
+// liveUIDs is the item double's stand-in for joining formations on
+// lifecycle. Unexported and unrecorded: it is not part of the port.
+func (r *FormationRepository) liveUIDs() map[uuid.UUID]bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	live := make(map[uuid.UUID]bool, len(r.byUID))
+	for uid, f := range r.byUID {
+		if f.Lifecycle == model.LifecycleLive {
+			live[uid] = true
+		}
+	}
+	return live
+}
+
 // UpdateLifecycle moves the formation's lifecycle, refusing the write when
 // revision is stale (domain.ErrVersionMismatch).
 func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error) {

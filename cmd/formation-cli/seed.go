@@ -21,11 +21,11 @@ import (
 // templateFS carries the checklist content into the binary so seeding needs no
 // file alongside the image and cannot half-apply from a missing mount.
 //
-//go:embed templates/project_formation_v2.json
+//go:embed templates/project_formation_v3.json
 var templateFS embed.FS
 
 const (
-	seedContentPath = "templates/project_formation_v2.json"
+	seedContentPath = "templates/project_formation_v3.json"
 
 	// seedTemplateName and seedTemplateVersion are the Upsert key, which is
 	// what makes re-running the job a no-op. Editing content without
@@ -45,8 +45,14 @@ const (
 	// Checklists already expanded from version 1 keep it. They are corrected
 	// by the migration in the schema's additive tail, which is keyed on the
 	// item key rather than on the template version.
+	//
+	// Version 3 differs from version 2 only in requires_writer, which every
+	// row now states: true on the three rows whose work creates something in
+	// LFX that needs Manage on the project, false on the rest. Left unset, the
+	// flag defaults to true on every row. Live checklists are corrected by
+	// formation-cli sync-requires-writer, because upgrade only adds rows.
 	seedTemplateName    = "Project formation"
-	seedTemplateVersion = 2
+	seedTemplateVersion = 3
 
 	// seedTemplatePriority is high because lower wins and this is the
 	// fallback. A future template for a narrower kind of formation needs a
