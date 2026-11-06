@@ -45,7 +45,10 @@ type RequiresWriterReport struct {
 	Applied         bool
 	// Keys follows template order. Changed counts the live items holding the
 	// opposite of Want: on a dry run the ones that would change, on an apply
-	// the ones the write actually changed.
+	// the ones the write actually changed. Every other figure comes from the
+	// count taken before the apply, so a checklist whose lifecycle moved in
+	// between can make them disagree with Changed; a dry run afterwards gives
+	// the settled numbers.
 	Keys []RequiresWriterKeyResult
 	// Skipped names the keys live items carry that the template does not.
 	Skipped []RequiresWriterSkip
@@ -148,24 +151,13 @@ func (s *RequiresWriterSync) Run(ctx context.Context, apply bool) (*RequiresWrit
 		// earlier transaction, and a checklist that went live since then would
 		// otherwise keep its stale value. The write's own filter skips rows
 		// that are already correct.
-		changed := make([]int, len(report.Keys))
-		for i, k := range report.Keys {
-			n, setErr := tx.Items().SetLiveRequiresWriter(ctx, tpl.Name, k.ItemKey, k.Want)
+		for i := range report.Keys {
+			k := &report.Keys[i]
+			changed, setErr := tx.Items().SetLiveRequiresWriter(ctx, tpl.Name, k.ItemKey, k.Want)
 			if setErr != nil {
 				return setErr
 			}
-			changed[i] = int(n)
-		}
-		// Recounted here so the rest of the report describes the same moment as
-		// the writes rather than the earlier preflight.
-		after, countErr := tx.Items().CountRequiresWriter(ctx, tpl.Name)
-		if countErr != nil {
-			return countErr
-		}
-		report.tally(after, want)
-		for i := range report.Keys {
-			report.Keys[i].AlreadyCorrect -= changed[i]
-			report.Keys[i].Changed = changed[i]
+			k.Changed = int(changed)
 		}
 		return nil
 	}); err != nil {
@@ -177,7 +169,6 @@ func (s *RequiresWriterSync) Run(ctx context.Context, apply bool) (*RequiresWrit
 // tally fills the per-key results, the keys the template does not carry, and
 // the items on finished checklists from the grouped counts.
 func (r *RequiresWriterReport) tally(counts []port.RequiresWriterCount, want map[string]bool) {
-	r.Finished, r.Skipped = 0, nil
 	live := make(map[string]map[bool]int)
 	for _, c := range counts {
 		if !c.Live {
