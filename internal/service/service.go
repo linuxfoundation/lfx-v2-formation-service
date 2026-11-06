@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"goa.design/goa/v3/security"
@@ -93,6 +94,11 @@ type Service struct {
 	// emailCfg carries the operational email settings (inbox address,
 	// admin tool base URL). Set by WithEmailConfig during startup.
 	emailCfg EmailConfig
+
+	// emailDispatchWG is nil in production. When non-nil, each background
+	// email goroutine calls Add(1)/Done() so tests can Wait() before
+	// asserting on sent messages.
+	emailDispatchWG *sync.WaitGroup
 
 	// refresher republishes a project's indexed documents after one of its
 	// items is written, so an assignment reaches the cross-project surfaces

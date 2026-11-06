@@ -13,7 +13,11 @@ import (
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 )
+
+// Compile-time check that mock satisfies the port.
+var _ port.ApplicationRepository = (*ApplicationRepository)(nil)
 
 // ApplicationRepository is an in-memory port.ApplicationRepository double.
 type ApplicationRepository struct {
@@ -21,6 +25,7 @@ type ApplicationRepository struct {
 	mu        sync.Mutex
 	apps      map[uuid.UUID]*model.Application
 	deletions map[uuid.UUID]*model.ApplicationDeletion
+	notified  map[uuid.UUID]map[string]bool
 }
 
 // NewApplicationRepository constructs an empty double.
@@ -28,6 +33,7 @@ func NewApplicationRepository() *ApplicationRepository {
 	return &ApplicationRepository{
 		apps:      map[uuid.UUID]*model.Application{},
 		deletions: map[uuid.UUID]*model.ApplicationDeletion{},
+		notified:  map[uuid.UUID]map[string]bool{},
 	}
 }
 
@@ -204,6 +210,25 @@ func (r *ApplicationRepository) ListDeletionPage(
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+// MarkApplicationNotified records that a notification claim was acquired for
+// an application column. It returns acquired=true the first time a given
+// column is claimed and false on every subsequent call, matching the
+// conditional-UPDATE behaviour of the postgres implementation. A true return
+// means the caller won the race to send; it does not confirm delivery.
+func (r *ApplicationRepository) MarkApplicationNotified(_ context.Context, uid uuid.UUID, column string) (bool, error) {
+	r.record("applications.MarkApplicationNotified")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.notified[uid] == nil {
+		r.notified[uid] = map[string]bool{}
+	}
+	if r.notified[uid][column] {
+		return false, nil
+	}
+	r.notified[uid][column] = true
+	return true, nil
 }
 
 // lookup returns a copy, so a caller mutating the result cannot change stored

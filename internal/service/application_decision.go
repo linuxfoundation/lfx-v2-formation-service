@@ -17,9 +17,24 @@ import (
 func (s *Service) AcceptApplication(
 	ctx context.Context, p *svc.AcceptApplicationPayload,
 ) (*svc.ProjectApplicationMutationResult, error) {
-	return s.decideApplication(
+	result, err := s.decideApplication(
 		ctx, "accept-application", p.UID, p.IfMatch, model.ApplicationAccepted,
 	)
+	if err != nil {
+		return nil, err
+	}
+	if s.emailDispatchWG != nil {
+		s.emailDispatchWG.Add(1)
+	}
+	go func() {
+		if s.emailDispatchWG != nil {
+			defer s.emailDispatchWG.Done()
+		}
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emailDispatchTimeout)
+		defer cancel()
+		s.dispatchApplicationDecidedEmail(dctx, p.UID, model.ApplicationAccepted)
+	}()
+	return result, nil
 }
 
 // DenyApplication records that an application was denied.
@@ -28,9 +43,24 @@ func (s *Service) AcceptApplication(
 func (s *Service) DenyApplication(
 	ctx context.Context, p *svc.DenyApplicationPayload,
 ) (*svc.ProjectApplicationMutationResult, error) {
-	return s.decideApplication(
+	result, err := s.decideApplication(
 		ctx, "deny-application", p.UID, p.IfMatch, model.ApplicationDenied,
 	)
+	if err != nil {
+		return nil, err
+	}
+	if s.emailDispatchWG != nil {
+		s.emailDispatchWG.Add(1)
+	}
+	go func() {
+		if s.emailDispatchWG != nil {
+			defer s.emailDispatchWG.Done()
+		}
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emailDispatchTimeout)
+		defer cancel()
+		s.dispatchApplicationDecidedEmail(dctx, p.UID, model.ApplicationDenied)
+	}()
+	return result, nil
 }
 
 // decideApplication records one decision against an application.

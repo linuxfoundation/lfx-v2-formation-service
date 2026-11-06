@@ -177,7 +177,7 @@ func LoadConfig() *Config {
 		ReconcileInterval: durationOrDefault(constants.EnvReconcileInterval, constants.DefaultReconcileInterval),
 		Email: EmailConfig{
 			Enabled:        emailEnabled(),
-			FormationInbox: envOrDefault(constants.EnvFormationInboxEmail, constants.DefaultFormationInboxEmail),
+			FormationInbox: lookupOrDefault(constants.EnvFormationInboxEmail, constants.DefaultFormationInboxEmail),
 			AdminBaseURL:   envOrDefault(constants.EnvFormationAdminBaseURL, constants.DefaultFormationAdminBaseURL),
 		},
 		ApplicationFormationTeam: envOrDefault(constants.EnvApplicationFormationTeam, constants.DefaultApplicationFormationTeam),
@@ -214,6 +214,18 @@ func emailEnabled() bool {
 
 func envOrDefault(key, def string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// lookupOrDefault returns the environment variable value when the variable is
+// present in the environment (even if its value is ""), and returns def only
+// when the variable is absent. This lets callers disable a feature by setting
+// the variable to an empty string, unlike envOrDefault which treats "" and
+// absent identically.
+func lookupOrDefault(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return def
