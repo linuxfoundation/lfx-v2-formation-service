@@ -13,14 +13,20 @@ import (
 
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/model"
+	"github.com/linuxfoundation/lfx-v2-formation-service/internal/domain/port"
 	"github.com/linuxfoundation/lfx-v2-formation-service/internal/infrastructure/mock"
 )
 
+const syncTemplateName = "Project formation"
+
 type syncFixture struct {
 	sync       *RequiresWriterSync
+	uow        port.UnitOfWork
 	templates  *mock.TemplateRepository
 	formations *mock.FormationRepository
 	items      *mock.ItemRepository
+	// legacy is the archived version 1 that existing checklists pin.
+	legacy uuid.UUID
 }
 
 func newSyncFixture(t *testing.T) *syncFixture {
@@ -29,43 +35,61 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	items := mock.NewItemRepository()
 	templates := mock.NewTemplateRepository()
 	uow := mock.NewUnitOfWork(formations, items, mock.NewActivityRepository(), templates, mock.NewApplicationRepository())
-	return &syncFixture{
+	f := &syncFixture{
 		sync:       NewRequiresWriterSync(NewTemplateSelector(templates), uow),
+		uow:        uow,
 		templates:  templates,
 		formations: formations,
 		items:      items,
 	}
+	f.legacy = f.upsert(t, syncTemplateName, 1, model.TemplateArchived, nil)
+	return f
+}
+
+func (f *syncFixture) upsert(t *testing.T, name string, version int, state model.TemplateState, sections []model.TemplateSection) uuid.UUID {
+	t.Helper()
+	if sections == nil {
+		sections = []model.TemplateSection{}
+	}
+	tpl, err := f.templates.Upsert(context.Background(), &model.Template{
+		Name:     name,
+		Version:  version,
+		State:    state,
+		Priority: 100,
+		Match:    MatchAlways,
+		Sections: sections,
+	})
+	if err != nil {
+		t.Fatalf("upserting %s v%d: %v", name, version, err)
+	}
+	return tpl.UID
 }
 
 func (f *syncFixture) publish(t *testing.T, version int, sections []model.TemplateSection) {
 	t.Helper()
-	if _, err := f.templates.Upsert(context.Background(), &model.Template{
-		Name:     "Project formation",
-		Version:  version,
-		State:    model.TemplatePublished,
-		Priority: 100,
-		Match:    MatchAlways,
-		Sections: sections,
-	}); err != nil {
-		t.Fatalf("publishing template v%d: %v", version, err)
-	}
+	f.upsert(t, syncTemplateName, version, model.TemplatePublished, sections)
 }
 
-// checklist creates one formation in lifecycle with every key set to
-// requiresWriter, standing in for a checklist expanded from version 1.
+// checklist creates one formation pinned to the legacy version, in lifecycle,
+// with every key set to requiresWriter.
 func (f *syncFixture) checklist(t *testing.T, project string, lifecycle model.Lifecycle, requiresWriter bool, keys ...string) uuid.UUID {
+	t.Helper()
+	return f.checklistFrom(t, f.legacy, project, lifecycle, requiresWriter, keys...).UID
+}
+
+func (f *syncFixture) checklistFrom(t *testing.T, templateUID uuid.UUID, project string, lifecycle model.Lifecycle, requiresWriter bool, keys ...string) *model.Formation {
 	t.Helper()
 	ctx := context.Background()
 	formation, err := f.formations.Create(ctx, &model.Formation{
 		ProjectUID:      project,
-		TemplateUID:     uuid.New(),
+		TemplateUID:     templateUID,
 		TemplateVersion: 1,
 	})
 	if err != nil {
 		t.Fatalf("creating formation: %v", err)
 	}
 	if lifecycle != model.LifecycleLive {
-		if _, err := f.formations.UpdateLifecycle(ctx, formation.UID, lifecycle, formation.Revision); err != nil {
+		if formation, err = f.formations.UpdateLifecycle(ctx, formation.UID, lifecycle, formation.Revision); err != nil {
 			t.Fatalf("moving formation to %s: %v", lifecycle, err)
 		}
 	}
@@ -90,7 +114,7 @@ func (f *syncFixture) checklist(t *testing.T, project string, lifecycle model.Li
 	if _, err := f.items.InsertMany(ctx, items); err != nil {
 		t.Fatalf("inserting items: %v", err)
 	}
-	return formation.UID
+	return formation
 }
 
 func (f *syncFixture) byKey(t *testing.T, formationUID uuid.UUID) map[string]*model.Item {
@@ -185,6 +209,9 @@ func TestRequiresWriterSyncAppliesOnlyToLiveMismatches(t *testing.T) {
 	if report.Changed() != 2 {
 		t.Errorf("changed = %d, want 2 — only the live checklist's two false rows", report.Changed())
 	}
+	if report.Finished != 6 {
+		t.Errorf("finished = %d, want 6 — three items on each of the completed and frozen checklists", report.Finished)
+	}
 
 	after := f.byKey(t, live)
 	want := map[string]bool{"mailing_lists": true, "domain_dns": false, "comms": false}
@@ -231,6 +258,80 @@ func TestRequiresWriterSyncIsIdempotent(t *testing.T) {
 	}
 	if second.AlreadyCorrect() != 3 {
 		t.Errorf("second apply already correct = %d, want 3", second.AlreadyCorrect())
+	}
+}
+
+// lifecycleFlipUoW moves a checklist between the count's transaction and the
+// apply's, which is the window a real run leaves open.
+type lifecycleFlipUoW struct {
+	port.UnitOfWork
+	calls  int
+	before func()
+}
+
+func (u *lifecycleFlipUoW) Do(ctx context.Context, fn func(port.Tx) error) error {
+	u.calls++
+	if u.calls == 2 && u.before != nil {
+		u.before()
+	}
+	return u.UnitOfWork.Do(ctx, fn)
+}
+
+// The count is a preflight in its own transaction. A checklist unfrozen after
+// it — a project moving from Disengaged back to a forming stage — holds keys
+// the count saw no live mismatch for, and the apply still has to reach them.
+func TestRequiresWriterSyncCorrectsAChecklistThatWentLiveAfterTheCount(t *testing.T) {
+	ctx := context.Background()
+	f := newSyncFixture(t)
+	f.publish(t, 3, writerSplitSections())
+	frozen := f.checklistFrom(t, f.legacy, "p-unfrozen", model.LifecycleFrozen, true, "mailing_lists", "domain_dns", "comms")
+
+	uow := &lifecycleFlipUoW{UnitOfWork: f.uow, before: func() {
+		if _, err := f.formations.UpdateLifecycle(ctx, frozen.UID, model.LifecycleLive, frozen.Revision); err != nil {
+			t.Fatalf("unfreezing: %v", err)
+		}
+	}}
+	report, err := NewRequiresWriterSync(NewTemplateSelector(f.templates), uow).Run(ctx, true)
+	if err != nil {
+		t.Fatalf("Run(apply) = %v", err)
+	}
+
+	want := map[string]bool{"mailing_lists": true, "domain_dns": false, "comms": false}
+	for key, item := range f.byKey(t, frozen.UID) {
+		if item.RequiresWriter != want[key] {
+			t.Errorf("%s requires_writer = %v, want %v — the apply skipped a key the stale count found nothing wrong with", key, item.RequiresWriter, want[key])
+		}
+	}
+	if report.Changed() != 2 || report.AlreadyCorrect() != 1 || report.Finished != 0 {
+		t.Errorf("changed = %d, already correct = %d, finished = %d; want 2, 1 and 0 — the report should describe the checklist as the apply found it",
+			report.Changed(), report.AlreadyCorrect(), report.Finished)
+	}
+}
+
+// Another template's checklists may share item keys and choose differently.
+// The sync reads and writes only the selected template's family.
+func TestRequiresWriterSyncLeavesAnotherTemplatesChecklistsAlone(t *testing.T) {
+	ctx := context.Background()
+	f := newSyncFixture(t)
+	f.publish(t, 3, writerSplitSections())
+	other := f.upsert(t, "Other formation", 1, model.TemplateArchived, nil)
+	mine := f.checklist(t, "p-mine", model.LifecycleLive, true, "mailing_lists", "domain_dns", "comms")
+	theirs := f.checklistFrom(t, other, "p-theirs", model.LifecycleLive, true, "mailing_lists", "domain_dns", "comms").UID
+
+	report, err := f.sync.Run(ctx, true)
+	if err != nil {
+		t.Fatalf("Run(apply) = %v", err)
+	}
+	if report.Changed() != 2 || report.AlreadyCorrect() != 1 {
+		t.Errorf("changed = %d, already correct = %d; want 2 and 1 — this family's checklist only", report.Changed(), report.AlreadyCorrect())
+	}
+	if f.byKey(t, mine)["domain_dns"].RequiresWriter {
+		t.Error("this family's domain_dns was not corrected")
+	}
+	for key, item := range f.byKey(t, theirs) {
+		if !item.RequiresWriter {
+			t.Errorf("another template's %s was rewritten", key)
+		}
 	}
 }
 
@@ -285,7 +386,7 @@ func TestRequiresWriterSyncRefusesATemplateThatLeavesTheFlagUnset(t *testing.T) 
 	if _, err := f.sync.Run(ctx, true); err == nil {
 		t.Fatal("Run against a template leaving requires_writer unset = nil, want a refusal")
 	}
-	if n := f.items.Calls()["items.CountLiveRequiresWriter"]; n != 0 {
+	if n := f.items.Calls()["items.CountRequiresWriter"]; n != 0 {
 		t.Errorf("a refused run read items %d times", n)
 	}
 	if n := f.items.Calls()["items.SetLiveRequiresWriter"]; n != 0 {

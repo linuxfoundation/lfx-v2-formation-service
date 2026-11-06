@@ -31,8 +31,9 @@ func parseSyncRequiresWriterArgs(args []string) (apply bool, err error) {
 	return apply, nil
 }
 
-// syncRequiresWriterCommand corrects requires_writer on live checklists to the
-// published template's values. A dry run unless --apply is given.
+// syncRequiresWriterCommand corrects requires_writer on live checklists
+// expanded from any version of the published template's name to that
+// template's values. A dry run unless --apply is given.
 func syncRequiresWriterCommand(ctx context.Context, args []string) error {
 	apply, err := parseSyncRequiresWriterArgs(args)
 	if errors.Is(err, flag.ErrHelp) {
@@ -69,15 +70,14 @@ func logRequiresWriterReport(ctx context.Context, report *service.RequiresWriter
 			"template", report.TemplateName,
 			"template_version", report.TemplateVersion,
 			"item_key", k.ItemKey,
-			"from", !k.Want,
-			"to", k.Want,
+			"want", k.Want,
 			"changed", k.Changed,
 			"already_correct", k.AlreadyCorrect,
 		)
 	}
-	skipped := 0
+	notInTemplate := 0
 	for _, s := range report.Skipped {
-		skipped += s.Count
+		notInTemplate += s.Count
 		slog.WarnContext(ctx, "requires_writer skipped",
 			"mode", mode,
 			"item_key", s.ItemKey,
@@ -91,6 +91,7 @@ func logRequiresWriterReport(ctx context.Context, report *service.RequiresWriter
 		"template_version", report.TemplateVersion,
 		"changed", report.Changed(),
 		"already_correct", report.AlreadyCorrect(),
-		"skipped", skipped,
+		"skipped_not_in_template", notInTemplate,
+		"skipped_finished", report.Finished,
 	)
 }

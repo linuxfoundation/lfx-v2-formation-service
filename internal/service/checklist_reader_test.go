@@ -607,10 +607,10 @@ func (f failingItemRepository) GetByKey(context.Context, uuid.UUID, string) (*mo
 func (f failingItemRepository) Update(context.Context, uuid.UUID, int64, port.ItemPatch) (*model.Item, error) {
 	return nil, f.err
 }
-func (f failingItemRepository) CountLiveRequiresWriter(context.Context) ([]port.RequiresWriterCount, error) {
+func (f failingItemRepository) CountRequiresWriter(context.Context, string) ([]port.RequiresWriterCount, error) {
 	return nil, f.err
 }
-func (f failingItemRepository) SetLiveRequiresWriter(context.Context, string, bool) (int64, error) {
+func (f failingItemRepository) SetLiveRequiresWriter(context.Context, string, string, bool) (int64, error) {
 	return 0, f.err
 }
 

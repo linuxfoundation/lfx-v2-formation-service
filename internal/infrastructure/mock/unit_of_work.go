@@ -33,6 +33,7 @@ func NewUnitOfWork(
 ) *UnitOfWork {
 	if items != nil {
 		items.formations = formations
+		items.templates = templates
 	}
 	return &UnitOfWork{tx: tx{
 		formations:   formations,

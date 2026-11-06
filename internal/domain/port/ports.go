@@ -90,25 +90,27 @@ type ItemRepository interface {
 	// transport reports as a failed precondition rather than a conflict.
 	Update(ctx context.Context, uid uuid.UUID, revision int64, patch ItemPatch) (*model.Item, error)
 
-	// CountLiveRequiresWriter counts the items on live checklists, grouped by
-	// item key and requires_writer value. Completed and frozen checklists are
-	// excluded because nothing corrects them.
-	CountLiveRequiresWriter(ctx context.Context) ([]RequiresWriterCount, error)
+	// CountRequiresWriter counts the items on checklists expanded from any
+	// version of the template named templateName, grouped by item key,
+	// requires_writer value, and whether the checklist is live.
+	CountRequiresWriter(ctx context.Context, templateName string) ([]RequiresWriterCount, error)
 
 	// SetLiveRequiresWriter sets requires_writer to value on every item with
-	// itemKey whose checklist is live and whose value differs, returning how
+	// itemKey whose checklist is live, was expanded from a version of the
+	// template named templateName, and holds a different value, returning how
 	// many rows changed. Like the status_source correction in the schema's
 	// additive tail, it writes outside the optimistic lock: it changes no other
 	// column, leaves revision and updated_at alone, and so cannot invalidate an
 	// editor's precondition. The lifecycle is checked in the same statement,
 	// so a checklist completed before the statement runs is left alone.
-	SetLiveRequiresWriter(ctx context.Context, itemKey string, value bool) (int64, error)
+	SetLiveRequiresWriter(ctx context.Context, templateName, itemKey string, value bool) (int64, error)
 }
 
-// RequiresWriterCount is one group in CountLiveRequiresWriter's result.
+// RequiresWriterCount is one group in CountRequiresWriter's result.
 type RequiresWriterCount struct {
 	ItemKey        string
 	RequiresWriter bool
+	Live           bool
 	Count          int
 }
 

@@ -191,36 +191,44 @@ func TestInsertLeavesAnUnassignedItemNull(t *testing.T) {
 	}
 }
 
-// The requires_writer correction is an operator write across every live
-// checklist, so what it must not touch is only observable against real
-// columns: revision and updated_at are set by the database on every other item
-// write, and a statement that bumped them would fail a concurrent editor's
-// precondition for a change they never made.
+// The requires_writer correction is an operator write across one template
+// family's live checklists, so what it must not touch is only observable
+// against real columns: revision and updated_at are set by the database on
+// every other item write, and a statement that bumped them would fail a
+// concurrent editor's precondition for a change they never made.
 func TestRequiresWriterCorrectionTouchesOnlyTheFlagOnLiveChecklists(t *testing.T) {
 	ctx := context.Background()
 	db := testDB(t)
 
-	template, err := NewTemplateRepo(db).Upsert(ctx, &model.Template{
-		Name:     "requires-writer-template",
-		Version:  1,
-		State:    model.TemplatePublished,
-		Priority: 100,
-		Match:    "always",
-		Sections: []model.TemplateSection{},
-	})
-	if err != nil {
-		t.Fatalf("seed template: %v", err)
+	const family = "requires-writer-template"
+	seedTemplate := func(name string, version int) *model.Template {
+		t.Helper()
+		tpl, seedErr := NewTemplateRepo(db).Upsert(ctx, &model.Template{
+			Name:     name,
+			Version:  version,
+			State:    model.TemplatePublished,
+			Priority: 100,
+			Match:    "always",
+			Sections: []model.TemplateSection{},
+		})
+		if seedErr != nil {
+			t.Fatalf("seed template %s: %v", name, seedErr)
+		}
+		return tpl
 	}
+	template := seedTemplate(family, 1)
+	newer := seedTemplate(family, 2)
+	other := seedTemplate("other-requires-writer-template", 1)
 
 	formationRepo := NewFormationRepo(db)
 	itemRepo := NewItemRepo(db)
 	due := "2026-12-01"
-	checklist := func(project string, lifecycle model.Lifecycle) uuid.UUID {
+	checklistFrom := func(tpl *model.Template, project string, lifecycle model.Lifecycle) uuid.UUID {
 		t.Helper()
 		formation, createErr := formationRepo.Create(ctx, &model.Formation{
 			ProjectUID:      project,
-			TemplateUID:     template.UID,
-			TemplateVersion: template.Version,
+			TemplateUID:     tpl.UID,
+			TemplateVersion: tpl.Version,
 		})
 		if createErr != nil {
 			t.Fatalf("seed formation %s: %v", project, createErr)
@@ -253,20 +261,22 @@ func TestRequiresWriterCorrectionTouchesOnlyTheFlagOnLiveChecklists(t *testing.T
 		}
 		return formation.UID
 	}
-	live := checklist("rw-live", model.LifecycleLive)
-	completed := checklist("rw-completed", model.LifecycleCompleted)
-	frozen := checklist("rw-frozen", model.LifecycleFrozen)
+	live := checklistFrom(template, "rw-live", model.LifecycleLive)
+	liveNewer := checklistFrom(newer, "rw-live-newer", model.LifecycleLive)
+	completed := checklistFrom(template, "rw-completed", model.LifecycleCompleted)
+	frozen := checklistFrom(template, "rw-frozen", model.LifecycleFrozen)
+	otherLive := checklistFrom(other, "rw-other-live", model.LifecycleLive)
 
-	counts, err := itemRepo.CountLiveRequiresWriter(ctx)
+	counts, err := itemRepo.CountRequiresWriter(ctx, family)
 	if err != nil {
-		t.Fatalf("CountLiveRequiresWriter() = %v", err)
+		t.Fatalf("CountRequiresWriter() = %v", err)
 	}
-	if len(counts) != 2 {
-		t.Fatalf("counts = %+v, want one row per key, live only", counts)
+	if len(counts) != 4 {
+		t.Fatalf("counts = %+v, want a live and a finished row per key, this family only", counts)
 	}
-	for _, c := range counts {
-		if !c.RequiresWriter || c.Count != 1 {
-			t.Errorf("count %+v, want 1 live item still true", c)
+	for i, c := range counts {
+		if !c.RequiresWriter || c.Count != 2 || c.Live != (i%2 == 1) {
+			t.Errorf("count %+v, want 2 items still true, finished before live — both versions live, two finished", c)
 		}
 	}
 
@@ -275,19 +285,29 @@ func TestRequiresWriterCorrectionTouchesOnlyTheFlagOnLiveChecklists(t *testing.T
 		t.Fatalf("list live items: %v", err)
 	}
 
-	changed, err := itemRepo.SetLiveRequiresWriter(ctx, "comms", false)
+	changed, err := itemRepo.SetLiveRequiresWriter(ctx, family, "comms", false)
 	if err != nil {
 		t.Fatalf("SetLiveRequiresWriter() = %v", err)
 	}
-	if changed != 1 {
-		t.Errorf("changed = %d, want 1 — the live checklist's row only", changed)
+	if changed != 2 {
+		t.Errorf("changed = %d, want 2 — one row on each version's live checklist", changed)
 	}
-	again, err := itemRepo.SetLiveRequiresWriter(ctx, "comms", false)
+	again, err := itemRepo.SetLiveRequiresWriter(ctx, family, "comms", false)
 	if err != nil {
 		t.Fatalf("second SetLiveRequiresWriter() = %v", err)
 	}
 	if again != 0 {
 		t.Errorf("second call changed = %d, want 0", again)
+	}
+
+	newerItems, err := itemRepo.ListByFormation(ctx, liveNewer)
+	if err != nil {
+		t.Fatalf("list newer version's live items: %v", err)
+	}
+	for _, item := range newerItems {
+		if item.RequiresWriter != (item.ItemKey != "comms") {
+			t.Errorf("newer version's live %s requires_writer = %v", item.ItemKey, item.RequiresWriter)
+		}
 	}
 
 	after, err := itemRepo.ListByFormation(ctx, live)
@@ -308,14 +328,14 @@ func TestRequiresWriterCorrectionTouchesOnlyTheFlagOnLiveChecklists(t *testing.T
 		}
 	}
 
-	for name, uid := range map[string]uuid.UUID{"completed": completed, "frozen": frozen} {
+	for name, uid := range map[string]uuid.UUID{"completed": completed, "frozen": frozen, "other template's live": otherLive} {
 		items, listErr := itemRepo.ListByFormation(ctx, uid)
 		if listErr != nil {
 			t.Fatalf("list %s items: %v", name, listErr)
 		}
 		for _, item := range items {
 			if !item.RequiresWriter {
-				t.Errorf("%s checklist %s was rewritten; only live checklists are corrected", name, item.ItemKey)
+				t.Errorf("%s checklist %s was rewritten; only this family's live checklists are corrected", name, item.ItemKey)
 			}
 		}
 	}
