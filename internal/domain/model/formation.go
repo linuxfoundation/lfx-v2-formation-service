@@ -89,7 +89,10 @@ type Item struct {
 	SectionKey string `bun:"section_key,notnull"`
 	Position   int    `bun:"position,notnull"`
 
-	// Copied from the template at expansion and immutable thereafter.
+	// Copied from the template at expansion and immutable thereafter, except
+	// for operator corrections on live checklists: the schema's additive tail
+	// resets StatusSource on one row, and formation-cli sync-requires-writer
+	// sets RequiresWriter to the published template's value.
 	Title          string         `bun:"title,notnull"`
 	OwnerTeam      string         `bun:"owner_team"`
 	Gate           bool           `bun:"gate,notnull"`
@@ -280,11 +283,13 @@ type TemplateItem struct {
 }
 
 // RequiresWriterOrDefault resolves the authored value, defaulting to true when
-// the template omits it: nearly every item is either set by hand or creates
-// something on the platform, so acting on it needs Manage. Getting this wrong
-// in the permissive direction is the costlier mistake — the value drives the
-// prompt that elevates a viewer's access before an item is assigned to them,
-// so a false here means that prompt silently never appears.
+// the template omits it. The flag says whether the item's work creates
+// something inside LFX that needs Manage on the project; it drives the prompt
+// that elevates an assignee's access at assignment, and no permission check
+// reads it. True is the safer default for an omitted value: a needless true
+// shows a prompt nobody needed, while a wrong false lets someone be assigned
+// work they cannot do. Templates state the value on every item rather than
+// relying on this.
 func (ti *TemplateItem) RequiresWriterOrDefault() bool {
 	if ti.RequiresWriter == nil {
 		return true

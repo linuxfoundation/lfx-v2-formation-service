@@ -209,3 +209,49 @@ func (r *ItemRepo) Update(ctx context.Context, uid uuid.UUID, revision int64, pa
 	}
 	return item, nil
 }
+
+// CountRequiresWriter counts one template family's items by key, flag and
+// whether the checklist is live.
+func (r *ItemRepo) CountRequiresWriter(ctx context.Context, templateName string) ([]port.RequiresWriterCount, error) {
+	var counts []port.RequiresWriterCount
+	err := r.db.NewSelect().
+		Model((*model.Item)(nil)).
+		Join("JOIN formations AS f ON f.uid = i.formation_uid").
+		Join("JOIN formation_templates AS t ON t.uid = f.template_uid").
+		ColumnExpr("i.item_key AS item_key").
+		ColumnExpr("i.requires_writer AS requires_writer").
+		ColumnExpr("f.lifecycle = ? AS live", model.LifecycleLive).
+		ColumnExpr("count(*) AS count").
+		Where("t.name = ?", templateName).
+		GroupExpr("i.item_key, i.requires_writer, live").
+		OrderExpr("i.item_key ASC, i.requires_writer ASC, live ASC").
+		Scan(ctx, &counts)
+	if err != nil {
+		return nil, fmt.Errorf("count requires_writer: %w", err)
+	}
+	return counts, nil
+}
+
+// SetLiveRequiresWriter corrects requires_writer for one key across one
+// template family's live checklists. revision and updated_at are deliberately
+// not set: see the port.
+func (r *ItemRepo) SetLiveRequiresWriter(ctx context.Context, templateName, itemKey string, value bool) (int64, error) {
+	res, err := r.db.NewUpdate().
+		Model((*model.Item)(nil)).
+		Set("requires_writer = ?", value).
+		Where("item_key = ?", itemKey).
+		Where("requires_writer <> ?", value).
+		Where(`formation_uid IN (
+			SELECT f.uid FROM formations AS f
+			JOIN formation_templates AS t ON t.uid = f.template_uid
+			WHERE f.lifecycle = ? AND t.name = ?)`, model.LifecycleLive, templateName).
+		Exec(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("set live requires_writer for %q: %w", itemKey, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	return n, nil
+}

@@ -74,7 +74,10 @@ CREATE TABLE IF NOT EXISTS formation_items (
     -- sends a zero-valued notnull column rather than omitting it, which would
     -- silently persist false against a true default. The template side models
     -- it as *bool for that reason -- see TemplateItem.RequiresWriterOrDefault.
-    requires_writer BOOLEAN     NOT NULL DEFAULT true,       -- acting on it needs Manage; drives the elevation prompt
+    -- Like status_source in the additive tail below, it can be corrected
+    -- after expansion: formation-cli sync-requires-writer does so on live
+    -- checklists.
+    requires_writer BOOLEAN     NOT NULL DEFAULT true,       -- its work creates an LFX resource needing Manage; drives the elevation prompt, no permission check reads it
     status_source   TEXT        NOT NULL DEFAULT 'manual',   -- manual | platform
     -- Defaults false, unlike requires_writer: a template marks the rows it
     -- genuinely requires rather than excusing the rest. Agreeing with Go's
