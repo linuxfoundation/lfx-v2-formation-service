@@ -50,7 +50,7 @@ service.
 | `status_source` | string enum | `manual \| platform` — whether the status is hand-set or driven by a platform check. Drives the row's action affordance |
 | `status` | string enum | `not_started \| in_progress \| blocked \| done \| skipped` |
 | `gate` | bool | Whether this item blocks the project's Active transition |
-| `requires_writer` | bool | Whether acting on this item needs `writer` on the project. A fact about the item; whether the caller holds `writer` is a fact about the caller, which a shared document cannot carry. A row decides actionability from the two together |
+| `requires_writer` | bool | Whether the item's work creates something inside LFX that its assignee could only create while holding `writer` on the project (a mailing list, a committee, meeting registrations). Drives the prompt to elevate an assignee's access at assignment; no permission check reads it |
 | `due_date` | string (ISO date, optional) | Omitted when unset |
 | `owner_team` | string (optional) | Omitted when unset |
 | `action_link` | string (optional) | Omitted when unset. Says whether a link exists; says nothing about who may use it — the per-caller capability to act is a live check on the action itself, outside this document's scope |

@@ -62,8 +62,9 @@ type FormationRepository interface {
 	MarkNotified(ctx context.Context, uid uuid.UUID, column string) (acquired bool, err error)
 }
 
-// ItemRepository stores checklist items. Every mutation carries the caller's
-// revision and fails rather than overwriting a newer value.
+// ItemRepository stores checklist items. Every mutation a caller makes carries
+// the caller's revision and fails rather than overwriting a newer value;
+// SetLiveRequiresWriter, an operator correction, is the exception.
 type ItemRepository interface {
 	// InsertMany expands a checklist. Items already present by key are left
 	// untouched, which is what makes expansion and upgrade idempotent.
@@ -88,6 +89,29 @@ type ItemRepository interface {
 	// ErrVersionMismatch when the caller's revision is stale, which the
 	// transport reports as a failed precondition rather than a conflict.
 	Update(ctx context.Context, uid uuid.UUID, revision int64, patch ItemPatch) (*model.Item, error)
+
+	// CountRequiresWriter counts the items on checklists expanded from any
+	// version of the template named templateName, grouped by item key,
+	// requires_writer value, and whether the checklist is live.
+	CountRequiresWriter(ctx context.Context, templateName string) ([]RequiresWriterCount, error)
+
+	// SetLiveRequiresWriter sets requires_writer to value on every item with
+	// itemKey whose checklist is live, was expanded from a version of the
+	// template named templateName, and holds a different value, returning how
+	// many rows changed. Like the status_source correction in the schema's
+	// additive tail, it writes outside the optimistic lock: it changes no other
+	// column, leaves revision and updated_at alone, and so cannot invalidate an
+	// editor's precondition. The lifecycle is checked in the same statement,
+	// so a checklist completed before the statement runs is left alone.
+	SetLiveRequiresWriter(ctx context.Context, templateName, itemKey string, value bool) (int64, error)
+}
+
+// RequiresWriterCount is one group in CountRequiresWriter's result.
+type RequiresWriterCount struct {
+	ItemKey        string
+	RequiresWriter bool
+	Live           bool
+	Count          int
 }
 
 // ItemPatch carries the mutable fields of an item. A nil pointer means leave
@@ -545,12 +569,12 @@ type ItemProjection struct {
 	Status       string
 	Gate         bool
 
-	// RequiresWriter says whether acting on this item needs writer on the
-	// project. A fact about the item, so it belongs here; whether the
-	// caller holds writer is a fact about the caller, which a document
-	// every reader of the project shares cannot carry. A row decides
-	// whether its action is actionable from the two together — an item
-	// this is false for is one an auditor-only assignee can act on.
+	// RequiresWriter says whether the item's work creates something inside
+	// LFX that its assignee could only create while holding writer on the
+	// project — a mailing list, a committee, meeting registrations. It
+	// drives the prompt to elevate an assignee's access at assignment. No
+	// permission check reads it: what a caller may do to the item itself is
+	// the same for every item and is decided by the gateway rules.
 	RequiresWriter bool
 
 	DueDate    string // ISO date; empty when unset.

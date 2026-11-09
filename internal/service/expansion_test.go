@@ -130,6 +130,7 @@ func TestASecondExpansionRecordsNothing(t *testing.T) {
 
 func twoItemSections() []model.TemplateSection {
 	explicitlyNoWriter := false
+	explicitlyWriter := true
 	return []model.TemplateSection{
 		{
 			Key:   "legal_and_entity",
@@ -161,11 +162,12 @@ func twoItemSections() []model.TemplateSection {
 			Title: "Community and launch",
 			Items: []model.TemplateItem{
 				{
-					Key:           "mailing_lists",
-					Title:         "Mailing lists",
-					OwnerTeam:     "community",
-					StatusSource:  model.SourcePlatform,
-					PlatformCheck: &model.PlatformCheck{ResourceType: "mailing_list", MinCount: 1},
+					Key:            "mailing_lists",
+					Title:          "Mailing lists",
+					OwnerTeam:      "community",
+					StatusSource:   model.SourcePlatform,
+					PlatformCheck:  &model.PlatformCheck{ResourceType: "mailing_list", MinCount: 1},
+					RequiresWriter: &explicitlyWriter,
 				},
 			},
 		},
@@ -274,6 +276,12 @@ func TestExpandForCreatesTheChecklist(t *testing.T) {
 	t.Run("an authored requires_writer false is preserved", func(t *testing.T) {
 		if byKey["membership_tiers"].RequiresWriter {
 			t.Error("membership_tiers requires_writer = true, want the authored false")
+		}
+	})
+
+	t.Run("an authored requires_writer true is preserved", func(t *testing.T) {
+		if !byKey["mailing_lists"].RequiresWriter {
+			t.Error("mailing_lists requires_writer = false, want the authored true")
 		}
 	})
 

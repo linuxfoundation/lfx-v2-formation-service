@@ -163,6 +163,15 @@ make build-cli
 # covers every checklist.
 ./bin/formation-cli upgrade [project-uid]
 
+# Set requires_writer on every live checklist's items to the value the
+# published template gives that item's key. Changes that column only: status,
+# assignee, due date, note, evidence, revision and updated_at stay as they are,
+# completed or frozen checklists are left alone and counted, and checklists from
+# a template with another name are never touched. Reports per key and writes
+# nothing unless --apply is given; a second --apply reports no changes. The
+# search index picks the values up on the next sweep.
+./bin/formation-cli sync-requires-writer [--apply]
+
 # Republish every live application and retry index/access cleanup for every
 # retained deletion marker.
 ./bin/formation-cli repair-applications

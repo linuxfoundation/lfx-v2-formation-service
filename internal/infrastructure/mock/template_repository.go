@@ -35,6 +35,19 @@ func NewTemplateRepository() *TemplateRepository {
 	return &TemplateRepository{templates: make(map[uuid.UUID]*model.Template)}
 }
 
+// names stands in for the Postgres join on formation_templates. Unexported
+// and unrecorded: it is not part of the port.
+func (r *TemplateRepository) names() map[uuid.UUID]string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make(map[uuid.UUID]string, len(r.templates))
+	for uid, t := range r.templates {
+		out[uid] = t.Name
+	}
+	return out
+}
+
 // ListPublished returns published templates ordered by priority.
 func (r *TemplateRepository) ListPublished(_ context.Context) ([]*model.Template, error) {
 	r.record("templates.ListPublished")

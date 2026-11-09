@@ -101,6 +101,25 @@ func (r *FormationRepository) GetByProjectForUpdate(_ context.Context, projectUI
 	return &out, nil
 }
 
+// checklistRef is what the item double needs from a formation to stand in for
+// the Postgres join on formations.
+type checklistRef struct {
+	templateUID uuid.UUID
+	live        bool
+}
+
+// checklistRefs is unexported and unrecorded: it is not part of the port.
+func (r *FormationRepository) checklistRefs() map[uuid.UUID]checklistRef {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	refs := make(map[uuid.UUID]checklistRef, len(r.byUID))
+	for uid, f := range r.byUID {
+		refs[uid] = checklistRef{templateUID: f.TemplateUID, live: f.Lifecycle == model.LifecycleLive}
+	}
+	return refs
+}
+
 // UpdateLifecycle moves the formation's lifecycle, refusing the write when
 // revision is stale (domain.ErrVersionMismatch).
 func (r *FormationRepository) UpdateLifecycle(_ context.Context, uid uuid.UUID, lifecycle model.Lifecycle, revision int64) (*model.Formation, error) {

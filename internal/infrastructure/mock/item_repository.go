@@ -28,6 +28,11 @@ type ItemRepository struct {
 	Recorder
 	mu    sync.Mutex
 	items map[uuid.UUID]*model.Item
+	// formations and templates answer which checklists are live and which
+	// template family they belong to, which the Postgres repository reads by
+	// joining formations and formation_templates. NewUnitOfWork wires both.
+	formations *FormationRepository
+	templates  *TemplateRepository
 }
 
 // NewItemRepository constructs an empty double.
@@ -178,4 +183,80 @@ func (r *ItemRepository) Update(_ context.Context, uid uuid.UUID, revision int64
 
 	out := *item
 	return &out, nil
+}
+
+// CountRequiresWriter counts one template family's items by key, flag and
+// liveness, ordered the way the real repository orders them.
+func (r *ItemRepository) CountRequiresWriter(_ context.Context, templateName string) ([]port.RequiresWriterCount, error) {
+	r.record("items.CountRequiresWriter")
+	family, err := r.family(templateName)
+	if err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	type group struct {
+		key   string
+		value bool
+		live  bool
+	}
+	byGroup := make(map[group]int)
+	for _, item := range r.items {
+		if live, ok := family[item.FormationUID]; ok {
+			byGroup[group{item.ItemKey, item.RequiresWriter, live}]++
+		}
+	}
+	out := make([]port.RequiresWriterCount, 0, len(byGroup))
+	for g, n := range byGroup {
+		out = append(out, port.RequiresWriterCount{ItemKey: g.key, RequiresWriter: g.value, Live: g.live, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ItemKey != out[j].ItemKey {
+			return out[i].ItemKey < out[j].ItemKey
+		}
+		if out[i].RequiresWriter != out[j].RequiresWriter {
+			return !out[i].RequiresWriter
+		}
+		return !out[i].Live && out[j].Live
+	})
+	return out, nil
+}
+
+// SetLiveRequiresWriter sets the flag on one template family's live items with
+// itemKey, leaving the revision alone as the real repository does.
+func (r *ItemRepository) SetLiveRequiresWriter(_ context.Context, templateName, itemKey string, value bool) (int64, error) {
+	r.record("items.SetLiveRequiresWriter")
+	family, err := r.family(templateName)
+	if err != nil {
+		return 0, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var changed int64
+	for _, item := range r.items {
+		if item.ItemKey == itemKey && family[item.FormationUID] && item.RequiresWriter != value {
+			item.RequiresWriter = value
+			changed++
+		}
+	}
+	return changed, nil
+}
+
+// family maps each checklist expanded from a version of templateName to
+// whether it is live. Read before r.mu is taken, so no two repositories' locks
+// are ever held together.
+func (r *ItemRepository) family(templateName string) (map[uuid.UUID]bool, error) {
+	if r.formations == nil || r.templates == nil {
+		return nil, fmt.Errorf("mock item repository: formation and template repositories not wired; build it through NewUnitOfWork")
+	}
+	names := r.templates.names()
+	out := make(map[uuid.UUID]bool)
+	for uid, ref := range r.formations.checklistRefs() {
+		if names[ref.templateUID] == templateName {
+			out[uid] = ref.live
+		}
+	}
+	return out, nil
 }
