@@ -4,9 +4,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -139,19 +141,64 @@ func TestSeedContent(t *testing.T) {
 		}
 	})
 
-	// requires_writer is omitted everywhere, which resolves to true. Encoding
-	// it by omission is deliberate: an authored false would silently suppress
-	// the prompt that elevates a viewer's access before an item is assigned.
-	t.Run("every row requires a writer, by omission", func(t *testing.T) {
+	// requires_writer says whether the item's work creates something inside
+	// LFX that the assignee could only create while holding Manage on the
+	// project: a mailing list, a committee, member accounts and meeting
+	// registrations. It drives the elevation prompt at assignment and no
+	// permission check reads it (lfx-self-serve#2411). Every row states its
+	// value, because the true default would otherwise mark off-platform work
+	// as needing Manage.
+	t.Run("exactly three rows require a writer, each stated explicitly", func(t *testing.T) {
+		want := map[string]bool{
+			"mailing_lists":    true,
+			"tsc_kickoff":      true,
+			"member_join_page": true,
+		}
+		var writers int
 		for _, section := range sections {
 			for _, item := range section.Items {
-				if item.RequiresWriter != nil {
-					t.Errorf("item %q sets requires_writer explicitly; the default carries it", item.Key)
+				if item.RequiresWriter == nil {
+					t.Errorf("item %q leaves requires_writer to the default; state it", item.Key)
+					continue
 				}
-				if !item.RequiresWriterOrDefault() {
-					t.Errorf("item %q resolves requires_writer to false", item.Key)
+				if got := item.RequiresWriterOrDefault(); got != want[item.Key] {
+					t.Errorf("item %q requires_writer = %v, want %v", item.Key, got, want[item.Key])
+				}
+				if *item.RequiresWriter {
+					writers++
 				}
 			}
+		}
+		if writers != len(want) {
+			t.Errorf("rows requiring a writer = %d, want %d", writers, len(want))
+		}
+	})
+
+	// The version bump exists for requires_writer alone. Comparing against the
+	// previous version with the flag cleared catches any other field edited on
+	// the way, which would otherwise ship as an unreviewed content change.
+	t.Run("only requires_writer differs from version 2", func(t *testing.T) {
+		raw, err := os.ReadFile("templates/project_formation_v2.json")
+		if err != nil {
+			t.Fatalf("reading version 2: %v", err)
+		}
+		previous, err := decodeSections(raw)
+		if err != nil {
+			t.Fatalf("decoding version 2: %v", err)
+		}
+		current, err := loadSeedSections()
+		if err != nil {
+			t.Fatalf("loadSeedSections() = %v", err)
+		}
+		for s := range current {
+			for i := range current[s].Items {
+				current[s].Items[i].RequiresWriter = nil
+			}
+		}
+		want, _ := json.Marshal(previous)
+		got, _ := json.Marshal(current)
+		if !bytes.Equal(got, want) {
+			t.Errorf("content differs from version 2 beyond requires_writer:\n got %s\nwant %s", got, want)
 		}
 	})
 

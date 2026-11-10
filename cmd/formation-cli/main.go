@@ -48,6 +48,9 @@ Usage:
   formation-cli upgrade [project] Add missing items to existing checklists.
                                   With no argument, covers every checklist.
                                   Adds only; never removes an item or resets a status.
+  formation-cli sync-requires-writer [--apply]
+                                  Set requires_writer on live checklists' items to the
+                                  published template's value. Reports only, unless --apply.
   formation-cli validate          Check the embedded template content, touching no database
   formation-cli repair-applications
                                   Republish live applications and retry retained deletions
@@ -72,6 +75,8 @@ func run(ctx context.Context, command string) error {
 		return expandCommand(ctx, flag.Arg(1))
 	case "upgrade":
 		return upgradeCommand(ctx, flag.Arg(1))
+	case "sync-requires-writer":
+		return syncRequiresWriterCommand(ctx, flag.Args()[1:])
 	case "validate":
 		// Deliberately reachable with no database configured: the content
 		// is the part a reviewer changes, so checking it must not require

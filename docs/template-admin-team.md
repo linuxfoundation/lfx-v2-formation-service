@@ -14,38 +14,39 @@ global_formation_template_admin
 This value is set in `charts/lfx-v2-formation-service/values.yaml` under
 `app.templateAdminTeamName` and can be overridden per environment.
 
-## Creating the team
+## The team exists once it has a member
 
-The `team:global_formation_template_admin` object is provisioned through the
-platform's admin tooling (not a raw FGA tuple). Contact the platform team or
-follow the internal team-provisioning runbook to create it. Once the team
-object exists, members are added with the tuples below.
+There is no separate step that creates `team:global_formation_template_admin`.
+An OpenFGA object exists as soon as a tuple names it, so the team comes into
+being with its first `member` tuple, and until then every template admin route
+is refused. The team is not listed in sso-tools today, so members are managed
+through lfx-v2-fga-sync rather than through that UI.
 
 ## Adding a member
 
-To grant a user template-admin access, write a `member` tuple for
-`team:global_formation_template_admin`:
+Publish a `member_put` message to lfx-v2-fga-sync. It is an asynchronous
+JetStream message and fga-sync sends no reply:
 
 ```bash
-fga tuple write \
-  --store-id <store-id> \
-  '{"user":"user:<username>","relation":"member","object":"team:global_formation_template_admin"}'
+nats pub lfx.fga-sync.member_put \
+  '{"object_type":"team","operation":"member_put","data":{"uid":"global_formation_template_admin","username":"<username>","relations":["member"]}}'
 ```
 
-Replace `<username>` with the user's platform username (the subject the gateway
-resolves from their OIDC token).
+Replace `<username>` with the user's platform username, without the `user:`
+prefix (the subject the gateway resolves from their OIDC token). Record who
+added whom: the OpenFGA change log shows when a tuple was written, not by whom.
 
 ## Removing a member
 
 ```bash
-fga tuple delete \
-  --store-id <store-id> \
-  '{"user":"user:<username>","relation":"member","object":"team:global_formation_template_admin"}'
+nats pub lfx.fga-sync.member_remove \
+  '{"object_type":"team","operation":"member_remove","data":{"uid":"global_formation_template_admin","username":"<username>","relations":["member"]}}'
 ```
 
 ## Notes
 
-- Membership changes take effect immediately — no service restart is required.
+- Membership changes take effect once fga-sync has processed the message — no
+  service restart is required.
 - The team carries no relation to any project; the guard is purely about
   platform-wide template-admin standing.
 - The `formation` team (which gates checklist item status changes) is separate

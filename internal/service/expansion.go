@@ -261,8 +261,7 @@ func newItemFromTemplate(
 		OwnerTeam: templateItem.OwnerTeam,
 		Gate:      templateItem.Gate,
 		// Resolved rather than copied: the template's zero value and an
-		// authored false mean opposite things, and the default is true because
-		// acting on nearly every row needs Manage.
+		// authored false mean opposite things. See RequiresWriterOrDefault.
 		RequiresWriter: templateItem.RequiresWriterOrDefault(),
 		StatusSource:   templateItem.StatusSource,
 		PlatformCheck:  templateItem.PlatformCheck,
