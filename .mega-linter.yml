@@ -17,9 +17,6 @@ DISABLE_LINTERS:
   - SPELL_CSPELL
   # yamllint is sufficient for us.
   - YAML_PRETTIER
-  # Go version compatibility issue with MegaLinter Docker container
-  ## stderr: go: go.mod requires go >= 1.24.2 (running go 1.23.8; GOTOOLCHAIN=local)
-  - GO_GOLANGCI_LINT
 DISABLE_ERRORS_LINTERS:
   # This may be informative but doesn't need to break the build.
   - COPYPASTE_JSCPD
@@ -28,8 +25,10 @@ DISABLE_ERRORS_LINTERS:
   - REPOSITORY_CHECKOV
   - REPOSITORY_DEVSKIM
 YAML_YAMLLINT_CONFIG_FILE: .yamllint
-REPOSITORY_KICS_ARGUMENTS: >-
-  scan --no-progress --exclude-severities="medium,low,info,trace" --exclude-paths="gen/*"
+# zizmor's "artipacked" audit needs the GitHub API (to verify
+# SHA-pinned action tags), which requires GITHUB_TOKEN.
+ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
+  - GITHUB_TOKEN
 SPELL_CSPELL_ANALYZE_FILE_NAMES: false
 # Make sure Vale is setup to run with the styles it needs.
 SPELL_VALE_PRE_COMMANDS:

@@ -30,8 +30,9 @@ RUN go build -o /go/bin/lfx-v2-formation-service -trimpath -ldflags="-w -s" gith
 # Run our go binary standalone
 FROM cgr.dev/chainguard/static:latest
 
-# Implicit with base image; setting explicitly for linters.
-USER nonroot
+# Numeric UID of the Chainguard nonroot user (implicit with the base image;
+# set explicitly for linters).
+USER 65532
 
 COPY --from=builder /go/bin/lfx-v2-formation-service /cmd/lfx-v2-formation-service
 
