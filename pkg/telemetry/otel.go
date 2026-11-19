@@ -21,7 +21,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -32,7 +31,7 @@ import (
 	// resource.Default() uses internally: resource.Merge refuses to merge
 	// resources whose schema URLs disagree, and that merge failure is fatal
 	// in main before the server binds, so this has to track whatever
-	// otel/sdk (currently v1.45.0) embeds rather than an independently
+	// otel/sdk (currently v1.47.0) embeds rather than an independently
 	// chosen version.
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
@@ -148,7 +147,7 @@ func SetupOTelSDKWithConfig(ctx context.Context, cfg OTelConfig) (shutdown func(
 			return
 		}
 		shutdownFuncs = append(shutdownFuncs, lp.Shutdown)
-		global.SetLoggerProvider(lp)
+		otel.SetLoggerProvider(lp)
 	}
 
 	return
