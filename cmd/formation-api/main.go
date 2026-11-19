@@ -31,6 +31,13 @@ func init() {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+// run starts the service and returns the process exit code. It returns
+// instead of calling os.Exit so its deferred shutdown (cancel and the
+// OpenTelemetry flush) runs before the process exits.
+func run() int {
 	cfg := config.LoadConfig()
 
 	ctx := context.Background()
@@ -41,7 +48,7 @@ func main() {
 	otelShutdown, err := telemetry.SetupOTelSDKWithConfig(ctx, otelConfig)
 	if err != nil {
 		slog.With(log.ErrKey, err).Error("error setting up OpenTelemetry SDK")
-		os.Exit(1)
+		return 1
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownSeconds*time.Second)
@@ -73,6 +80,7 @@ func main() {
 
 	if err := StartServer(ctx, cfg); err != nil {
 		slog.ErrorContext(ctx, "server exited with error", log.ErrKey, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
